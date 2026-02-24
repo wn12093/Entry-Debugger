@@ -1,0 +1,687 @@
+/**
+ * style.css - 엔트리 네이티브 디버깅 툴 스타일
+ *
+ * ┌──────────────────────────────────────────────────┐
+ * │  콘솔 탭 하이재킹 방식                            │
+ * │                                                  │
+ * │  기존 콘솔 버튼(.propertyTabconsole)을 재활용하고  │
+ * │  #ed-debugger-panel 을 .propertyContent 안에 삽입 │
+ * │                                                  │
+ * │  폰트: NanumGothic (엔트리 기본)                  │
+ * │  패널 배경: #f9f9f9                               │
+ * └──────────────────────────────────────────────────┘
+ */
+
+
+/* ═══════════════════════════════════════════════════
+   1. 디버거 패널 컨테이너 (#ed-debugger-panel)
+      - .propertyContent 안에 삽입됨
+      - display: none (비활성) ↔ display: block (활성)
+      - content.js에서 토글 제어
+   ═══════════════════════════════════════════════════ */
+
+#ed-debugger-panel {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   2. 내부 래퍼 (.ed-wrapper)
+      - 실제 디버거 UI를 감싸는 최상위 컨테이너
+   ═══════════════════════════════════════════════════ */
+
+.ed-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #f9f9f9;
+  font-family: 'NanumGothic', 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+  font-size: 12px;
+  color: #333;
+  position: relative;
+  overflow: hidden;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   3. 상단 툴바
+   ═══════════════════════════════════════════════════ */
+
+.ed-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px 6px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  flex-shrink: 0;
+  min-height: 34px;
+}
+
+.ed-toolbar-tabs {
+  display: flex;
+  gap: 3px;
+}
+
+.ed-subtab {
+  padding: 4px 14px;
+  border: 1px solid #d9d9d9;
+  background: #fafafa;
+  color: #777;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  transition: all 0.12s ease;
+}
+
+.ed-subtab:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.ed-subtab.ed-subtab-active {
+  background: #4f80ff;
+  color: #fff;
+  border-color: #4f80ff;
+  font-weight: 600;
+}
+
+.ed-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── 상태 배지 ── */
+
+.ed-status {
+  font-size: 10px;
+  color: #aaa;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: #f0f0f0;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.ed-status-connected {
+  color: #27ae60;
+  background: #eafaf1;
+}
+
+.ed-status-waiting {
+  color: #e67e22;
+  background: #fef5e7;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   4. 검색 바
+   ═══════════════════════════════════════════════════ */
+
+.ed-search-wrap {
+  padding: 6px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  flex-shrink: 0;
+}
+
+.ed-search {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  color: #333;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.ed-search:focus {
+  border-color: #4f80ff;
+  box-shadow: 0 0 0 2px rgba(79, 128, 255, 0.12);
+}
+
+.ed-search::placeholder {
+  color: #bbb;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   5. 스크롤 영역 & 섹션
+   ═══════════════════════════════════════════════════ */
+
+.ed-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+.ed-section {
+  display: none;
+  padding: 8px 12px 12px;
+}
+
+.ed-section.ed-section-active {
+  display: block;
+}
+
+
+/* ── 스크롤바 커스터마이징 (엔트리 스타일 참조) ── */
+
+.ed-scroll-area::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ed-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ed-scroll-area::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 3px;
+}
+
+.ed-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   6. 빈 상태 (Empty State)
+   ═══════════════════════════════════════════════════ */
+
+.ed-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  color: #b0b0b0;
+  text-align: center;
+}
+
+.ed-empty-icon {
+  font-size: 30px;
+  margin-bottom: 8px;
+  opacity: 0.45;
+}
+
+.ed-empty p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   7. 공통 버튼
+   ═══════════════════════════════════════════════════ */
+
+.ed-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: all 0.12s ease;
+  line-height: 1;
+}
+
+.ed-btn-refresh {
+  width: 26px;
+  height: 26px;
+  background: #f0f0f0;
+  color: #888;
+  font-size: 15px;
+}
+
+.ed-btn-refresh:hover {
+  background: #e2e2e2;
+  color: #333;
+}
+
+.ed-btn-apply {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: #4f80ff;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s ease;
+  line-height: 1;
+}
+
+.ed-btn-apply:hover {
+  background: #3b6de0;
+}
+
+.ed-btn-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: #ff5252;
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s ease;
+  line-height: 1;
+}
+
+.ed-btn-del:hover {
+  background: #e03e3e;
+}
+
+.ed-btn-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: #27ae60;
+  color: #fff;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s ease;
+  line-height: 1;
+}
+
+.ed-btn-add:hover {
+  background: #1e9650;
+}
+
+.ed-btn-sm {
+  width: 22px;
+  height: 22px;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   8. 변수 카드 (.ed-var-card)
+   ═══════════════════════════════════════════════════ */
+
+.ed-var-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 5px;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ed-var-card:hover {
+  border-color: #c8c8c8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ed-var-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ed-var-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+  font-family: inherit;
+}
+
+.ed-var-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ed-var-input {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
+  color: #333;
+  outline: none;
+  box-sizing: border-box;
+  min-width: 0;
+  transition: border-color 0.12s ease;
+}
+
+.ed-var-input:focus {
+  border-color: #4f80ff;
+  box-shadow: 0 0 0 2px rgba(79, 128, 255, 0.12);
+}
+
+
+/* ═══════════════════════════════════════════════════
+   9. 스코프 배지 (.ed-badge)
+   ═══════════════════════════════════════════════════ */
+
+.ed-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  flex-shrink: 0;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.ed-badge-global {
+  background: #e8f0fe;
+  color: #4f80ff;
+}
+
+.ed-badge-local {
+  background: #fef3e2;
+  color: #e67e22;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   10. 리스트 카드 (.ed-list-card)
+   ═══════════════════════════════════════════════════ */
+
+.ed-list-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 5px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ed-list-card:hover {
+  border-color: #c8c8c8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* ── 리스트 헤더 ── */
+
+.ed-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 11px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.ed-list-header:hover {
+  background: #f5f6f8;
+}
+
+.ed-list-header-open {
+  background: #f5f6f8;
+}
+
+.ed-list-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ed-list-arrow {
+  font-size: 9px;
+  color: #999;
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+  transition: transform 0.15s ease;
+}
+
+.ed-list-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ed-list-count {
+  font-size: 10px;
+  color: #aaa;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+/* ── 리스트 바디 ── */
+
+.ed-list-body {
+  border-top: 1px solid #e5e5e5;
+  padding: 6px 11px 8px;
+  background: #fafafa;
+}
+
+/* ── 리스트 행 ── */
+
+.ed-list-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+}
+
+.ed-list-row + .ed-list-row {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 4px;
+}
+
+.ed-list-idx {
+  font-size: 10px;
+  color: #b0b0b0;
+  font-family: 'D2Coding', 'Consolas', monospace;
+  flex-shrink: 0;
+  min-width: 24px;
+  text-align: right;
+}
+
+.ed-list-input {
+  flex: 1;
+  padding: 4px 7px;
+  border: 1px solid #d9d9d9;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
+  color: #333;
+  outline: none;
+  min-width: 0;
+  box-sizing: border-box;
+  transition: border-color 0.12s ease;
+}
+
+.ed-list-input:focus {
+  border-color: #4f80ff;
+  box-shadow: 0 0 0 2px rgba(79, 128, 255, 0.12);
+}
+
+/* ── 리스트 추가 바 ── */
+
+.ed-list-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 7px;
+  margin-top: 5px;
+  border-top: 1px dashed #ddd;
+}
+
+.ed-list-add-input {
+  flex: 1;
+  padding: 4px 7px;
+  border: 1px solid #d9d9d9;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11px;
+  color: #333;
+  outline: none;
+  min-width: 0;
+  box-sizing: border-box;
+  transition: border-color 0.12s ease;
+}
+
+.ed-list-add-input:focus {
+  border-color: #27ae60;
+  box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.10);
+}
+
+.ed-list-add-input::placeholder {
+  color: #c0c0c0;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   11. 신호 카드 (.ed-msg-card)
+   ═══════════════════════════════════════════════════ */
+
+.ed-msg-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 5px;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ed-msg-card:hover {
+  border-color: #c8c8c8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ed-msg-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.ed-msg-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ed-msg-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ed-btn-raise {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #f39c12;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+  line-height: 1.3;
+}
+
+.ed-btn-raise:hover {
+  background: #e08e0b;
+}
+
+.ed-btn-raise:active {
+  background: #c87f0a;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   12. 플래시 애니메이션 (값 적용 피드백)
+   ═══════════════════════════════════════════════════ */
+
+.ed-flash {
+  animation: ed-flash-anim 0.5s ease;
+}
+
+@keyframes ed-flash-anim {
+  0%   { background-color: #d5f5e3; }
+  100% { background-color: #fff;    }
+}
+
+
+/* ═══════════════════════════════════════════════════
+   13. 토스트 알림
+   ═══════════════════════════════════════════════════ */
+
+.ed-toast {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  color: #fff;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ed-toast-error {
+  background: #e74c3c;
+}
+
+.ed-toast-info {
+  background: #4f80ff;
+}
+
+.ed-toast-out {
+  opacity: 0;
+}
