@@ -10,6 +10,10 @@
 (function () {
   'use strict';
 
+  // 중복 주입 방지 (SPA 재초기화 시 script.remove() 이후 재주입 방지)
+  if (window.__ENTRY_DEBUGGER_INJECTED__) return;
+  window.__ENTRY_DEBUGGER_INJECTED__ = true;
+
   const CHANNEL = '__ENTRY_DEBUGGER__';
   const POLL_INTERVAL = 200; // ms
   let pollingTimer = null;
