@@ -77,6 +77,24 @@
   }
 
   /**
+   * 장면(Scene) 배열을 직렬화 가능한 형태로 변환
+   */
+  function serializeScenes() {
+    var entry = safeGetEntry();
+    if (!entry || !entry.scene) return [];
+
+    var scenes = entry.scene.scenes_ || (typeof entry.scene.getScenes === 'function' ? entry.scene.getScenes() : null);
+    if (!Array.isArray(scenes)) return [];
+
+    return scenes.map(function (s) {
+      return {
+        id: s.id || '',
+        name: s.name || '(이름 없음)'
+      };
+    });
+  }
+
+  /**
    * 신호(메시지) 배열을 직렬화 가능한 형태로 변환
    */
   function serializeMessages(messages) {
@@ -101,6 +119,7 @@
       variables: serializeVariables(container.variables_ || []),
       lists: serializeLists(container.lists_ || []),
       messages: serializeMessages(container.messages_ || []),
+      scenes: serializeScenes(),
       ready: true
     };
   }
@@ -163,6 +182,43 @@
       }
 
       return { success: false, error: 'raiseMessage API를 찾을 수 없습니다.' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  /* ───────── 장면 전환 ───────── */
+
+  function changeScene(sceneId) {
+    var entry = safeGetEntry();
+    if (!entry) {
+      return { success: false, error: 'Entry를 찾을 수 없습니다.' };
+    }
+
+    try {
+      if (entry.scene && typeof entry.scene.selectScene === 'function') {
+        // id로 장면 객체를 찾아서 전달
+        var scenes = entry.scene.scenes_ || (typeof entry.scene.getScenes === 'function' ? entry.scene.getScenes() : []);
+        var targetScene = null;
+        if (Array.isArray(scenes)) {
+          targetScene = scenes.find(function (s) { return s.id === sceneId; });
+        }
+
+        if (!targetScene) {
+          return { success: false, error: '해당 ID의 장면을 찾을 수 없습니다: ' + sceneId };
+        }
+
+        entry.scene.selectScene(targetScene);
+
+        // UI 갱신
+        if (typeof entry.scene.updateView === 'function') {
+          entry.scene.updateView();
+        }
+
+        return { success: true };
+      }
+
+      return { success: false, error: 'selectScene API를 찾을 수 없습니다.' };
     } catch (e) {
       return { success: false, error: e.message };
     }
@@ -377,6 +433,19 @@
           payload: result,
           requestId: msg.requestId
         }, window.location.origin);
+        prevSnapshotJSON = '';
+        pollAndBroadcast();
+        break;
+
+      case 'CHANGE_SCENE':
+        result = changeScene(msg.payload.id);
+        window.postMessage({
+          channel: CHANNEL,
+          type: 'CHANGE_SCENE_RESULT',
+          payload: result,
+          requestId: msg.requestId
+        }, window.location.origin);
+        // 장면 전환 후 스냅샷 갱신
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;

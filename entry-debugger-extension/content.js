@@ -35,7 +35,7 @@
   const PANEL_ID     = 'ed-debugger-panel';
 
   let debuggerInjected = false;
-  let currentSnapshot = { variables: [], lists: [], messages: [], ready: false };
+  let currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], ready: false };
   let panelEl = null;          // 디버거 패널 (#ed-debugger-panel)
   let entryConsoleEl = null;   // 원본 콘솔 요소 (#entryConsole)
   let isDebuggerActive = false;
@@ -211,6 +211,7 @@
             '<button class="ed-subtab ed-subtab-active" data-tab="variables">변수</button>' +
             '<button class="ed-subtab" data-tab="lists">리스트</button>' +
             '<button class="ed-subtab" data-tab="messages">신호</button>' +
+            '<button class="ed-subtab" data-tab="scenes">장면</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
             '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
@@ -251,6 +252,15 @@
               '<p>신호가 없거나 Entry가 로드되지 않았습니다.</p>' +
             '</div>' +
             '<div class="ed-items" id="ed-msg-list"></div>' +
+          '</div>' +
+
+          /* 장면 섹션 */
+          '<div class="ed-section" id="ed-section-scenes">' +
+            '<div class="ed-empty" id="ed-scene-empty">' +
+              '<div class="ed-empty-icon">&#x1F3AC;</div>' +
+              '<p>장면이 없거나 Entry가 로드되지 않았습니다.</p>' +
+            '</div>' +
+            '<div class="ed-items" id="ed-scene-list"></div>' +
           '</div>' +
 
         '</div>' +
@@ -320,6 +330,7 @@
     renderVariables(snapshot.variables, searchTerm);
     renderLists(snapshot.lists, searchTerm);
     renderMessages(snapshot.messages || [], searchTerm);
+    renderScenes(snapshot.scenes || [], searchTerm);
   }
 
   /* ─── 변수 렌더링 ─── */
@@ -703,6 +714,73 @@
     return card;
   }
 
+  /* ─── 장면 렌더링 ─── */
+
+  function renderScenes(scenes, searchTerm) {
+    var listEl = panelEl.querySelector('#ed-scene-list');
+    var emptyEl = panelEl.querySelector('#ed-scene-empty');
+    if (!listEl || !emptyEl) return;
+
+    var filtered = scenes.filter(function (s) {
+      if (!searchTerm) return true;
+      return s.name.toLowerCase().indexOf(searchTerm) !== -1;
+    });
+
+    if (filtered.length === 0) {
+      emptyEl.style.display = '';
+      listEl.innerHTML = '';
+      return;
+    }
+
+    emptyEl.style.display = 'none';
+
+    // DOM diffing: 기존 카드 재활용
+    var existingMap = {};
+    listEl.querySelectorAll('.ed-scene-card').forEach(function (card) {
+      existingMap[card.dataset.id] = card;
+    });
+
+    var fragment = document.createDocumentFragment();
+
+    filtered.forEach(function (s) {
+      var existing = existingMap[s.id];
+      if (existing) {
+        // 이름 갱신
+        var nameEl = existing.querySelector('.ed-scene-name');
+        if (nameEl) nameEl.textContent = s.name;
+        fragment.appendChild(existing);
+      } else {
+        fragment.appendChild(createSceneCard(s));
+      }
+    });
+
+    listEl.innerHTML = '';
+    listEl.appendChild(fragment);
+  }
+
+  function createSceneCard(s) {
+    var card = document.createElement('div');
+    card.className = 'ed-scene-card';
+    card.dataset.id = s.id;
+
+    var eName = escapeHTML(s.name);
+
+    card.innerHTML =
+      '<div class="ed-scene-info">' +
+        '<span class="ed-scene-icon">&#x1F3AC;</span>' +
+        '<span class="ed-scene-name" title="' + eName + '">' + eName + '</span>' +
+      '</div>' +
+      '<button class="ed-btn-scene-go" title="이 장면으로 이동">이동</button>';
+
+    var goBtn = card.querySelector('.ed-btn-scene-go');
+    goBtn.addEventListener('click', function () {
+      sendToInject('CHANGE_SCENE', { id: s.id });
+      flashElement(card, 'ed-flash');
+    });
+
+    return card;
+  }
+
   /* ═══════════════════════════════════════════
      7. postMessage 통신
      ═══════════════════════════════════════════ */
@@ -748,6 +826,14 @@
           showToast('신호 발생 완료', 'info');
         } else if (msg.payload) {
           showToast('신호 오류: ' + msg.payload.error, 'error');
+        }
+        break;
+
+      case 'CHANGE_SCENE_RESULT':
+        if (msg.payload && msg.payload.success) {
+          showToast('장면 전환 완료', 'info');
+        } else if (msg.payload) {
+          showToast('장면 전환 오류: ' + msg.payload.error, 'error');
         }
         break;
 
@@ -819,7 +905,7 @@
     debuggerInjected = false;
     isDebuggerActive = false;
     expandedListIds.clear();
-    currentSnapshot = { variables: [], lists: [], messages: [], ready: false };
+    currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], ready: false };
   }
 
   /* ═══════════════════════════════════════════

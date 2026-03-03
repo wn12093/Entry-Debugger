@@ -639,7 +639,78 @@
 
 
 /* ═══════════════════════════════════════════════════
-   12. 플래시 애니메이션 (값 적용 피드백)
+   12. 장면 카드 (.ed-scene-card)
+   ═══════════════════════════════════════════════════ */
+
+.ed-scene-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 5px;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ed-scene-card:hover {
+  border-color: #c8c8c8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ed-scene-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.ed-scene-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ed-scene-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ed-btn-scene-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #9b59b6;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+  line-height: 1.3;
+}
+
+.ed-btn-scene-go:hover {
+  background: #8e44ad;
+}
+
+.ed-btn-scene-go:active {
+  background: #7d3c98;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   13. 플래시 애니메이션 (값 적용 피드백)
    ═══════════════════════════════════════════════════ */
 
 .ed-flash {
@@ -653,7 +724,7 @@
 
 
 /* ═══════════════════════════════════════════════════
-   13. 토스트 알림
+   14. 토스트 알림
    ═══════════════════════════════════════════════════ */
 
 .ed-toast {
