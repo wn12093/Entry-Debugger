@@ -124,6 +124,58 @@
     };
   }
 
+  /* ───────── E.DEBUG 변수 추적 (콘솔 출력) ───────── */
+
+  const DEBUG_VAR_NAME = 'E.DEBUG';
+  let prevDebugValue = undefined;   // 이전 값 (undefined = 아직 추적 시작 전)
+  let debugVarFound = false;        // 변수 존재 여부
+
+  function trackDebugVariable() {
+    var container = safeGetContainer();
+    if (!container || !Array.isArray(container.variables_)) return;
+
+    var debugVar = container.variables_.find(function (v) {
+      return (v.name_ || v.name) === DEBUG_VAR_NAME;
+    });
+
+    if (!debugVar) {
+      if (debugVarFound) {
+        console.log('%c[E.DEBUG]%c E.DEBUG 변수가 제거되었습니다.',
+          'color:#9b59b6;font-weight:bold', 'color:inherit');
+        debugVarFound = false;
+        prevDebugValue = undefined;
+      }
+      return;
+    }
+
+    var currentValue = typeof debugVar.getValue === 'function'
+      ? debugVar.getValue()
+      : debugVar.value_;
+
+    if (!debugVarFound) {
+      debugVarFound = true;
+      prevDebugValue = currentValue;
+      console.log(
+        '%c[E.DEBUG]%c E.DEBUG 변수를 인식했습니다. 값이 변경될 때마다 이 콘솔에 출력됩니다.\n' +
+        '         %c콘솔 필터에 [E.DEBUG]를 입력하면 관련 로그만 확인할 수 있습니다.',
+        'color:#9b59b6;font-weight:bold',
+        'color:inherit',
+        'color:#888'
+      );
+      return;
+    }
+
+    if (String(currentValue) !== String(prevDebugValue)) {
+      console.log(
+        '%c[E.DEBUG]%c %s',
+        'color:#9b59b6;font-weight:bold',
+        'color:#e67e22;font-weight:bold',
+        String(currentValue)
+      );
+      prevDebugValue = currentValue;
+    }
+  }
+
   /* ───────── 폴링 기반 실시간 동기화 ───────── */
 
   let prevSnapshotJSON = '';
@@ -131,6 +183,9 @@
   function pollAndBroadcast() {
     var snapshot = buildSnapshot();
     var json = JSON.stringify(snapshot);
+
+    // E.DEBUG 변수 추적 (매 폴링마다 실행)
+    trackDebugVariable();
 
     // 변화가 있을 때만 전송 (성능 최적화)
     if (json !== prevSnapshotJSON) {
@@ -143,13 +198,34 @@
     }
   }
 
+  let debugHintShown = false;
+
   function startPolling() {
     if (isPolling) return;
     isPolling = true;
     prevSnapshotJSON = '';
+    debugVarFound = false;
+    prevDebugValue = undefined;
+    debugHintShown = false;
     pollingTimer = setInterval(pollAndBroadcast, POLL_INTERVAL);
     // 즉시 한 번 실행
     pollAndBroadcast();
+
+    // E.DEBUG 안내 메시지 (변수 없을 때 1회 출력)
+    setTimeout(function () {
+      if (!debugVarFound && !debugHintShown) {
+        debugHintShown = true;
+        console.log(
+          '%c[E.DEBUG]%c E.DEBUG 변수가 없습니다.\n' +
+          '         엔트리에서 %cE.DEBUG%c 이름의 변수를 추가하면\n' +
+          '         값이 변경될 때마다 이 콘솔에 자동 출력됩니다.',
+          'color:#9b59b6;font-weight:bold',
+          'color:inherit',
+          'color:#e67e22;font-weight:bold',
+          'color:inherit'
+        );
+      }
+    }, 1500);
   }
 
   function stopPolling() {
@@ -182,43 +258,6 @@
       }
 
       return { success: false, error: 'raiseMessage API를 찾을 수 없습니다.' };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  }
-
-  /* ───────── 장면 전환 ───────── */
-
-  function changeScene(sceneId) {
-    var entry = safeGetEntry();
-    if (!entry) {
-      return { success: false, error: 'Entry를 찾을 수 없습니다.' };
-    }
-
-    try {
-      if (entry.scene && typeof entry.scene.selectScene === 'function') {
-        // id로 장면 객체를 찾아서 전달
-        var scenes = entry.scene.scenes_ || (typeof entry.scene.getScenes === 'function' ? entry.scene.getScenes() : []);
-        var targetScene = null;
-        if (Array.isArray(scenes)) {
-          targetScene = scenes.find(function (s) { return s.id === sceneId; });
-        }
-
-        if (!targetScene) {
-          return { success: false, error: '해당 ID의 장면을 찾을 수 없습니다: ' + sceneId };
-        }
-
-        entry.scene.selectScene(targetScene);
-
-        // UI 갱신
-        if (typeof entry.scene.updateView === 'function') {
-          entry.scene.updateView();
-        }
-
-        return { success: true };
-      }
-
-      return { success: false, error: 'selectScene API를 찾을 수 없습니다.' };
     } catch (e) {
       return { success: false, error: e.message };
     }
@@ -438,14 +477,60 @@
         break;
 
       case 'CHANGE_SCENE':
-        result = changeScene(msg.payload.id);
+        var sceneEntry = safeGetEntry();
+        result = { success: false, error: 'Entry.scene을 찾을 수 없습니다.' };
+        if (sceneEntry && sceneEntry.scene) {
+          try {
+            var sceneId = msg.payload.id;
+            var allScenes = sceneEntry.scene.scenes_ ||
+              (typeof sceneEntry.scene.getScenes === 'function' ? sceneEntry.scene.getScenes() : []);
+
+            // ID로 장면 객체 검색
+            var targetScene = null;
+            if (Array.isArray(allScenes)) {
+              targetScene = allScenes.find(function (s) { return s.id === sceneId; });
+            }
+
+            if (!targetScene) {
+              result = { success: false, error: '해당 ID의 장면을 찾을 수 없습니다: ' + sceneId };
+            } else {
+              // 1. 화면(UI)을 선택한 장면으로 전환 (객체를 전달)
+              sceneEntry.scene.selectScene(targetScene);
+
+              // 2. 작품이 실행 중일 경우, '장면이 시작되었을 때' 이벤트를 강제 트리거
+              //    selectScene 직후 오브젝트 초기화 시간 확보를 위해 setTimeout 사용.
+              //    engine.fireEvent('when_scene_start')가 블록 이벤트를 정확히 깨움.
+              //    (raiseEvent('scene_start')는 내부 entity.script 접근 문제로 사용 불가)
+              if (sceneEntry.engine && sceneEntry.engine.isState('run')) {
+                (function (eng, ent) {
+                  setTimeout(function () {
+                    try {
+                      if (typeof eng.fireEvent === 'function') {
+                        eng.fireEvent('when_scene_start');
+                      } else if (typeof ent.dispatchEvent === 'function') {
+                        ent.dispatchEvent('scene_start');
+                      }
+                    } catch (evt_err) {
+                      console.warn('[Entry Debugger] scene_start 이벤트 트리거 실패:', evt_err.message);
+                    }
+                  }, 150);
+                })(sceneEntry.engine, sceneEntry);
+              }
+
+              result = { success: true };
+            }
+          } catch (e) {
+            result = { success: false, error: e.message };
+            console.error('[Entry Debugger] 장면 전환 오류:', e);
+          }
+        }
         window.postMessage({
           channel: CHANNEL,
           type: 'CHANGE_SCENE_RESULT',
           payload: result,
           requestId: msg.requestId
         }, window.location.origin);
-        // 장면 전환 후 스냅샷 갱신
+        // 장면 전환 후 스냅샷 즉시 갱신
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
