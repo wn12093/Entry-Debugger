@@ -965,7 +965,7 @@
         injectDebuggerPanel(propertyContent);
         setupTabDelegation(propertyTab);
 
-        console.log('[Entry Debugger] 콘솔 탭 하이재킹 완료');
+        console.log('[Entry Debugger] 준비 완료');
       });
     });
   }
