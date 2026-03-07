@@ -1,9 +1,19 @@
-﻿{
+{
   "manifest_version": 3,
   "name": "엔트리 디버깅 툴",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "엔트리(Entry) 코딩 플랫폼의 변수와 리스트를 실시간으로 모니터링하고 수정할 수 있는 디버깅 도구",
-  "permissions": [],
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://playentry.org/ws/*"],

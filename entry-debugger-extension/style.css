@@ -1,10 +1,10 @@
 /**
- * style.css - 엔트리 네이티브 디버깅 툴 스타일
+ * style.css - 엔트리 디버깅 툴 스타일
  *
  * ┌──────────────────────────────────────────────────┐
- * │  콘솔 탭 하이재킹 방식                            │
+ * │  독립 [디버깅] 탭 방식                            │
  * │                                                  │
- * │  기존 콘솔 버튼(.propertyTabconsole)을 재활용하고  │
+ * │  .propertyTabdebugging 탭 버튼을 추가하고          │
  * │  #ed-debugger-panel 을 .propertyContent 안에 삽입 │
  * │                                                  │
  * │  폰트: NanumGothic (엔트리 기본)                  │
@@ -14,15 +14,39 @@
 
 
 /* ═══════════════════════════════════════════════════
+   0. 디버깅 탭 버튼 (.propertyTabdebugging)
+      - .propertyTab 마지막에 추가되는 확장 전용 탭
+      - 데이터 URI SVG 아이콘 (Entry 서버에 파일 추가 불가)
+      - 비활성: 회색 벌레 아이콘, 활성: 파랑 벌레 아이콘
+   ═══════════════════════════════════════════════════ */
+
+.propertyTabdebugging {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2l1.88 1.88M16 2l-1.88 1.88'/%3E%3Cpath d='M9 7.13v-1a3.003 3.003 0 116 0v1'/%3E%3Cpath d='M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 014-4h4a4 4 0 014 4v3c0 3.3-2.7 6-6 6z'/%3E%3Cpath d='M12 20v-9'/%3E%3Cpath d='M6.53 9C4.6 8.8 3 7.1 3 5'/%3E%3Cpath d='M6 13H2'/%3E%3Cpath d='M3 21c0-2.1 1.7-3.9 3.8-4'/%3E%3Cpath d='M17.47 9C19.4 8.8 21 7.1 21 5'/%3E%3Cpath d='M18 13h4'/%3E%3Cpath d='M21 21c0-2.1-1.7-3.9-3.8-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+
+.propertyTabdebugging.selected {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%234f80ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2l1.88 1.88M16 2l-1.88 1.88'/%3E%3Cpath d='M9 7.13v-1a3.003 3.003 0 116 0v1'/%3E%3Cpath d='M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 014-4h4a4 4 0 014 4v3c0 3.3-2.7 6-6 6z'/%3E%3Cpath d='M12 20v-9'/%3E%3Cpath d='M6.53 9C4.6 8.8 3 7.1 3 5'/%3E%3Cpath d='M6 13H2'/%3E%3Cpath d='M3 21c0-2.1 1.7-3.9 3.8-4'/%3E%3Cpath d='M17.47 9C19.4 8.8 21 7.1 21 5'/%3E%3Cpath d='M18 13h4'/%3E%3Cpath d='M21 21c0-2.1-1.7-3.9-3.8-4'/%3E%3C/svg%3E");
+}
+
+
+/* ═══════════════════════════════════════════════════
    1. 디버거 패널 컨테이너 (#ed-debugger-panel)
       - .propertyContent 안에 삽입됨
+      - position:absolute 로 네이티브 콘텐츠 위에 오버레이
+      - 네이티브 자식 요소의 display를 건드리지 않으므로
+        Entry 내부 탭 전환 로직과 충돌하지 않음
       - display: none (비활성) ↔ display: block (활성)
-      - content.js에서 토글 제어
    ═══════════════════════════════════════════════════ */
 
 #ed-debugger-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  z-index: 10;
   overflow: hidden;
 }
 

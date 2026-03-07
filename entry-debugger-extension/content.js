@@ -2,20 +2,21 @@
  * content.js - Content Script (Isolated World)
  *
  * ┌────────────────────────────────────────────────────────────┐
- * │  콘솔 탭 하이재킹 방식                                      │
+ * │  독립 [디버깅] 탭 방식                                      │
  * │                                                            │
- * │  기존 콘솔 아이콘 버튼(.propertyTabconsole)을 그대로 사용.   │
- * │  콘솔 탭 클릭 시 #entryConsole 을 숨기고                    │
- * │  디버거 패널을 .propertyContent 안에 표시합니다.             │
- * │  다른 탭 클릭 시 디버거 패널을 숨기고 원래대로 복원합니다.   │
+ * │  기존 콘솔 탭을 건드리지 않고,                               │
+ * │  새로운 [디버깅] 탭(.propertyTabdebugging)을 추가합니다.     │
+ * │  디버깅 탭 클릭 시 디버거 패널을 표시하고                    │
+ * │  다른 탭 클릭 시 디버거 패널을 숨깁니다.                     │
  * │                                                            │
  * │  [.propertyTab]  (25px 아이콘 탭)                           │
  * │    ├─ .propertyTabobject                                    │
  * │    ├─ .propertyTabhelper                                    │
- * │    └─ .propertyTabconsole  ← 기존 버튼 재활용               │
+ * │    ├─ .propertyTabconsole   ← 기존 콘솔 유지                │
+ * │    └─ .propertyTabdebugging ← 새로 추가된 디버깅 탭         │
  * │                                                            │
  * │  [.propertyContent]                                        │
- * │    ├─ #entryConsole        ← 콘솔 활성 시 숨김              │
+ * │    ├─ (Entry 네이티브 콘텐츠들)                              │
  * │    └─ #ed-debugger-panel   ← 디버거 UI 주입                 │
  * └────────────────────────────────────────────────────────────┘
  */
@@ -30,14 +31,14 @@
   const MAX_WAIT_MS = 30000;
   const WAIT_INTERVAL = 500;
 
-  const TAB_CLASS    = 'propertyTabElement';
-  const CONSOLE_TAB  = 'propertyTabconsole';
-  const PANEL_ID     = 'ed-debugger-panel';
+  const TAB_CLASS      = 'propertyTabElement';
+  const DEBUGGING_TAB  = 'propertyTabdebugging';
+  const PANEL_ID       = 'ed-debugger-panel';
 
   let debuggerInjected = false;
   let currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], ready: false };
   let panelEl = null;          // 디버거 패널 (#ed-debugger-panel)
-  let entryConsoleEl = null;   // 원본 콘솔 요소 (#entryConsole)
+  let debuggingTabEl = null;   // 디버깅 탭 버튼 (.propertyTabdebugging)
   let isDebuggerActive = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
 
@@ -119,17 +120,35 @@
   }
 
   /* ═══════════════════════════════════════════
-     4. 콘솔 탭 클릭 하이재킹 (이벤트 위임)
+     3.5. 디버깅 탭 버튼 생성
+          .propertyTab 마지막에 디버깅 탭을 추가
+     ═══════════════════════════════════════════ */
+
+  function createDebuggingTab(propertyTab) {
+    // 이미 존재하면 참조만 저장
+    var existing = propertyTab.querySelector('.' + DEBUGGING_TAB);
+    if (existing) {
+      debuggingTabEl = existing;
+      return;
+    }
+
+    debuggingTabEl = document.createElement('div');
+    debuggingTabEl.className = TAB_CLASS + ' ' + DEBUGGING_TAB;
+    debuggingTabEl.textContent = '디버깅';  // font-size:0 이므로 보이지 않지만 접근성용
+    propertyTab.appendChild(debuggingTabEl);
+  }
+
+  /* ═══════════════════════════════════════════
+     4. 디버깅 탭 클릭 처리 (이벤트 위임)
      ═══════════════════════════════════════════ */
 
   /**
    * .propertyTab 부모에 이벤트 위임을 등록합니다.
    *
-   * (A) 콘솔 탭(.propertyTabconsole) 클릭 감지:
-   *     → #entryConsole 숨기기
+   * (A) 디버깅 탭(.propertyTabdebugging) 클릭 감지:
    *     → 디버거 패널 표시
    *
-   * (B) 다른 탭(오브젝트/도움말) 클릭 감지:
+   * (B) 다른 탭(오브젝트/도움말/콘솔) 클릭 감지:
    *     → 디버거 패널 숨기기
    *     (엔트리 네이티브가 자체 패널을 알아서 표시)
    *
@@ -141,11 +160,11 @@
       var clickedTab = e.target.closest('.' + TAB_CLASS);
       if (!clickedTab) return;
 
-      if (clickedTab.classList.contains(CONSOLE_TAB)) {
-        // ── (A) 콘솔 탭 클릭 → 디버거 활성화 ──
+      if (clickedTab.classList.contains(DEBUGGING_TAB)) {
+        // ── (A) 디버깅 탭 클릭 → 디버거 활성화 ──
         activateDebugger();
       } else {
-        // ── (B) 다른 탭 클릭 → 디버거 비활성화 ──
+        // ── (B) 네이티브 탭 클릭 → 디버거 비활성화 ──
         deactivateDebugger();
       }
     });
@@ -153,20 +172,32 @@
 
   /**
    * 디버거 활성화:
-   * - #entryConsole을 숨기고 디버거 패널을 표시
-   * - 엔트리 네이티브 로직이 이미 콘솔 탭에 selected를 붙이고
-   *   콘솔 영역을 활성화한 상태이므로, 우리는 내용물만 바꾸면 됨
+   * - 모든 네이티브 탭에서 selected 제거
+   * - 디버깅 탭에 selected 추가
+   * - 디버거 패널을 표시 (absolute 오버레이로 네이티브 콘텐츠 위에 덮음)
+   *
+   * 참고: 디버깅 탭은 Entry 네이티브가 인식하지 못하는 탭이므로
+   *       Entry의 클릭 핸들러가 아무 동작도 하지 않습니다.
+   *       네이티브 콘텐츠의 display를 건드리지 않고 오버레이 방식으로
+   *       패널을 표시하므로 Entry의 탭 전환 로직과 충돌하지 않습니다.
    */
   function activateDebugger() {
     if (!panelEl) return;
 
-    // #entryConsole 숨기기 (엔트리가 이미 보여준 것을 가로챔)
-    entryConsoleEl = document.getElementById('entryConsole');
-    if (entryConsoleEl) {
-      entryConsoleEl.style.display = 'none';
+    // 1. 모든 탭에서 selected 제거
+    var propertyTab = document.querySelector('.propertyTab');
+    if (propertyTab) {
+      propertyTab.querySelectorAll('.' + TAB_CLASS).forEach(function (tab) {
+        tab.classList.remove('selected');
+      });
     }
 
-    // 디버거 패널 표시
+    // 2. 디버깅 탭에 selected 추가
+    if (debuggingTabEl) {
+      debuggingTabEl.classList.add('selected');
+    }
+
+    // 3. 디버거 패널 표시 (absolute 오버레이)
     panelEl.style.display = 'block';
     isDebuggerActive = true;
 
@@ -177,23 +208,26 @@
 
   /**
    * 디버거 비활성화:
-   * - 디버거 패널을 숨기고 #entryConsole 을 복원
-   * - 엔트리 네이티브 로직이 다른 패널을 보여주므로
-   *   우리는 디버거만 치우면 됨
+   * - 디버깅 탭에서 selected 제거
+   * - 디버거 패널 숨기기
+   *
+   * 참고: 네이티브 탭 클릭 시 Entry가 이미 해당 탭에 selected를 추가하고
+   *       해당 콘텐츠를 표시하므로, 우리는 디버거 상태만 정리하면 됩니다.
+   *       오버레이 방식이므로 네이티브 콘텐츠의 display를 복원할 필요 없음.
    */
   function deactivateDebugger() {
     if (!isDebuggerActive) return;
 
     isDebuggerActive = false;
 
-    // 디버거 패널 숨기기
-    if (panelEl) {
-      panelEl.style.display = 'none';
+    // 1. 디버깅 탭에서 selected 제거
+    if (debuggingTabEl) {
+      debuggingTabEl.classList.remove('selected');
     }
 
-    // #entryConsole 복원 (다음에 콘솔 탭을 눌렀을 때 보이도록)
-    if (entryConsoleEl) {
-      entryConsoleEl.style.display = '';
+    // 2. 디버거 패널 숨기기
+    if (panelEl) {
+      panelEl.style.display = 'none';
     }
   }
 
@@ -846,6 +880,31 @@
   });
 
   /* ═══════════════════════════════════════════
+     8.5. 확장 팝업 토글 메시지 처리
+     ═══════════════════════════════════════════ */
+
+  chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+    switch (message.type) {
+      case 'ENABLE_DEBUGGER':
+        init();
+        sendResponse({ success: true });
+        break;
+
+      case 'DISABLE_DEBUGGER':
+        cleanup();
+        sendResponse({ success: true });
+        break;
+
+      case 'PING_STATUS':
+        sendResponse({
+          onEntryPage: isEntryWorkspacePage(),
+          injected: debuggerInjected
+        });
+        break;
+    }
+  });
+
+  /* ═══════════════════════════════════════════
      8. SPA 페이지 이동 감지
      ═══════════════════════════════════════════ */
 
@@ -872,7 +931,14 @@
       if (newURL !== currentURL) {
         currentURL = newURL;
         if (isEntryWorkspacePage()) {
-          reinitialize();
+          // SPA 이동 시에도 활성화 상태 확인
+          chrome.storage.local.get({ enabled: true }, function (data) {
+            if (data.enabled) {
+              reinitialize();
+            } else {
+              cleanup();
+            }
+          });
         } else {
           cleanup();
         }
@@ -892,16 +958,17 @@
   function cleanup() {
     sendToInject('STOP_POLLING');
 
-    // #entryConsole 복원
-    var ec = document.getElementById('entryConsole');
-    if (ec) ec.style.display = '';
+    // 디버깅 탭 버튼 제거
+    if (debuggingTabEl) {
+      debuggingTabEl.remove();
+      debuggingTabEl = null;
+    }
 
     // 디버거 패널 제거
     var existing = document.getElementById(PANEL_ID);
     if (existing) existing.remove();
 
     panelEl = null;
-    entryConsoleEl = null;
     debuggerInjected = false;
     isDebuggerActive = false;
     expandedListIds.clear();
@@ -962,6 +1029,7 @@
         if (debuggerInjected) return;
         debuggerInjected = true;
 
+        createDebuggingTab(propertyTab);
         injectDebuggerPanel(propertyContent);
         setupTabDelegation(propertyTab);
 
@@ -971,6 +1039,12 @@
   }
 
   observeSPANavigation();
-  init();
+
+  // 확장 활성화 상태에 따라 초기화 여부 결정
+  chrome.storage.local.get({ enabled: true }, function (data) {
+    if (data.enabled) {
+      init();
+    }
+  });
 
 })();
