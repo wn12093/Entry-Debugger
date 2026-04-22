@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(explorer.exe \"C:\\\\Users\\\\young\\\\prg\\\\html\\\\Entry Debugger\\\\entry-debugger-extension\\\\docs\")",
+      "Bash(start \"\" \"C:\\\\\\\\Users\\\\\\\\young\\\\\\\\prg\\\\\\\\html\\\\\\\\Entry Debugger\\\\\\\\entry-debugger-extension\\\\\\\\docs\")"
+    ]
+  }
+}
