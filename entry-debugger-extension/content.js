@@ -431,21 +431,22 @@
     card.className = 'ed-var-card';
     card.dataset.id = v.id;
 
-    var eName = escapeHTML(v.name);
     var fullVal = String(v.value);
-    var eFullVal = escapeHTML(fullVal);
+    var attrName    = escapeAttr(v.name);
+    var attrFullVal = escapeAttr(fullVal);
+    var eName       = escapeHTML(v.name);
     var eDisplayVal = escapeHTML(truncateForDisplay(fullVal));
     var bClass = v.object ? 'ed-badge-local' : 'ed-badge-global';
     var bText  = v.object ? '지역' : '모든 오브젝트';
 
     card.innerHTML =
       '<div class="ed-var-row-top">' +
-        '<span class="ed-var-name" title="' + eName + '">' + eName + '</span>' +
+        '<span class="ed-var-name" title="' + attrName + '">' + eName + '</span>' +
         '<span class="ed-badge ' + bClass + '">' + bText + '</span>' +
       '</div>' +
-      '<button class="ed-var-display" title="' + eFullVal + '">' + eDisplayVal + '</button>' +
+      '<button class="ed-var-display" title="' + attrFullVal + '">' + eDisplayVal + '</button>' +
       '<div class="ed-var-row-bottom">' +
-        '<input type="text" class="ed-var-input" value="' + eFullVal + '" />' +
+        '<input type="text" class="ed-var-input" value="' + attrFullVal + '" />' +
         '<button class="ed-btn-apply" title="값 적용">&#x2714;</button>' +
       '</div>';
 
@@ -695,13 +696,13 @@
     row.className = 'ed-list-row';
 
     var fullVal = String(item);
-    var eFullVal = escapeHTML(fullVal);
+    var attrFullVal = escapeAttr(fullVal);
     var eDisplayVal = escapeHTML(truncateForDisplay(fullVal));
 
     row.innerHTML =
       '<span class="ed-list-idx">' + (idx + 1) + '</span>' +
-      '<button class="ed-list-display" title="' + eFullVal + '">' + eDisplayVal + '</button>' +
-      '<input type="text" class="ed-list-input" value="' + eFullVal + '" />' +
+      '<button class="ed-list-display" title="' + attrFullVal + '">' + eDisplayVal + '</button>' +
+      '<input type="text" class="ed-list-input" value="' + attrFullVal + '" />' +
       '<button class="ed-btn-apply ed-btn-sm" title="적용">&#x2714;</button>' +
       '<button class="ed-btn-del ed-btn-sm" title="삭제">&#x2716;</button>';
 
@@ -1048,11 +1049,20 @@
     return div.innerHTML;
   }
 
+  // escapeHTML 은 따옴표(") 를 entity 로 변환하지 않아서 attribute 값에는 부족하다.
+  // (예: title="abc"def" 처럼 속성이 깨질 수 있음)
+  // attribute 값으로 들어가는 모든 곳은 이 함수를 사용한다.
+  function escapeAttr(str) {
+    return escapeHTML(str).replace(/"/g, '&quot;');
+  }
+
   // 변수/리스트 항목 표시용 — 긴 문자열은 input 으로 띄우면 렌더링이 무거워지므로
   // 화면에는 잘린 텍스트만 보여주고 전체 값은 클릭 시에만 input 에 채운다.
+  // 빈 값은 button 영역이 보이지 않아 클릭하기 어려우므로 placeholder 텍스트로 대체.
   var DISPLAY_TRUNCATE_LIMIT = 15;
   function truncateForDisplay(str) {
     str = String(str);
+    if (str === '') return '(빈 값)';
     return str.length > DISPLAY_TRUNCATE_LIMIT
       ? str.slice(0, DISPLAY_TRUNCATE_LIMIT) + '…'
       : str;
