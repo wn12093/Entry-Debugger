@@ -409,6 +409,48 @@
   box-shadow: 0 0 0 2px rgba(79, 128, 255, 0.12);
 }
 
+/* ── 변수 표시 버튼 (편집 모드 진입 트리거)
+      긴 문자열을 input 으로 띄우면 렌더링 비용이 커서
+      평소엔 잘린 텍스트 버튼으로만 보여주고,
+      클릭 시에만 input 으로 교체한다. */
+.ed-var-display {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #f8f8f8;
+  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #333;
+  text-align: left;
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+  line-height: 1.4;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ed-var-display:hover {
+  border-color: #4f80ff;
+  background: #fff;
+}
+
+/* 변수 카드: 기본 = 표시 버튼만, 편집 모드 = input + apply */
+.ed-var-card .ed-var-row-bottom {
+  display: none;
+}
+
+.ed-var-card.ed-editing .ed-var-display {
+  display: none;
+}
+
+.ed-var-card.ed-editing .ed-var-row-bottom {
+  display: flex;
+}
+
 
 /* ═══════════════════════════════════════════════════
    9. 스코프 배지 (.ed-badge)
@@ -554,6 +596,52 @@
 .ed-list-input:focus {
   border-color: #4f80ff;
   box-shadow: 0 0 0 2px rgba(79, 128, 255, 0.12);
+}
+
+/* ── 리스트 항목 표시 버튼 (편집 모드 진입 트리거)
+      변수 카드와 동일한 이유로 평소엔 버튼, 클릭 시 input 으로 교체. */
+.ed-list-display {
+  flex: 1;
+  padding: 4px 7px;
+  border: 1px solid #d9d9d9;
+  border-radius: 3px;
+  background: #f8f8f8;
+  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  color: #333;
+  text-align: left;
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+  min-width: 0;
+  line-height: 1.4;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ed-list-display:hover {
+  border-color: #4f80ff;
+  background: #fff;
+}
+
+/* 리스트 행: 기본 = 표시 버튼 + 삭제, 편집 모드 = input + apply */
+.ed-list-row .ed-list-input,
+.ed-list-row .ed-btn-apply {
+  display: none;
+}
+
+.ed-list-row.ed-editing .ed-list-display,
+.ed-list-row.ed-editing .ed-btn-del {
+  display: none;
+}
+
+.ed-list-row.ed-editing .ed-list-input {
+  display: block;
+}
+
+.ed-list-row.ed-editing .ed-btn-apply {
+  display: inline-flex;
 }
 
 /* ── 리스트 추가 바 ── */

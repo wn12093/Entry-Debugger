@@ -399,9 +399,17 @@
       var existing = existingMap[v.id];
 
       if (existing) {
+        var isEditing = existing.classList.contains('ed-editing');
         var input = existing.querySelector('.ed-var-input');
-        if (input && document.activeElement !== input) {
-          input.value = v.value;
+        var displayBtn = existing.querySelector('.ed-var-display');
+        // 편집 중이면 사용자 입력 보호를 위해 input/표시값 모두 갱신하지 않음
+        if (!isEditing) {
+          if (input) input.value = v.value;
+          if (displayBtn) {
+            var fullVal = String(v.value);
+            displayBtn.textContent = truncateForDisplay(fullVal);
+            displayBtn.title = fullVal;
+          }
         }
         var badge = existing.querySelector('.ed-badge');
         if (badge) {
@@ -424,7 +432,9 @@
     card.dataset.id = v.id;
 
     var eName = escapeHTML(v.name);
-    var eVal  = escapeHTML(String(v.value));
+    var fullVal = String(v.value);
+    var eFullVal = escapeHTML(fullVal);
+    var eDisplayVal = escapeHTML(truncateForDisplay(fullVal));
     var bClass = v.object ? 'ed-badge-local' : 'ed-badge-global';
     var bText  = v.object ? '지역' : '모든 오브젝트';
 
@@ -433,21 +443,45 @@
         '<span class="ed-var-name" title="' + eName + '">' + eName + '</span>' +
         '<span class="ed-badge ' + bClass + '">' + bText + '</span>' +
       '</div>' +
+      '<button class="ed-var-display" title="' + eFullVal + '">' + eDisplayVal + '</button>' +
       '<div class="ed-var-row-bottom">' +
-        '<input type="text" class="ed-var-input" value="' + eVal + '" />' +
+        '<input type="text" class="ed-var-input" value="' + eFullVal + '" />' +
         '<button class="ed-btn-apply" title="값 적용">&#x2714;</button>' +
       '</div>';
 
-    var applyBtn = card.querySelector('.ed-btn-apply');
-    var input    = card.querySelector('.ed-var-input');
+    var displayBtn = card.querySelector('.ed-var-display');
+    var applyBtn   = card.querySelector('.ed-btn-apply');
+    var input      = card.querySelector('.ed-var-input');
 
+    function enterEdit() {
+      card.classList.add('ed-editing');
+      input.focus();
+      var len = input.value.length;
+      try { input.setSelectionRange(len, len); } catch (e) {}
+    }
+
+    function exitEdit() {
+      card.classList.remove('ed-editing');
+    }
+
+    displayBtn.addEventListener('click', enterEdit);
+
+    // mousedown 에서 default 를 막아 input 의 blur 가 click 전에 발생하지 않게 함
+    // (그렇지 않으면 blur → exitEdit → 적용 버튼이 display:none 으로 사라져 click 이 안 옴)
+    applyBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     applyBtn.addEventListener('click', function () {
       sendToInject('SET_VARIABLE', { id: v.id, value: input.value });
       flashElement(card, 'ed-flash');
+      exitEdit();
     });
 
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') applyBtn.click();
+      else if (e.key === 'Escape') exitEdit();
+    });
+
+    input.addEventListener('blur', function () {
+      exitEdit();
     });
 
     return card;
@@ -515,6 +549,10 @@
 
     var body = card.querySelector('.ed-list-body');
     if (!body) return;
+
+    // 편집 중인 행이 있으면 행 갱신을 통째로 스킵 — 새 행을 그리면
+    // ed-editing 클래스와 사용자가 입력 중이던 값이 모두 사라진다.
+    if (body.querySelector('.ed-list-row.ed-editing')) return;
 
     // 포커스된 입력 필드 위치 기억
     var focusedIdx = -1;
@@ -656,29 +694,54 @@
     var row = document.createElement('div');
     row.className = 'ed-list-row';
 
-    var eVal = escapeHTML(String(item));
+    var fullVal = String(item);
+    var eFullVal = escapeHTML(fullVal);
+    var eDisplayVal = escapeHTML(truncateForDisplay(fullVal));
 
     row.innerHTML =
       '<span class="ed-list-idx">' + (idx + 1) + '</span>' +
-      '<input type="text" class="ed-list-input" value="' + eVal + '" />' +
+      '<button class="ed-list-display" title="' + eFullVal + '">' + eDisplayVal + '</button>' +
+      '<input type="text" class="ed-list-input" value="' + eFullVal + '" />' +
       '<button class="ed-btn-apply ed-btn-sm" title="적용">&#x2714;</button>' +
       '<button class="ed-btn-del ed-btn-sm" title="삭제">&#x2716;</button>';
 
+    var displayBtn = row.querySelector('.ed-list-display');
     var applyBtn   = row.querySelector('.ed-btn-apply');
     var deleteBtn  = row.querySelector('.ed-btn-del');
     var inputField = row.querySelector('.ed-list-input');
 
+    function enterEdit() {
+      row.classList.add('ed-editing');
+      inputField.focus();
+      var len = inputField.value.length;
+      try { inputField.setSelectionRange(len, len); } catch (e) {}
+    }
+
+    function exitEdit() {
+      row.classList.remove('ed-editing');
+    }
+
+    displayBtn.addEventListener('click', enterEdit);
+
+    // mousedown 에서 default 를 막아 input 의 blur 가 click 전에 발생하지 않게 함
+    applyBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     applyBtn.addEventListener('click', function () {
       sendToInject('SET_LIST_ITEM', { listId: l.id, index: idx, value: inputField.value });
       flashElement(row, 'ed-flash');
+      exitEdit();
     });
 
     deleteBtn.addEventListener('click', function () {
       sendToInject('REMOVE_LIST_ITEM', { listId: l.id, index: idx });
     });
 
+    inputField.addEventListener('blur', function () {
+      exitEdit();
+    });
+
     inputField.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') applyBtn.click();
+      else if (e.key === 'Escape') exitEdit();
     });
 
     return row;
@@ -983,6 +1046,16 @@
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
+  }
+
+  // 변수/리스트 항목 표시용 — 긴 문자열은 input 으로 띄우면 렌더링이 무거워지므로
+  // 화면에는 잘린 텍스트만 보여주고 전체 값은 클릭 시에만 input 에 채운다.
+  var DISPLAY_TRUNCATE_LIMIT = 15;
+  function truncateForDisplay(str) {
+    str = String(str);
+    return str.length > DISPLAY_TRUNCATE_LIMIT
+      ? str.slice(0, DISPLAY_TRUNCATE_LIMIT) + '…'
+      : str;
   }
 
   function flashElement(el, className) {
