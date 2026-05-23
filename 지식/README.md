@@ -8,6 +8,7 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [함수 내부 사용 위치 확장 설계](./function-internal-usage-extension.md)
 - [Entry Debugger UI 통합 기록](./entry-debugger-ui-integration.md)
 - [Entry 기본 변수 디버깅 확장 기록](./entry-system-variables-debugging.md)
+- [변수/리스트 스코프 타입 변경 확장 기록](./entry-variable-list-scope-type-extension.md)
 
 ## 관리 규칙
 

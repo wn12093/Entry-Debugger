@@ -383,6 +383,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   margin-bottom: 6px;
 }
 
@@ -504,6 +505,57 @@
   color: #8a8f98;
 }
 
+.ed-scope-select {
+  flex: 0 0 auto;
+  max-width: 132px;
+  height: 23px;
+  padding: 2px 21px 2px 7px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fafafa;
+  color: #555;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.ed-scope-select:hover,
+.ed-scope-select:focus {
+  border-color: #4f80ff;
+  background: #fff;
+}
+
+.ed-scope-normal {
+  background: #e8f0fe;
+  color: #4f80ff;
+}
+
+.ed-scope-cloud {
+  background: #eafaf1;
+  color: #249d58;
+}
+
+.ed-scope-real_time {
+  background: #f5edff;
+  color: #8e44ad;
+}
+
+.ed-scope-local {
+  background: #fef3e2;
+  color: #e67e22;
+}
+
+.ed-list-header > .ed-scope-select {
+  max-width: 122px;
+}
+
 .ed-other-card .ed-var-name {
   max-width: 118px;
 }
@@ -582,6 +634,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 8px 11px;
   cursor: pointer;
   user-select: none;

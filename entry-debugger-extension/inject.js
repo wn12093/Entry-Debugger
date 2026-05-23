@@ -109,6 +109,93 @@
     return readVariableVisible(v);
   }
 
+  function readScopeFlag(v, privatePropName, propName) {
+    return !!(v && (v[privatePropName] || v[propName]));
+  }
+
+  function readObjectId(v) {
+    return v && (v.object_ || v.object || null);
+  }
+
+  function getEntryObjectById(objectId) {
+    var entry = safeGetEntry();
+    if (!entry || !objectId) return null;
+
+    if (entry.container && typeof entry.container.getObject === 'function') {
+      var found = entry.container.getObject(objectId);
+      if (found) return found;
+    }
+
+    var objects = entry.container && (entry.container.objects_ || entry.container.objects);
+    if (Array.isArray(objects)) {
+      return objects.find(function (obj) {
+        return obj && (obj.id === objectId || obj.id_ === objectId);
+      }) || null;
+    }
+
+    return null;
+  }
+
+  function readEntryObjectName(object, fallbackName) {
+    if (!object) return fallbackName || '(오브젝트 없음)';
+    if (typeof object.getName === 'function') {
+      return object.getName() || fallbackName || '(오브젝트 없음)';
+    }
+    return object.name || object.name_ || object.objectName || fallbackName || '(오브젝트 없음)';
+  }
+
+  function getCurrentObjectInfo() {
+    var entry = safeGetEntry();
+    if (!entry) return null;
+
+    var object = entry.playground && entry.playground.object;
+    if (!object && entry.container && typeof entry.container.getCurrentObject === 'function') {
+      object = entry.container.getCurrentObject();
+    }
+
+    var id = object && (object.id || object.id_);
+    if (!id) return null;
+
+    return {
+      id: id,
+      name: readEntryObjectName(object, id)
+    };
+  }
+
+  function serializeScope(v) {
+    var objectId = readObjectId(v);
+    var currentObject = getCurrentObjectInfo();
+    var object = objectId ? getEntryObjectById(objectId) : null;
+    var objectName = objectId ? readEntryObjectName(object, objectId) : '';
+    var key = 'normal';
+
+    if (objectId) {
+      key = 'local';
+    } else if (readScopeFlag(v, 'isCloud_', 'isCloud')) {
+      key = 'cloud';
+    } else if (readScopeFlag(v, 'isRealTime_', 'isRealTime')) {
+      key = 'real_time';
+    }
+
+    return {
+      key: key,
+      label: getScopeLabel(key, objectName),
+      isCloud: key === 'cloud',
+      isRealTime: key === 'real_time',
+      objectId: objectId,
+      objectName: objectName,
+      currentObjectId: currentObject ? currentObject.id : null,
+      currentObjectName: currentObject ? currentObject.name : ''
+    };
+  }
+
+  function getScopeLabel(key, objectName) {
+    if (key === 'cloud') return '공유';
+    if (key === 'real_time') return '실시간';
+    if (key === 'local') return '지역: ' + (objectName || '(오브젝트 없음)');
+    return '일반';
+  }
+
   function serializeVariables(vars) {
     if (!Array.isArray(vars)) return [];
     return vars.reduce(function (result, v) {
@@ -119,7 +206,8 @@
         value: readVariableValue(v),
         type: 'variable',
         visible: readVariableVisible(v),
-        object: v.object_ || null
+        object: readObjectId(v),
+        scope: serializeScope(v)
       });
       return result;
     }, []);
@@ -179,7 +267,8 @@
         items: items,
         type: 'list',
         visible: l.visible_ !== false,
-        object: l.object_ || null
+        object: readObjectId(l),
+        scope: serializeScope(l)
       };
     });
   }
@@ -485,6 +574,150 @@
     }
   }
 
+  function findDebuggableItem(kind, id) {
+    var container = safeGetContainer();
+    if (!container) return null;
+
+    var arr = kind === 'list' ? container.lists_ : container.variables_;
+    if (!Array.isArray(arr)) return null;
+
+    var item = arr.find(function (v) {
+      return (v.id_ || v.id) === id;
+    });
+
+    return item ? { item: item, arr: arr } : null;
+  }
+
+  function normalizeScopeTarget(target) {
+    return target === 'cloud' || target === 'real_time' || target === 'local'
+      ? target
+      : 'normal';
+  }
+
+  function resolveLocalObjectId(requestedObjectId) {
+    if (requestedObjectId && getEntryObjectById(requestedObjectId)) {
+      return requestedObjectId;
+    }
+
+    var currentObject = getCurrentObjectInfo();
+    if (currentObject && currentObject.id) {
+      return currentObject.id;
+    }
+
+    return requestedObjectId || null;
+  }
+
+  function refreshVariableMenus() {
+    var entry = safeGetEntry();
+    var container = safeGetContainer();
+
+    if (container && typeof container.updateList === 'function') {
+      container.updateList();
+    }
+
+    if (entry && entry.playground && entry.playground.blockMenu) {
+      try {
+        if (typeof entry.playground.blockMenu.deleteRendered === 'function') {
+          entry.playground.blockMenu.deleteRendered('variable');
+          entry.playground.blockMenu.deleteRendered('list');
+        }
+      } catch (e) {}
+    }
+
+    if (entry && entry.playground && typeof entry.playground.reloadPlayground === 'function') {
+      try {
+        entry.playground.reloadPlayground();
+      } catch (e) {}
+    }
+  }
+
+  function changeVariableScope(kind, id, target, objectId) {
+    var entry = safeGetEntry();
+    var container = safeGetContainer();
+    if (!entry || !container) {
+      return { success: false, error: 'Entry.variableContainer를 찾을 수 없습니다.' };
+    }
+
+    kind = kind === 'list' ? 'list' : 'variable';
+    target = normalizeScopeTarget(target);
+
+    var found = findDebuggableItem(kind, id);
+    if (!found) {
+      return { success: false, error: '해당 ID의 ' + (kind === 'list' ? '리스트' : '변수') + '를 찾을 수 없습니다: ' + id };
+    }
+
+    var localObjectId = null;
+    if (target === 'local') {
+      localObjectId = resolveLocalObjectId(objectId);
+      if (!localObjectId || !getEntryObjectById(localObjectId)) {
+        return { success: false, error: '지역 스코프로 바꿀 현재 오브젝트를 찾을 수 없습니다.' };
+      }
+    }
+
+    try {
+      var item = found.item;
+      var arr = found.arr;
+      var idx = arr.indexOf(item);
+      if (idx < 0) {
+        return { success: false, error: '대상 항목의 위치를 찾을 수 없습니다.' };
+      }
+
+      var json = typeof item.toJSON === 'function' ? item.toJSON() : {};
+      json.id = json.id || item.id_ || item.id;
+      json.name = json.name || readVariableName(item);
+      json.variableType = json.variableType || getEntryVariableType(item) || kind;
+      json.isCloud = target === 'cloud';
+      json.isRealTime = target === 'real_time';
+      json.object = target === 'local' ? localObjectId : null;
+
+      if (!entry.Variable || typeof entry.Variable.create !== 'function') {
+        return { success: false, error: 'Entry.Variable.create API를 찾을 수 없습니다.' };
+      }
+
+      var next = entry.Variable.create(json);
+      arr.splice(idx, 0, next);
+
+      if (kind === 'list') {
+        if (typeof container.createListView === 'function') {
+          container.createListView(next);
+        }
+        if (typeof next.generateView === 'function') {
+          next.generateView();
+        }
+        if (typeof container.removeList === 'function') {
+          container.removeList(item);
+        } else {
+          var oldListIdx = arr.indexOf(item);
+          if (oldListIdx >= 0) arr.splice(oldListIdx, 1);
+        }
+        if (typeof container.updateSelectedVariable === 'function') {
+          container.updateSelectedVariable(next, 'list');
+        }
+      } else {
+        if (typeof container.createVariableView === 'function') {
+          container.createVariableView(next);
+        }
+        if (typeof container.removeVariable === 'function') {
+          container.removeVariable(item);
+        } else {
+          var oldVarIdx = arr.indexOf(item);
+          if (oldVarIdx >= 0) arr.splice(oldVarIdx, 1);
+        }
+        if (typeof container.updateSelectedVariable === 'function') {
+          container.updateSelectedVariable(next);
+        }
+        if (typeof next.generateView === 'function') {
+          next.generateView();
+        }
+      }
+
+      refreshVariableMenus();
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   function setListItem(listId, index, newValue) {
     var container = safeGetContainer();
     if (!container || !Array.isArray(container.lists_)) {
@@ -638,6 +871,23 @@
 
       case 'SET_SYSTEM_VISIBLE':
         result = setSystemVariableVisible(msg.payload.kind, msg.payload.visible);
+        window.postMessage({
+          channel: CHANNEL,
+          type: 'SET_RESULT',
+          payload: result,
+          requestId: msg.requestId
+        }, window.location.origin);
+        prevSnapshotJSON = '';
+        pollAndBroadcast();
+        break;
+
+      case 'CHANGE_VARIABLE_SCOPE':
+        result = changeVariableScope(
+          msg.payload.kind,
+          msg.payload.id,
+          msg.payload.scope,
+          msg.payload.objectId
+        );
         window.postMessage({
           channel: CHANNEL,
           type: 'SET_RESULT',

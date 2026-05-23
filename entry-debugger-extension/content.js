@@ -401,6 +401,133 @@
     renderOthers(snapshot.others || [], searchTerm);
   }
 
+  function getScopeInfo(item) {
+    if (item && item.scope) return item.scope;
+
+    var key = item && item.object ? 'local' : 'normal';
+    return {
+      key: key,
+      label: key === 'local' ? '지역: ' + item.object : '일반',
+      objectId: item && item.object ? item.object : null,
+      objectName: item && item.object ? item.object : '',
+      currentObjectId: null,
+      currentObjectName: ''
+    };
+  }
+
+  function getScopeLabel(scope) {
+    if (!scope) return '일반';
+    if (scope.key === 'cloud') return '공유';
+    if (scope.key === 'real_time') return '실시간';
+    if (scope.key === 'local') return '지역: ' + (scope.objectName || scope.objectId || '(오브젝트 없음)');
+    return '일반';
+  }
+
+  function getLocalOptionLabel(scope) {
+    if (scope && scope.key === 'local') {
+      return getScopeLabel(scope);
+    }
+
+    var targetName = scope && (scope.currentObjectName || scope.currentObjectId);
+    return '지역: ' + (targetName || '현재 오브젝트');
+  }
+
+  function getScopeClass(scope) {
+    var key = scope && scope.key ? scope.key : 'normal';
+    return 'ed-scope-' + key;
+  }
+
+  function createScopeSelectHTML(item, kind) {
+    var scope = getScopeInfo(item);
+    var localObjectId = scope.currentObjectId || scope.objectId || '';
+    var localDisabled = !localObjectId && scope.key !== 'local';
+    var options = [
+      ['normal', '일반', false],
+      ['cloud', '공유', false],
+      ['real_time', '실시간', false],
+      ['local', getLocalOptionLabel(scope), localDisabled]
+    ];
+
+    var html = '<select class="ed-scope-select ' + getScopeClass(scope) + '" ' +
+      'data-kind="' + kind + '" ' +
+      'data-id="' + escapeAttr(item.id) + '" ' +
+      'data-scope-key="' + escapeAttr(scope.key || 'normal') + '" ' +
+      'data-object-id="' + escapeAttr(scope.objectId || '') + '" ' +
+      'data-current-object-id="' + escapeAttr(scope.currentObjectId || '') + '" ' +
+      'title="스코프 변경">';
+
+    options.forEach(function (option) {
+      html += '<option value="' + option[0] + '"' +
+        (scope.key === option[0] ? ' selected' : '') +
+        (option[2] ? ' disabled' : '') +
+        '>' + escapeHTML(option[1]) + '</option>';
+    });
+
+    return html + '</select>';
+  }
+
+  function updateScopeSelect(select, item) {
+    if (!select) return;
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = createScopeSelectHTML(item, select.dataset.kind || item.type || 'variable');
+    var next = wrapper.firstChild;
+
+    select.className = next.className;
+    select.dataset.kind = next.dataset.kind;
+    select.dataset.id = next.dataset.id;
+    select.dataset.scopeKey = next.dataset.scopeKey;
+    select.dataset.objectId = next.dataset.objectId;
+    select.dataset.currentObjectId = next.dataset.currentObjectId;
+    select.innerHTML = next.innerHTML;
+    select.value = next.value;
+  }
+
+  function bindScopeSelect(select) {
+    if (!select) return;
+
+    select.addEventListener('mousedown', function (e) {
+      e.stopPropagation();
+    });
+    select.addEventListener('click', function (e) {
+      e.stopPropagation();
+    });
+    select.addEventListener('change', function (e) {
+      e.stopPropagation();
+
+      var previousScope = select.dataset.scopeKey || 'normal';
+      var nextScope = select.value;
+      var objectId = '';
+
+      if (nextScope === 'local') {
+        objectId = select.dataset.currentObjectId || select.dataset.objectId || '';
+        if (!objectId) {
+          showToast('지역 스코프로 바꿀 현재 오브젝트를 찾을 수 없습니다.', 'error');
+          select.value = previousScope;
+          return;
+        }
+      }
+
+      sendToInject('CHANGE_VARIABLE_SCOPE', {
+        kind: select.dataset.kind || 'variable',
+        id: select.dataset.id,
+        scope: nextScope,
+        objectId: objectId
+      });
+
+      flashElement(select.closest('.ed-var-card, .ed-list-card') || select, 'ed-flash');
+    });
+  }
+
+  function getScopeSearchText(item) {
+    var scope = getScopeInfo(item);
+    return [
+      getScopeLabel(scope),
+      scope.key || '',
+      scope.objectName || '',
+      scope.currentObjectName || ''
+    ].join(' ').toLowerCase();
+  }
+
   /* ─── 변수 렌더링 ─── */
 
   function renderVariables(variables, searchTerm) {
@@ -411,7 +538,8 @@
     var filtered = variables.filter(function (v) {
       if (!searchTerm) return true;
       return v.name.toLowerCase().indexOf(searchTerm) !== -1 ||
-             String(v.value).toLowerCase().indexOf(searchTerm) !== -1;
+             String(v.value).toLowerCase().indexOf(searchTerm) !== -1 ||
+             getScopeSearchText(v).indexOf(searchTerm) !== -1;
     });
 
     if (filtered.length === 0) {
@@ -445,11 +573,7 @@
             displayBtn.title = fullVal;
           }
         }
-        var badge = existing.querySelector('.ed-badge');
-        if (badge) {
-          badge.textContent = v.object ? '지역' : '모든 오브젝트';
-          badge.className = 'ed-badge ' + (v.object ? 'ed-badge-local' : 'ed-badge-global');
-        }
+        updateScopeSelect(existing.querySelector('.ed-scope-select'), v);
         fragment.appendChild(existing);
       } else {
         fragment.appendChild(createVariableCard(v));
@@ -470,13 +594,11 @@
     var attrFullVal = escapeAttr(fullVal);
     var eName       = escapeHTML(v.name);
     var eDisplayVal = escapeHTML(truncateForDisplay(fullVal));
-    var bClass = v.object ? 'ed-badge-local' : 'ed-badge-global';
-    var bText  = v.object ? '지역' : '모든 오브젝트';
 
     card.innerHTML =
       '<div class="ed-var-row-top">' +
         '<span class="ed-var-name" title="' + attrName + '">' + eName + '</span>' +
-        '<span class="ed-badge ' + bClass + '">' + bText + '</span>' +
+        createScopeSelectHTML(v, 'variable') +
       '</div>' +
       '<button class="ed-var-display" title="' + attrFullVal + '">' + eDisplayVal + '</button>' +
       '<div class="ed-var-row-bottom">' +
@@ -487,6 +609,9 @@
     var displayBtn = card.querySelector('.ed-var-display');
     var applyBtn   = card.querySelector('.ed-btn-apply');
     var input      = card.querySelector('.ed-var-input');
+    var scopeSelect = card.querySelector('.ed-scope-select');
+
+    bindScopeSelect(scopeSelect);
 
     function enterEdit() {
       card.classList.add('ed-editing');
@@ -692,7 +817,8 @@
 
     var filtered = lists.filter(function (l) {
       if (!searchTerm) return true;
-      return l.name.toLowerCase().indexOf(searchTerm) !== -1;
+      return l.name.toLowerCase().indexOf(searchTerm) !== -1 ||
+             getScopeSearchText(l).indexOf(searchTerm) !== -1;
     });
 
     if (filtered.length === 0) {
@@ -733,12 +859,7 @@
     var countEl = card.querySelector('.ed-list-count');
     if (countEl) countEl.textContent = '[' + l.items.length + '개]';
 
-    // 헤더: 배지 갱신
-    var badge = card.querySelector('.ed-badge');
-    if (badge) {
-      badge.textContent = l.object ? '지역' : '모든 오브젝트';
-      badge.className = 'ed-badge ' + (l.object ? 'ed-badge-local' : 'ed-badge-global');
-    }
+    updateScopeSelect(card.querySelector('.ed-scope-select'), l);
 
     // 펼쳐져 있지 않으면 행 갱신 불필요
     if (!expandedListIds.has(l.id)) return;
@@ -816,19 +937,20 @@
     card.className = 'ed-list-card';
     card.dataset.id = l.id;
 
-    var eName  = escapeHTML(l.name);
-    var bClass = l.object ? 'ed-badge-local' : 'ed-badge-global';
-    var bText  = l.object ? '지역' : '모든 오브젝트';
+    var eName = escapeHTML(l.name);
+    var attrName = escapeAttr(l.name);
 
     var header = document.createElement('div');
     header.className = 'ed-list-header';
     header.innerHTML =
       '<div class="ed-list-header-left">' +
         '<span class="ed-list-arrow">&#x25B6;</span>' +
-        '<span class="ed-list-name" title="' + eName + '">' + eName + '</span>' +
+        '<span class="ed-list-name" title="' + attrName + '">' + eName + '</span>' +
         '<span class="ed-list-count">[' + l.items.length + '개]</span>' +
       '</div>' +
-      '<span class="ed-badge ' + bClass + '">' + bText + '</span>';
+      createScopeSelectHTML(l, 'list');
+
+    bindScopeSelect(header.querySelector('.ed-scope-select'));
 
     var body = document.createElement('div');
     body.className = 'ed-list-body';
