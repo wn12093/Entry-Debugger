@@ -38,7 +38,8 @@
   const DEFAULT_SETTINGS = {
     enabled: true,
     debuggerTabEnabled: true,
-    functionUsageEnabled: true
+    functionUsageEnabled: true,
+    consoleDebuggingEnabled: true
   };
 
   let debuggerInjected = false;
@@ -60,6 +61,10 @@
 
   function injectFunctionUsageScript() {
     injectPageScript('entry-debugger-function-usage', 'function-usage-inspector.js');
+  }
+
+  function injectConsoleDebuggingScript() {
+    injectPageScript('entry-debugger-console-debugging', 'console-debugging.js');
   }
 
   function injectPageScript(id, src) {
@@ -1219,18 +1224,23 @@
     var functionUsageEnabled = typeof data.functionUsageEnabled === 'boolean'
       ? data.functionUsageEnabled
       : enabled;
+    var consoleDebuggingEnabled = typeof data.consoleDebuggingEnabled === 'boolean'
+      ? data.consoleDebuggingEnabled
+      : enabled;
 
     if (!enabled) {
       debuggerTabEnabled = false;
       functionUsageEnabled = false;
+      consoleDebuggingEnabled = false;
     }
 
-    enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled));
+    enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled || consoleDebuggingEnabled));
 
     return {
       enabled: enabled,
       debuggerTabEnabled: enabled && debuggerTabEnabled,
-      functionUsageEnabled: enabled && functionUsageEnabled
+      functionUsageEnabled: enabled && functionUsageEnabled,
+      consoleDebuggingEnabled: enabled && consoleDebuggingEnabled
     };
   }
 
@@ -1240,6 +1250,10 @@
 
   function isFunctionUsageFeatureEnabled() {
     return !!(extensionSettings.enabled && extensionSettings.functionUsageEnabled);
+  }
+
+  function isConsoleDebuggingFeatureEnabled() {
+    return !!(extensionSettings.enabled && extensionSettings.consoleDebuggingEnabled);
   }
 
   function startFunctionUsageFeature() {
@@ -1265,6 +1279,18 @@
     sendToInject('STOP_FUNCTION_USAGE_POLLING');
   }
 
+  function startConsoleDebuggingFeature() {
+    injectConsoleDebuggingScript();
+    setTimeout(function () {
+      if (!isConsoleDebuggingFeatureEnabled()) return;
+      sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: true });
+    }, 150);
+  }
+
+  function stopConsoleDebuggingFeature() {
+    sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: false });
+  }
+
   function applySettings(settings) {
     extensionSettings = normalizeSettings(settings);
 
@@ -1277,6 +1303,12 @@
       startFunctionUsageFeature();
     } else {
       stopFunctionUsageFeature();
+    }
+
+    if (isConsoleDebuggingFeatureEnabled()) {
+      startConsoleDebuggingFeature();
+    } else {
+      stopConsoleDebuggingFeature();
     }
 
     if (isDebuggerTabFeatureEnabled()) {
@@ -1304,6 +1336,12 @@
         if (isFunctionUsageFeatureEnabled()) {
           sendToInject('START_FUNCTION_USAGE_POLLING');
           sendToInject('REQUEST_FUNCTION_USAGE');
+        }
+        break;
+
+      case 'CONSOLE_DEBUGGING_READY':
+        if (isConsoleDebuggingFeatureEnabled()) {
+          sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: true });
         }
         break;
 
@@ -1376,7 +1414,8 @@
         applySettings({
           enabled: false,
           debuggerTabEnabled: false,
-          functionUsageEnabled: false
+          functionUsageEnabled: false,
+          consoleDebuggingEnabled: false
         });
         sendResponse({ success: true });
         break;
@@ -1484,6 +1523,7 @@
   function cleanup() {
     cleanupDebuggerTabFeature();
     stopFunctionUsageFeature();
+    stopConsoleDebuggingFeature();
   }
 
   /* ═══════════════════════════════════════════
@@ -1581,6 +1621,12 @@
       startFunctionUsageFeature();
     } else {
       stopFunctionUsageFeature();
+    }
+
+    if (isConsoleDebuggingFeatureEnabled()) {
+      startConsoleDebuggingFeature();
+    } else {
+      stopConsoleDebuggingFeature();
     }
 
     if (isDebuggerTabFeatureEnabled()) {

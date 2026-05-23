@@ -16,7 +16,8 @@
 var DEFAULT_SETTINGS = {
   enabled: true,
   debuggerTabEnabled: true,
-  functionUsageEnabled: true
+  functionUsageEnabled: true,
+  consoleDebuggingEnabled: true
 };
 
 function normalizeSettings(data) {
@@ -29,18 +30,23 @@ function normalizeSettings(data) {
   var functionUsageEnabled = typeof data.functionUsageEnabled === 'boolean'
     ? data.functionUsageEnabled
     : enabled;
+  var consoleDebuggingEnabled = typeof data.consoleDebuggingEnabled === 'boolean'
+    ? data.consoleDebuggingEnabled
+    : enabled;
 
   if (!enabled) {
     debuggerTabEnabled = false;
     functionUsageEnabled = false;
+    consoleDebuggingEnabled = false;
   }
 
-  enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled));
+  enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled || consoleDebuggingEnabled));
 
   return {
     enabled: enabled,
     debuggerTabEnabled: enabled && debuggerTabEnabled,
-    functionUsageEnabled: enabled && functionUsageEnabled
+    functionUsageEnabled: enabled && functionUsageEnabled,
+    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled
   };
 }
 
@@ -102,7 +108,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       saveSettings({
         enabled: newState,
         debuggerTabEnabled: newState,
-        functionUsageEnabled: newState
+        functionUsageEnabled: newState,
+        consoleDebuggingEnabled: newState
       }, function () {
         getSettings(function (settings) {
           broadcastSettings(settings);

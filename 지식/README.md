@@ -9,6 +9,7 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [Entry Debugger UI 통합 기록](./entry-debugger-ui-integration.md)
 - [Entry 기본 변수 디버깅 확장 기록](./entry-system-variables-debugging.md)
 - [변수/리스트 스코프 타입 변경 확장 기록](./entry-variable-list-scope-type-extension.md)
+- [콘솔 디버깅: 말하기 블록 외치기 모드 확장 기록](./entry-dialog-yell-console-debugging.md)
 
 ## 관리 규칙
 

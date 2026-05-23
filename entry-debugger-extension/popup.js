@@ -1,7 +1,7 @@
 /**
  * popup.js - 팝업 UI 로직
  *
- * 전체 기능, 디버깅 탭, 함수 내부 사용 위치 바로가기를 각각 제어하고,
+ * 전체 기능, 디버깅 탭, 함수 내부 사용 위치 바로가기, 콘솔 디버깅을 각각 제어하고,
  * 현재 Entry 페이지 연결 상태를 표시합니다.
  */
 'use strict';
@@ -9,12 +9,14 @@
 var DEFAULT_SETTINGS = {
   enabled: true,
   debuggerTabEnabled: true,
-  functionUsageEnabled: true
+  functionUsageEnabled: true,
+  consoleDebuggingEnabled: true
 };
 
 var allToggle = document.getElementById('toggle-all');
 var debuggerTabToggle = document.getElementById('toggle-debugger-tab');
 var functionUsageToggle = document.getElementById('toggle-function-usage');
+var consoleDebuggingToggle = document.getElementById('toggle-console-debugging');
 var statusDot = document.getElementById('status-dot');
 var statusText = document.getElementById('status-text');
 var refreshHint = document.getElementById('refresh-hint');
@@ -43,7 +45,8 @@ allToggle.addEventListener('change', function () {
   saveSettings({
     enabled: enabled,
     debuggerTabEnabled: enabled,
-    functionUsageEnabled: enabled
+    functionUsageEnabled: enabled,
+    consoleDebuggingEnabled: enabled
   });
 });
 
@@ -51,9 +54,10 @@ debuggerTabToggle.addEventListener('change', function () {
   if (isRendering) return;
 
   saveSettings({
-    enabled: debuggerTabToggle.checked || functionUsageToggle.checked,
+    enabled: debuggerTabToggle.checked || functionUsageToggle.checked || consoleDebuggingToggle.checked,
     debuggerTabEnabled: debuggerTabToggle.checked,
-    functionUsageEnabled: functionUsageToggle.checked
+    functionUsageEnabled: functionUsageToggle.checked,
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked
   });
 });
 
@@ -61,9 +65,21 @@ functionUsageToggle.addEventListener('change', function () {
   if (isRendering) return;
 
   saveSettings({
-    enabled: debuggerTabToggle.checked || functionUsageToggle.checked,
+    enabled: debuggerTabToggle.checked || functionUsageToggle.checked || consoleDebuggingToggle.checked,
     debuggerTabEnabled: debuggerTabToggle.checked,
-    functionUsageEnabled: functionUsageToggle.checked
+    functionUsageEnabled: functionUsageToggle.checked,
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked
+  });
+});
+
+consoleDebuggingToggle.addEventListener('change', function () {
+  if (isRendering) return;
+
+  saveSettings({
+    enabled: debuggerTabToggle.checked || functionUsageToggle.checked || consoleDebuggingToggle.checked,
+    debuggerTabEnabled: debuggerTabToggle.checked,
+    functionUsageEnabled: functionUsageToggle.checked,
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked
   });
 });
 
@@ -93,9 +109,11 @@ function renderControls() {
   isRendering = true;
   allToggle.checked = currentSettings.enabled &&
     currentSettings.debuggerTabEnabled &&
-    currentSettings.functionUsageEnabled;
+    currentSettings.functionUsageEnabled &&
+    currentSettings.consoleDebuggingEnabled;
   debuggerTabToggle.checked = currentSettings.debuggerTabEnabled;
   functionUsageToggle.checked = currentSettings.functionUsageEnabled;
+  consoleDebuggingToggle.checked = currentSettings.consoleDebuggingEnabled;
   isRendering = false;
 }
 
@@ -109,18 +127,23 @@ function normalizeSettings(settings) {
   var functionUsageEnabled = typeof settings.functionUsageEnabled === 'boolean'
     ? settings.functionUsageEnabled
     : enabled;
+  var consoleDebuggingEnabled = typeof settings.consoleDebuggingEnabled === 'boolean'
+    ? settings.consoleDebuggingEnabled
+    : enabled;
 
-  enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled));
+  enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled || consoleDebuggingEnabled));
 
   if (!enabled) {
     debuggerTabEnabled = false;
     functionUsageEnabled = false;
+    consoleDebuggingEnabled = false;
   }
 
   return {
     enabled: enabled,
     debuggerTabEnabled: enabled && debuggerTabEnabled,
-    functionUsageEnabled: enabled && functionUsageEnabled
+    functionUsageEnabled: enabled && functionUsageEnabled,
+    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled
   };
 }
 
@@ -147,14 +170,22 @@ function updateStatusDisplay() {
 }
 
 function getEnabledFeatureText() {
-  if (currentSettings.debuggerTabEnabled && currentSettings.functionUsageEnabled) {
-    return '모든 기능 켜짐';
-  }
+  var enabledFeatures = [];
   if (currentSettings.debuggerTabEnabled) {
-    return '디버깅 탭만 켜짐';
+    enabledFeatures.push('디버깅 탭');
   }
   if (currentSettings.functionUsageEnabled) {
-    return '함수 바로가기만 켜짐';
+    enabledFeatures.push('함수 바로가기');
+  }
+  if (currentSettings.consoleDebuggingEnabled) {
+    enabledFeatures.push('콘솔 디버깅');
+  }
+
+  if (enabledFeatures.length === 3) {
+    return '모든 기능 켜짐';
+  }
+  if (enabledFeatures.length > 0) {
+    return enabledFeatures.join(', ') + ' 켜짐';
   }
   return '모든 기능 꺼짐';
 }
