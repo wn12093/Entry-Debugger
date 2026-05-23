@@ -9,11 +9,13 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [Entry Debugger UI 통합 기록](./entry-debugger-ui-integration.md)
 - [Entry 기본 변수 디버깅 확장 기록](./entry-system-variables-debugging.md)
 - [변수/리스트 스코프 타입 변경 확장 기록](./entry-variable-list-scope-type-extension.md)
-- [콘솔 디버깅: 말하기 블록 외치기 모드 확장 기록](./entry-dialog-yell-console-debugging.md)
+- [콘솔 디버깅 말하기 블록 옵션 확장 기록](./entry-dialog-yell-console-debugging.md)
+- [부스트/터보 모드 확장 기록](./entry-boost-turbo-mode-extension.md)
+- [엔트리 .eo 대량 모양 생성기 기록](./entry-eo-generator-extension.md)
 
 ## 관리 규칙
 
 - 한 문서는 한 주제만 다룹니다.
-- 분석 문서에는 확인 날짜, 분석 대상 파일, 핵심 흐름, 확장 개발에 쓸 수 있는 포인트를 함께 남깁니다.
+- 분석 문서에는 확인 날짜, 분석 대상 파일, 핵심 흐름, 확장 개발에 필요한 포인트를 함께 남깁니다.
 - Entry 원본 코드의 위치는 `entryjs-develop` 기준 상대 경로로 적습니다.
-- 구현 중 새로 발견한 사실은 기존 문서에 "추가 확인" 섹션을 덧붙여 갱신합니다.
+- 구현 중 새로 발견한 사실은 기존 문서의 "추가 확인" 성격으로 갱신합니다.

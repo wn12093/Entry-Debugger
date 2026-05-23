@@ -134,6 +134,11 @@
       background: #4f80ff;
     }
 
+    .toggle-switch input:disabled + .toggle-slider {
+      cursor: default;
+      opacity: 0.45;
+    }
+
     .toggle-switch input:checked + .toggle-slider::before {
       transform: translateX(20px);
     }
@@ -258,7 +263,7 @@
     <img class="popup-icon" src="icon48.png" alt="아이콘">
     <div class="popup-title-area">
       <span class="popup-title">엔트리 디버깅 툴</span>
-      <span class="popup-version">v1.0.9</span>
+      <span class="popup-version">v1.1.3</span>
     </div>
   </div>
 
@@ -267,7 +272,7 @@
     <div class="toggle-row toggle-row-master">
       <span class="toggle-text">
         <span class="toggle-title">모든 기능</span>
-        <span class="toggle-desc">세 기능을 함께 제어</span>
+        <span class="toggle-desc">다섯 기능을 함께 제어</span>
       </span>
       <label class="toggle-switch" aria-label="모든 기능 켜기 또는 끄기">
         <input type="checkbox" id="toggle-all">
@@ -305,6 +310,28 @@
         </span>
         <label class="toggle-switch" aria-label="콘솔 디버깅 켜기 또는 끄기">
           <input type="checkbox" id="toggle-console-debugging">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-text">
+          <span class="toggle-title">부스트 모드</span>
+          <span class="toggle-desc">WebGL 렌더링 사용 (새로고침 필요)</span>
+        </span>
+        <label class="toggle-switch" aria-label="부스트 모드 켜기 또는 끄기">
+          <input type="checkbox" id="toggle-boost-mode">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-text">
+          <span class="toggle-title">실험실 탭</span>
+          <span class="toggle-desc">디버깅 패널에 실험 기능 표시</span>
+        </span>
+        <label class="toggle-switch" aria-label="실험실 탭 켜기 또는 끄기">
+          <input type="checkbox" id="toggle-lab-tab">
           <span class="toggle-slider"></span>
         </label>
       </div>

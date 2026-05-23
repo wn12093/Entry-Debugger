@@ -34,12 +34,16 @@
   const TAB_CLASS      = 'propertyTabElement';
   const DEBUGGING_TAB  = 'propertyTabdebugging';
   const PANEL_ID       = 'ed-debugger-panel';
+  const BOOST_MODE_STORAGE_KEY = '__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__';
 
   const DEFAULT_SETTINGS = {
     enabled: true,
     debuggerTabEnabled: true,
     functionUsageEnabled: true,
-    consoleDebuggingEnabled: true
+    consoleDebuggingEnabled: true,
+    boostModeEnabled: false,
+    labTabEnabled: false,
+    turboModeEnabled: false
   };
 
   let debuggerInjected = false;
@@ -48,6 +52,7 @@
   let debuggingTabEl = null;   // 디버깅 탭 버튼 (.propertyTabdebugging)
   let isDebuggerActive = false;
   let extensionSettings = DEFAULT_SETTINGS;
+  let settingsLoaded = false;
   let functionUsageStartTimer = null;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
 
@@ -67,17 +72,28 @@
     injectPageScript('entry-debugger-console-debugging', 'console-debugging.js');
   }
 
+  function injectBoostModeScript() {
+    injectPageScript('entry-debugger-boost-mode', 'boost-mode.js');
+  }
+
+  function injectTurboModeScript() {
+    injectPageScript('entry-debugger-turbo-mode', 'turbo-mode.js');
+  }
+
   function injectPageScript(id, src) {
     if (document.getElementById(id)) return;
 
     var script = document.createElement('script');
     script.id = id;
+    script.async = false;
     script.src = chrome.runtime.getURL(src);
     script.onload = function () {
       script.remove();
     };
     (document.head || document.documentElement).appendChild(script);
   }
+
+  injectBoostModeScript();
 
   /* ═══════════════════════════════════════════
      2. DOM 대기 유틸리티
@@ -273,8 +289,8 @@
             '<button class="ed-subtab" data-tab="lists">리스트</button>' +
             '<button class="ed-subtab" data-tab="messages">신호</button>' +
             '<button class="ed-subtab" data-tab="scenes">장면</button>' +
-            '<span class="ed-subtab-separator" aria-hidden="true"></span>' +
-            '<button class="ed-subtab" data-tab="others">기타</button>' +
+            '<span class="ed-subtab-separator ed-lab-only" aria-hidden="true"></span>' +
+            '<button class="ed-subtab ed-lab-only" data-tab="others">실험실</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
             '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
@@ -326,8 +342,27 @@
             '<div class="ed-items" id="ed-scene-list"></div>' +
           '</div>' +
 
-          /* 기타 섹션 */
-          '<div class="ed-section" id="ed-section-others">' +
+          /* 실험실 섹션 */
+          '<div class="ed-section ed-lab-only" id="ed-section-others">' +
+            '<div class="ed-lab-controls">' +
+              '<div class="ed-lab-setting">' +
+                '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">터보 모드</span>' +
+                  '<span class="ed-lab-desc">속도 조절 패널에 ∞ 단계 추가</span>' +
+                '</span>' +
+                '<label class="ed-lab-switch" aria-label="속도 조절에 터보 모드 추가">' +
+                  '<input type="checkbox" id="ed-toggle-turbo-mode">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
+              '</div>' +
+              '<div class="ed-lab-setting ed-lab-action-setting">' +
+                '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">다량 이미지 업로더</span>' +
+                  '<span class="ed-lab-desc">여러 개의 모양이 포함된 .eo 파일을 생성합니다</span>' +
+                '</span>' +
+                '<button class="ed-lab-action-button" id="ed-open-eo-generator" type="button">열기</button>' +
+              '</div>' +
+            '</div>' +
             '<div class="ed-empty" id="ed-other-empty">' +
               '<div class="ed-empty-icon">&#x23F1;</div>' +
               '<p>초시계 또는 대답을 찾을 수 없습니다.</p>' +
@@ -376,6 +411,78 @@
         renderSnapshot(currentSnapshot);
       });
     }
+
+    bindLabControls();
+    applyLabTabVisibility();
+    renderLabControls();
+  }
+
+  function bindLabControls() {
+    if (!panelEl) return;
+
+    var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
+    if (turboToggle && turboToggle.dataset.bound !== 'true') {
+      turboToggle.dataset.bound = 'true';
+      turboToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          turboModeEnabled: turboToggle.checked
+        });
+      });
+    }
+
+    var eoGeneratorButton = panelEl.querySelector('#ed-open-eo-generator');
+    if (eoGeneratorButton && eoGeneratorButton.dataset.bound !== 'true') {
+      eoGeneratorButton.dataset.bound = 'true';
+      eoGeneratorButton.addEventListener('click', function () {
+        chrome.runtime.sendMessage({ type: 'OPEN_EO_GENERATOR' });
+      });
+    }
+  }
+
+  function renderLabControls() {
+    if (!panelEl) return;
+
+    var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
+    if (turboToggle) {
+      turboToggle.checked = !!extensionSettings.turboModeEnabled;
+    }
+  }
+
+  function isLabTabFeatureEnabled() {
+    return !!(extensionSettings.enabled && extensionSettings.labTabEnabled);
+  }
+
+  function applyLabTabVisibility() {
+    if (!panelEl) return;
+
+    var visible = isLabTabFeatureEnabled();
+    panelEl.querySelectorAll('.ed-lab-only').forEach(function (el) {
+      el.style.display = visible ? '' : 'none';
+    });
+
+    var labSection = panelEl.querySelector('#ed-section-others');
+    if (!visible && labSection && labSection.classList.contains('ed-section-active')) {
+      var variableTab = panelEl.querySelector('.ed-subtab[data-tab="variables"]');
+      if (variableTab) {
+        variableTab.click();
+      }
+    }
+  }
+
+  function saveSettingsFromPanel(partialSettings) {
+    var nextSettings = normalizeSettings(Object.assign({}, extensionSettings, partialSettings || {}));
+    applySettings(nextSettings);
+
+    chrome.runtime.sendMessage({
+      type: 'SET_SETTINGS',
+      settings: nextSettings
+    }, function (response) {
+      if (response && response.settings) {
+        extensionSettings = normalizeSettings(response.settings);
+        applyLabTabVisibility();
+        renderLabControls();
+      }
+    });
   }
 
   /* ═══════════════════════════════════════════
@@ -652,7 +759,7 @@
     return card;
   }
 
-  /* ─── 기타 렌더링: 초시계/대답 ─── */
+  /* ─── 실험실 렌더링: 초시계/대답 ─── */
 
   function renderOthers(others, searchTerm) {
     var listEl = panelEl.querySelector('#ed-other-list');
@@ -1227,20 +1334,53 @@
     var consoleDebuggingEnabled = typeof data.consoleDebuggingEnabled === 'boolean'
       ? data.consoleDebuggingEnabled
       : enabled;
+    var boostModeEnabled = typeof data.boostModeEnabled === 'boolean'
+      ? data.boostModeEnabled
+      : false;
+    var labTabEnabled = typeof data.labTabEnabled === 'boolean'
+      ? data.labTabEnabled
+      : false;
+    var turboModeEnabled = typeof data.turboModeEnabled === 'boolean'
+      ? data.turboModeEnabled
+      : false;
+
+    if (!debuggerTabEnabled) {
+      labTabEnabled = false;
+    }
+
+    if (!labTabEnabled) {
+      turboModeEnabled = false;
+    }
 
     if (!enabled) {
       debuggerTabEnabled = false;
       functionUsageEnabled = false;
       consoleDebuggingEnabled = false;
+      boostModeEnabled = false;
+      labTabEnabled = false;
+      turboModeEnabled = false;
     }
 
-    enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled || consoleDebuggingEnabled));
+    enabled = !!(
+      enabled &&
+      (
+        debuggerTabEnabled ||
+        functionUsageEnabled ||
+        consoleDebuggingEnabled ||
+        boostModeEnabled ||
+        labTabEnabled ||
+        turboModeEnabled
+      )
+    );
 
     return {
       enabled: enabled,
       debuggerTabEnabled: enabled && debuggerTabEnabled,
       functionUsageEnabled: enabled && functionUsageEnabled,
-      consoleDebuggingEnabled: enabled && consoleDebuggingEnabled
+      consoleDebuggingEnabled: enabled && consoleDebuggingEnabled,
+      boostModeEnabled: enabled && boostModeEnabled,
+      labTabEnabled: enabled && labTabEnabled,
+      turboModeEnabled: enabled && turboModeEnabled
     };
   }
 
@@ -1254,6 +1394,18 @@
 
   function isConsoleDebuggingFeatureEnabled() {
     return !!(extensionSettings.enabled && extensionSettings.consoleDebuggingEnabled);
+  }
+
+  function isBoostModeFeatureEnabled() {
+    return !!(extensionSettings.enabled && extensionSettings.boostModeEnabled);
+  }
+
+  function isTurboModeFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.labTabEnabled &&
+      extensionSettings.turboModeEnabled
+    );
   }
 
   function startFunctionUsageFeature() {
@@ -1291,12 +1443,47 @@
     sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: false });
   }
 
+  function mirrorBoostModeSetting(enabled) {
+    try {
+      window.localStorage.setItem(BOOST_MODE_STORAGE_KEY, enabled ? '1' : '0');
+    } catch (e) {}
+  }
+
+  function applyBoostModeFeature() {
+    var enabled = isBoostModeFeatureEnabled();
+    mirrorBoostModeSetting(enabled);
+    injectBoostModeScript();
+    setTimeout(function () {
+      sendToInject('SET_BOOST_MODE_ENABLED', { enabled: enabled });
+    }, 50);
+  }
+
+  function startTurboModeFeature() {
+    injectTurboModeScript();
+    setTimeout(function () {
+      if (!isTurboModeFeatureEnabled()) return;
+      sendToInject('SET_TURBO_MODE_ENABLED', { enabled: true });
+    }, 150);
+  }
+
+  function stopTurboModeFeature() {
+    sendToInject('SET_TURBO_MODE_ENABLED', { enabled: false });
+  }
+
   function applySettings(settings) {
     extensionSettings = normalizeSettings(settings);
+    settingsLoaded = true;
+    applyBoostModeFeature();
 
     if (!isEntryWorkspacePage() || !extensionSettings.enabled) {
       cleanup();
       return;
+    }
+
+    if (isTurboModeFeatureEnabled()) {
+      startTurboModeFeature();
+    } else {
+      stopTurboModeFeature();
     }
 
     if (isFunctionUsageFeatureEnabled()) {
@@ -1316,6 +1503,9 @@
     } else {
       cleanupDebuggerTabFeature();
     }
+
+    applyLabTabVisibility();
+    renderLabControls();
   }
 
   window.addEventListener('message', function (event) {
@@ -1333,6 +1523,7 @@
         break;
 
       case 'FUNCTION_USAGE_INSPECTOR_READY':
+        if (!settingsLoaded) return;
         if (isFunctionUsageFeatureEnabled()) {
           sendToInject('START_FUNCTION_USAGE_POLLING');
           sendToInject('REQUEST_FUNCTION_USAGE');
@@ -1340,8 +1531,21 @@
         break;
 
       case 'CONSOLE_DEBUGGING_READY':
+        if (!settingsLoaded) return;
         if (isConsoleDebuggingFeatureEnabled()) {
           sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: true });
+        }
+        break;
+
+      case 'BOOST_MODE_READY':
+        if (!settingsLoaded) return;
+        sendToInject('SET_BOOST_MODE_ENABLED', { enabled: isBoostModeFeatureEnabled() });
+        break;
+
+      case 'TURBO_MODE_READY':
+        if (!settingsLoaded) return;
+        if (isTurboModeFeatureEnabled()) {
+          sendToInject('SET_TURBO_MODE_ENABLED', { enabled: true });
         }
         break;
 
@@ -1415,7 +1619,10 @@
           enabled: false,
           debuggerTabEnabled: false,
           functionUsageEnabled: false,
-          consoleDebuggingEnabled: false
+          consoleDebuggingEnabled: false,
+          boostModeEnabled: false,
+          labTabEnabled: false,
+          turboModeEnabled: false
         });
         sendResponse({ success: true });
         break;
@@ -1524,6 +1731,7 @@
     cleanupDebuggerTabFeature();
     stopFunctionUsageFeature();
     stopConsoleDebuggingFeature();
+    stopTurboModeFeature();
   }
 
   /* ═══════════════════════════════════════════
@@ -1615,6 +1823,13 @@
     if (!extensionSettings.enabled) {
       cleanup();
       return;
+    }
+
+    applyBoostModeFeature();
+    if (isTurboModeFeatureEnabled()) {
+      startTurboModeFeature();
+    } else {
+      stopTurboModeFeature();
     }
 
     if (isFunctionUsageFeatureEnabled()) {

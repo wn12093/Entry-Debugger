@@ -17,7 +17,10 @@ var DEFAULT_SETTINGS = {
   enabled: true,
   debuggerTabEnabled: true,
   functionUsageEnabled: true,
-  consoleDebuggingEnabled: true
+  consoleDebuggingEnabled: true,
+  boostModeEnabled: false,
+  labTabEnabled: false,
+  turboModeEnabled: false
 };
 
 function normalizeSettings(data) {
@@ -33,20 +36,53 @@ function normalizeSettings(data) {
   var consoleDebuggingEnabled = typeof data.consoleDebuggingEnabled === 'boolean'
     ? data.consoleDebuggingEnabled
     : enabled;
+  var boostModeEnabled = typeof data.boostModeEnabled === 'boolean'
+    ? data.boostModeEnabled
+    : false;
+  var labTabEnabled = typeof data.labTabEnabled === 'boolean'
+    ? data.labTabEnabled
+    : false;
+  var turboModeEnabled = typeof data.turboModeEnabled === 'boolean'
+    ? data.turboModeEnabled
+    : false;
+
+  if (!debuggerTabEnabled) {
+    labTabEnabled = false;
+  }
+
+  if (!labTabEnabled) {
+    turboModeEnabled = false;
+  }
 
   if (!enabled) {
     debuggerTabEnabled = false;
     functionUsageEnabled = false;
     consoleDebuggingEnabled = false;
+    boostModeEnabled = false;
+    labTabEnabled = false;
+    turboModeEnabled = false;
   }
 
-  enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled || consoleDebuggingEnabled));
+  enabled = !!(
+    enabled &&
+    (
+      debuggerTabEnabled ||
+      functionUsageEnabled ||
+      consoleDebuggingEnabled ||
+      boostModeEnabled ||
+      labTabEnabled ||
+      turboModeEnabled
+    )
+  );
 
   return {
     enabled: enabled,
     debuggerTabEnabled: enabled && debuggerTabEnabled,
     functionUsageEnabled: enabled && functionUsageEnabled,
-    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled
+    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled,
+    boostModeEnabled: enabled && boostModeEnabled,
+    labTabEnabled: enabled && labTabEnabled,
+    turboModeEnabled: enabled && turboModeEnabled
   };
 }
 
@@ -109,7 +145,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         enabled: newState,
         debuggerTabEnabled: newState,
         functionUsageEnabled: newState,
-        consoleDebuggingEnabled: newState
+        consoleDebuggingEnabled: newState,
+        boostModeEnabled: newState,
+        labTabEnabled: newState,
+        turboModeEnabled: false
       }, function () {
         getSettings(function (settings) {
           broadcastSettings(settings);
@@ -140,6 +179,18 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     /* tabs 권한 없이도 동작하도록 URL 사전 체크 없이
        content script에 직접 PING_STATUS를 보냄.
        content script가 로딩되어 있으면 응답, 아니면 catch 처리. */
+    case 'OPEN_EO_GENERATOR':
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('eo-generator/index.html')
+      }, function (tab) {
+        sendResponse({
+          success: !chrome.runtime.lastError,
+          tabId: tab && tab.id,
+          error: chrome.runtime.lastError && chrome.runtime.lastError.message
+        });
+      });
+      return true;
+
     case 'GET_PAGE_STATUS':
       chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (tabs[0]) {

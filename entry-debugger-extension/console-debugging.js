@@ -16,7 +16,7 @@
   const RETRY_TIMEOUT = 30000;
 
   const LOG_OPTIONS = [
-    { label: '[LOG]', value: '' },
+    { label: '[LOG]', value: 'entryDebuggerLog' },
     { label: '[INFO]', value: 'ask ' },
     { label: '[WARN]', value: 'speak ' },
     { label: '[ERROR]', value: 'targetChecker fail simplebar-mask' },

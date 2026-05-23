@@ -505,6 +505,109 @@
   color: #8a8f98;
 }
 
+.ed-lab-controls {
+  margin-bottom: 8px;
+}
+
+.ed-lab-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid #e5e5e5;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.ed-lab-action-setting {
+  margin-top: 8px;
+}
+
+.ed-lab-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ed-lab-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  line-height: 1.3;
+}
+
+.ed-lab-desc {
+  margin-top: 3px;
+  font-size: 10px;
+  color: #8a8f98;
+  line-height: 1.3;
+}
+
+.ed-lab-switch {
+  position: relative;
+  width: 38px;
+  height: 21px;
+  flex: 0 0 auto;
+}
+
+.ed-lab-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ed-lab-slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  border-radius: 21px;
+  background: #c8c8c8;
+  transition: background 0.15s ease;
+}
+
+.ed-lab-slider::before {
+  content: '';
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease;
+}
+
+.ed-lab-switch input:checked + .ed-lab-slider {
+  background: #4f80ff;
+}
+
+.ed-lab-switch input:checked + .ed-lab-slider::before {
+  transform: translateX(17px);
+}
+
+.ed-lab-action-button {
+  height: 30px;
+  min-width: 54px;
+  padding: 0 12px;
+  border: 1px solid #c7d4e6;
+  border-radius: 5px;
+  background: #fff;
+  color: #2f5fa8;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 28px;
+  white-space: nowrap;
+}
+
+.ed-lab-action-button:hover {
+  border-color: #4f80ff;
+  color: #2f5fde;
+}
+
 .ed-scope-select {
   flex: 0 0 auto;
   max-width: 132px;

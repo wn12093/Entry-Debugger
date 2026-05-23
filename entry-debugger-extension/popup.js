@@ -1,7 +1,7 @@
 /**
  * popup.js - 팝업 UI 로직
  *
- * 전체 기능, 디버깅 탭, 함수 내부 사용 위치 바로가기, 콘솔 디버깅을 각각 제어하고,
+ * 전체 기능, 디버깅 탭, 함수 내부 사용 위치 바로가기, 콘솔 디버깅, 부스트 모드, 실험실 탭을 각각 제어하고,
  * 현재 Entry 페이지 연결 상태를 표시합니다.
  */
 'use strict';
@@ -10,13 +10,18 @@ var DEFAULT_SETTINGS = {
   enabled: true,
   debuggerTabEnabled: true,
   functionUsageEnabled: true,
-  consoleDebuggingEnabled: true
+  consoleDebuggingEnabled: true,
+  boostModeEnabled: false,
+  labTabEnabled: false,
+  turboModeEnabled: false
 };
 
 var allToggle = document.getElementById('toggle-all');
 var debuggerTabToggle = document.getElementById('toggle-debugger-tab');
 var functionUsageToggle = document.getElementById('toggle-function-usage');
 var consoleDebuggingToggle = document.getElementById('toggle-console-debugging');
+var boostModeToggle = document.getElementById('toggle-boost-mode');
+var labTabToggle = document.getElementById('toggle-lab-tab');
 var statusDot = document.getElementById('status-dot');
 var statusText = document.getElementById('status-text');
 var refreshHint = document.getElementById('refresh-hint');
@@ -46,7 +51,10 @@ allToggle.addEventListener('change', function () {
     enabled: enabled,
     debuggerTabEnabled: enabled,
     functionUsageEnabled: enabled,
-    consoleDebuggingEnabled: enabled
+    consoleDebuggingEnabled: enabled,
+    boostModeEnabled: enabled,
+    labTabEnabled: enabled,
+    turboModeEnabled: enabled ? currentSettings.turboModeEnabled : false
   });
 });
 
@@ -54,10 +62,15 @@ debuggerTabToggle.addEventListener('change', function () {
   if (isRendering) return;
 
   saveSettings({
-    enabled: debuggerTabToggle.checked || functionUsageToggle.checked || consoleDebuggingToggle.checked,
+    enabled: isAnyFeatureChecked(),
     debuggerTabEnabled: debuggerTabToggle.checked,
     functionUsageEnabled: functionUsageToggle.checked,
-    consoleDebuggingEnabled: consoleDebuggingToggle.checked
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked,
+    boostModeEnabled: boostModeToggle.checked,
+    labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.turboModeEnabled
+      : false
   });
 });
 
@@ -65,10 +78,15 @@ functionUsageToggle.addEventListener('change', function () {
   if (isRendering) return;
 
   saveSettings({
-    enabled: debuggerTabToggle.checked || functionUsageToggle.checked || consoleDebuggingToggle.checked,
+    enabled: isAnyFeatureChecked(),
     debuggerTabEnabled: debuggerTabToggle.checked,
     functionUsageEnabled: functionUsageToggle.checked,
-    consoleDebuggingEnabled: consoleDebuggingToggle.checked
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked,
+    boostModeEnabled: boostModeToggle.checked,
+    labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.turboModeEnabled
+      : false
   });
 });
 
@@ -76,10 +94,47 @@ consoleDebuggingToggle.addEventListener('change', function () {
   if (isRendering) return;
 
   saveSettings({
-    enabled: debuggerTabToggle.checked || functionUsageToggle.checked || consoleDebuggingToggle.checked,
+    enabled: isAnyFeatureChecked(),
     debuggerTabEnabled: debuggerTabToggle.checked,
     functionUsageEnabled: functionUsageToggle.checked,
-    consoleDebuggingEnabled: consoleDebuggingToggle.checked
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked,
+    boostModeEnabled: boostModeToggle.checked,
+    labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.turboModeEnabled
+      : false
+  });
+});
+
+boostModeToggle.addEventListener('change', function () {
+  if (isRendering) return;
+
+  saveSettings({
+    enabled: isAnyFeatureChecked(),
+    debuggerTabEnabled: debuggerTabToggle.checked,
+    functionUsageEnabled: functionUsageToggle.checked,
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked,
+    boostModeEnabled: boostModeToggle.checked,
+    labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.turboModeEnabled
+      : false
+  });
+});
+
+labTabToggle.addEventListener('change', function () {
+  if (isRendering) return;
+
+  saveSettings({
+    enabled: isAnyFeatureChecked(),
+    debuggerTabEnabled: debuggerTabToggle.checked,
+    functionUsageEnabled: functionUsageToggle.checked,
+    consoleDebuggingEnabled: consoleDebuggingToggle.checked,
+    boostModeEnabled: boostModeToggle.checked,
+    labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.turboModeEnabled
+      : false
   });
 });
 
@@ -107,14 +162,34 @@ function saveSettings(nextSettings) {
 
 function renderControls() {
   isRendering = true;
-  allToggle.checked = currentSettings.enabled &&
-    currentSettings.debuggerTabEnabled &&
-    currentSettings.functionUsageEnabled &&
-    currentSettings.consoleDebuggingEnabled;
+  var enabledCount = getEnabledFeatureCount();
+  allToggle.checked = currentSettings.enabled && enabledCount === 5;
+  allToggle.indeterminate = currentSettings.enabled && enabledCount > 0 && enabledCount < 5;
   debuggerTabToggle.checked = currentSettings.debuggerTabEnabled;
   functionUsageToggle.checked = currentSettings.functionUsageEnabled;
   consoleDebuggingToggle.checked = currentSettings.consoleDebuggingEnabled;
+  boostModeToggle.checked = currentSettings.boostModeEnabled;
+  labTabToggle.checked = currentSettings.labTabEnabled;
+  labTabToggle.disabled = !currentSettings.debuggerTabEnabled;
   isRendering = false;
+}
+
+function isAnyFeatureChecked() {
+  return debuggerTabToggle.checked ||
+    functionUsageToggle.checked ||
+    consoleDebuggingToggle.checked ||
+    boostModeToggle.checked ||
+    labTabToggle.checked;
+}
+
+function getEnabledFeatureCount() {
+  var count = 0;
+  if (currentSettings.debuggerTabEnabled) count++;
+  if (currentSettings.functionUsageEnabled) count++;
+  if (currentSettings.consoleDebuggingEnabled) count++;
+  if (currentSettings.boostModeEnabled) count++;
+  if (currentSettings.labTabEnabled) count++;
+  return count;
 }
 
 function normalizeSettings(settings) {
@@ -130,20 +205,53 @@ function normalizeSettings(settings) {
   var consoleDebuggingEnabled = typeof settings.consoleDebuggingEnabled === 'boolean'
     ? settings.consoleDebuggingEnabled
     : enabled;
+  var boostModeEnabled = typeof settings.boostModeEnabled === 'boolean'
+    ? settings.boostModeEnabled
+    : false;
+  var labTabEnabled = typeof settings.labTabEnabled === 'boolean'
+    ? settings.labTabEnabled
+    : false;
+  var turboModeEnabled = typeof settings.turboModeEnabled === 'boolean'
+    ? settings.turboModeEnabled
+    : false;
 
-  enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled || consoleDebuggingEnabled));
+  if (!debuggerTabEnabled) {
+    labTabEnabled = false;
+  }
+
+  if (!labTabEnabled) {
+    turboModeEnabled = false;
+  }
+
+  enabled = !!(
+    enabled &&
+    (
+      debuggerTabEnabled ||
+      functionUsageEnabled ||
+      consoleDebuggingEnabled ||
+      boostModeEnabled ||
+      labTabEnabled ||
+      turboModeEnabled
+    )
+  );
 
   if (!enabled) {
     debuggerTabEnabled = false;
     functionUsageEnabled = false;
     consoleDebuggingEnabled = false;
+    boostModeEnabled = false;
+    labTabEnabled = false;
+    turboModeEnabled = false;
   }
 
   return {
     enabled: enabled,
     debuggerTabEnabled: enabled && debuggerTabEnabled,
     functionUsageEnabled: enabled && functionUsageEnabled,
-    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled
+    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled,
+    boostModeEnabled: enabled && boostModeEnabled,
+    labTabEnabled: enabled && labTabEnabled,
+    turboModeEnabled: enabled && turboModeEnabled
   };
 }
 
@@ -180,8 +288,14 @@ function getEnabledFeatureText() {
   if (currentSettings.consoleDebuggingEnabled) {
     enabledFeatures.push('콘솔 디버깅');
   }
+  if (currentSettings.boostModeEnabled) {
+    enabledFeatures.push('부스트 모드');
+  }
+  if (currentSettings.labTabEnabled) {
+    enabledFeatures.push('실험실 탭');
+  }
 
-  if (enabledFeatures.length === 3) {
+  if (enabledFeatures.length === 5) {
     return '모든 기능 켜짐';
   }
   if (enabledFeatures.length > 0) {
