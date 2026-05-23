@@ -42,7 +42,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       var newState = message.enabled;
       chrome.storage.local.set({ enabled: newState }, function () {
         // 열려 있는 모든 Entry 워크스페이스 탭에 알림
-        chrome.tabs.query({ url: 'https://playentry.org/ws/*' }, function (tabs) {
+        chrome.tabs.query({ url: [
+          'https://playentry.org/ws/*',
+          'http://localhost/ws/*',
+          'http://127.0.0.1/ws/*'
+        ] }, function (tabs) {
           tabs.forEach(function (tab) {
             chrome.tabs.sendMessage(tab.id, {
               type: newState ? 'ENABLE_DEBUGGER' : 'DISABLE_DEBUGGER'

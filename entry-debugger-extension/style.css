@@ -78,6 +78,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   padding: 7px 12px 6px;
   background: #fff;
   border-bottom: 1px solid #e5e5e5;
@@ -88,10 +89,13 @@
 .ed-toolbar-tabs {
   display: flex;
   gap: 3px;
+  flex: 1;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .ed-subtab {
-  padding: 4px 14px;
+  padding: 4px 8px;
   border: 1px solid #d9d9d9;
   background: #fafafa;
   color: #777;
@@ -120,6 +124,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 /* ── 상태 배지 ── */
@@ -822,7 +827,184 @@
 
 
 /* ═══════════════════════════════════════════════════
-   13. 플래시 애니메이션 (값 적용 피드백)
+   13. 함수 내부 사용 위치 (.ed-fu-*)
+   ═══════════════════════════════════════════════════ */
+
+.ed-function-usage-summary {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background: #fff;
+  color: #777;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.ed-fu-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 5px;
+  margin-bottom: 7px;
+  overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ed-fu-card:hover {
+  border-color: #c8c8c8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ed-fu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+  background: #fbfbfc;
+}
+
+.ed-fu-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ed-fu-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ed-fu-kind-variable {
+  background: #eaf4ff;
+  color: #2f73d9;
+}
+
+.ed-fu-kind-list {
+  background: #eafaf1;
+  color: #229954;
+}
+
+.ed-fu-kind-message {
+  background: #fff3df;
+  color: #d98200;
+}
+
+.ed-fu-kind-function {
+  background: #f2eafb;
+  color: #7d3c98;
+}
+
+.ed-fu-name {
+  color: #333;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-fu-count {
+  color: #999;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.ed-fu-refs {
+  padding: 4px 10px 8px;
+}
+
+.ed-fu-ref {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.ed-fu-ref + .ed-fu-ref {
+  border-top: 1px solid #f0f0f0;
+}
+
+.ed-fu-ref-main {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ed-fu-owner,
+.ed-fu-block {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-fu-owner {
+  color: #333;
+  font-size: 11px;
+  font-weight: 700;
+  max-width: 100px;
+}
+
+.ed-fu-arrow {
+  color: #bbb;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ed-fu-block {
+  color: #555;
+  font-size: 11px;
+}
+
+.ed-fu-ref-sub {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #aaa;
+  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
+  font-size: 9px;
+}
+
+.ed-btn-fu-open {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 9px;
+  border: none;
+  border-radius: 4px;
+  background: #4f80ff;
+  color: #fff;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+}
+
+.ed-btn-fu-open:hover {
+  background: #3b6de0;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   14. 플래시 애니메이션 (값 적용 피드백)
    ═══════════════════════════════════════════════════ */
 
 .ed-flash {
@@ -836,7 +1018,7 @@
 
 
 /* ═══════════════════════════════════════════════════
-   14. 토스트 알림
+   15. 토스트 알림
    ═══════════════════════════════════════════════════ */
 
 .ed-toast {

@@ -34,9 +34,11 @@
   const TAB_CLASS      = 'propertyTabElement';
   const DEBUGGING_TAB  = 'propertyTabdebugging';
   const PANEL_ID       = 'ed-debugger-panel';
+  const FUNCTION_USAGE_SECTION = 'function-usages';
 
   let debuggerInjected = false;
   let currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], ready: false };
+  let currentFunctionUsage = { ready: false, items: [], totals: { targets: 0, refs: 0, functions: 0 } };
   let panelEl = null;          // 디버거 패널 (#ed-debugger-panel)
   let debuggingTabEl = null;   // 디버깅 탭 버튼 (.propertyTabdebugging)
   let isDebuggerActive = false;
@@ -47,11 +49,16 @@
      ═══════════════════════════════════════════ */
 
   function injectMainWorldScript() {
-    if (document.getElementById('entry-debugger-inject')) return;
+    injectPageScript('entry-debugger-inject', 'inject.js');
+    injectPageScript('entry-debugger-function-usage', 'function-usage-inspector.js');
+  }
+
+  function injectPageScript(id, src) {
+    if (document.getElementById(id)) return;
 
     var script = document.createElement('script');
-    script.id = 'entry-debugger-inject';
-    script.src = chrome.runtime.getURL('inject.js');
+    script.id = id;
+    script.src = chrome.runtime.getURL(src);
     script.onload = function () {
       script.remove();
     };
@@ -204,6 +211,8 @@
     // 폴링 시작
     sendToInject('START_POLLING');
     sendToInject('REQUEST_SNAPSHOT');
+    sendToInject('START_FUNCTION_USAGE_POLLING');
+    sendToInject('REQUEST_FUNCTION_USAGE');
   }
 
   /**
@@ -246,6 +255,7 @@
             '<button class="ed-subtab" data-tab="lists">리스트</button>' +
             '<button class="ed-subtab" data-tab="messages">신호</button>' +
             '<button class="ed-subtab" data-tab="scenes">장면</button>' +
+            '<button class="ed-subtab" data-tab="' + FUNCTION_USAGE_SECTION + '">함수 내부</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
             '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
@@ -297,6 +307,16 @@
             '<div class="ed-items" id="ed-scene-list"></div>' +
           '</div>' +
 
+          /* 함수 내부 사용 섹션 */
+          '<div class="ed-section" id="ed-section-' + FUNCTION_USAGE_SECTION + '">' +
+            '<div class="ed-empty" id="ed-fu-empty">' +
+              '<div class="ed-empty-icon">&#x1F9E9;</div>' +
+              '<p>함수 안에서 사용된 변수, 리스트, 신호, 함수가 없습니다.</p>' +
+            '</div>' +
+            '<div class="ed-function-usage-summary" id="ed-fu-summary"></div>' +
+            '<div class="ed-items" id="ed-fu-list"></div>' +
+          '</div>' +
+
         '</div>' +
 
       '</div>'
@@ -320,6 +340,10 @@
         });
         var target = panelEl.querySelector('#ed-section-' + tabName);
         if (target) target.classList.add('ed-section-active');
+
+        if (tabName === FUNCTION_USAGE_SECTION) {
+          sendToInject('REQUEST_FUNCTION_USAGE');
+        }
       });
     });
 
@@ -328,6 +352,7 @@
     if (refreshBtn) {
       refreshBtn.addEventListener('click', function () {
         sendToInject('REQUEST_SNAPSHOT');
+        sendToInject('REQUEST_FUNCTION_USAGE');
       });
     }
 
@@ -365,6 +390,7 @@
     renderLists(snapshot.lists, searchTerm);
     renderMessages(snapshot.messages || [], searchTerm);
     renderScenes(snapshot.scenes || [], searchTerm);
+    renderFunctionUsage(currentFunctionUsage, searchTerm);
   }
 
   /* ─── 변수 렌더링 ─── */
@@ -879,6 +905,112 @@
     return card;
   }
 
+  /* ─── 함수 내부 사용 위치 렌더링 ─── */
+
+  function renderFunctionUsage(snapshot, searchTerm) {
+    if (!panelEl) return;
+
+    var listEl = panelEl.querySelector('#ed-fu-list');
+    var emptyEl = panelEl.querySelector('#ed-fu-empty');
+    var summaryEl = panelEl.querySelector('#ed-fu-summary');
+    if (!listEl || !emptyEl || !summaryEl) return;
+
+    var items = snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
+    var totals = snapshot && snapshot.totals ? snapshot.totals : { targets: 0, refs: 0, functions: 0 };
+
+    summaryEl.textContent = snapshot && snapshot.ready
+      ? '함수 ' + totals.functions + '개 검사 · 대상 ' + totals.targets + '개 · 사용 위치 ' + totals.refs + '개'
+      : 'Entry 함수 정보를 기다리는 중입니다.';
+
+    var filtered = items.filter(function (item) {
+      if (!searchTerm) return true;
+      if (item.targetName.toLowerCase().indexOf(searchTerm) !== -1) return true;
+      if (getUsageTypeLabel(item.targetType).toLowerCase().indexOf(searchTerm) !== -1) return true;
+      return item.refs.some(function (ref) {
+        return ref.ownerFunctionName.toLowerCase().indexOf(searchTerm) !== -1 ||
+               ref.blockLabel.toLowerCase().indexOf(searchTerm) !== -1 ||
+               ref.blockType.toLowerCase().indexOf(searchTerm) !== -1;
+      });
+    });
+
+    if (!snapshot || !snapshot.ready || filtered.length === 0) {
+      emptyEl.style.display = '';
+      listEl.innerHTML = '';
+      return;
+    }
+
+    emptyEl.style.display = 'none';
+    var fragment = document.createDocumentFragment();
+    filtered.forEach(function (item) {
+      fragment.appendChild(createFunctionUsageCard(item));
+    });
+
+    listEl.innerHTML = '';
+    listEl.appendChild(fragment);
+  }
+
+  function createFunctionUsageCard(item) {
+    var card = document.createElement('div');
+    card.className = 'ed-fu-card';
+    card.dataset.id = item.targetType + ':' + item.targetId;
+
+    var header = document.createElement('div');
+    header.className = 'ed-fu-header';
+    header.innerHTML =
+      '<div class="ed-fu-title">' +
+        '<span class="ed-fu-kind ed-fu-kind-' + escapeAttr(item.targetType) + '">' +
+          getUsageTypeLabel(item.targetType) +
+        '</span>' +
+        '<span class="ed-fu-name" title="' + escapeAttr(item.targetName) + '">' +
+          escapeHTML(item.targetName) +
+        '</span>' +
+      '</div>' +
+      '<span class="ed-fu-count">' + item.refs.length + '곳</span>';
+
+    var refs = document.createElement('div');
+    refs.className = 'ed-fu-refs';
+    item.refs.forEach(function (ref) {
+      refs.appendChild(createFunctionUsageRef(item, ref));
+    });
+
+    card.appendChild(header);
+    card.appendChild(refs);
+    return card;
+  }
+
+  function createFunctionUsageRef(item, ref) {
+    var row = document.createElement('div');
+    row.className = 'ed-fu-ref';
+    row.innerHTML =
+      '<div class="ed-fu-ref-main">' +
+        '<span class="ed-fu-owner" title="' + escapeAttr(ref.ownerFunctionName) + '">' +
+          escapeHTML(ref.ownerFunctionName) +
+        '</span>' +
+        '<span class="ed-fu-arrow">&#x203A;</span>' +
+        '<span class="ed-fu-block" title="' + escapeAttr(ref.blockType) + '">' +
+          escapeHTML(ref.blockLabel) +
+        '</span>' +
+      '</div>' +
+      '<div class="ed-fu-ref-sub">' +
+        '<span>블록 #' + ref.blockIndex + '</span>' +
+        '<span>' + escapeHTML(ref.blockType) + '</span>' +
+      '</div>' +
+      '<button class="ed-btn-fu-open" title="함수 편집 화면에서 이 블록 보기">보기</button>';
+
+    var openBtn = row.querySelector('.ed-btn-fu-open');
+    openBtn.addEventListener('click', function () {
+      sendToInject('OPEN_FUNCTION_USAGE', {
+        targetType: item.targetType,
+        targetId: item.targetId,
+        ownerFunctionId: ref.ownerFunctionId,
+        blockId: ref.blockId
+      }, 'fu-open-' + Date.now());
+      flashElement(row, 'ed-flash');
+    });
+
+    return row;
+  }
+
   /* ═══════════════════════════════════════════
      7. postMessage 통신
      ═══════════════════════════════════════════ */
@@ -906,10 +1038,25 @@
         }
         break;
 
+      case 'FUNCTION_USAGE_INSPECTOR_READY':
+        if (isDebuggerActive) {
+          sendToInject('START_FUNCTION_USAGE_POLLING');
+          sendToInject('REQUEST_FUNCTION_USAGE');
+        }
+        break;
+
       case 'SNAPSHOT':
         currentSnapshot = msg.payload;
         if (isDebuggerActive) {
           renderSnapshot(currentSnapshot);
+        }
+        break;
+
+      case 'FUNCTION_USAGE_SNAPSHOT':
+        currentFunctionUsage = msg.payload || { ready: false, items: [], totals: { targets: 0, refs: 0, functions: 0 } };
+        if (isDebuggerActive) {
+          var searchInput = panelEl && panelEl.querySelector('#ed-search');
+          renderFunctionUsage(currentFunctionUsage, (searchInput ? searchInput.value : '').toLowerCase());
         }
         break;
 
@@ -932,6 +1079,14 @@
           showToast('장면 전환 완료', 'info');
         } else if (msg.payload) {
           showToast('장면 전환 오류: ' + msg.payload.error, 'error');
+        }
+        break;
+
+      case 'FUNCTION_USAGE_OPEN_RESULT':
+        if (msg.payload && msg.payload.success) {
+          showToast('함수 블록으로 이동했습니다', 'info');
+        } else if (msg.payload) {
+          showToast('함수 이동 오류: ' + msg.payload.error, 'error');
         }
         break;
 
@@ -1011,7 +1166,16 @@
   }
 
   function isEntryWorkspacePage() {
-    return /^https:\/\/playentry\.org\/ws\//.test(location.href);
+    try {
+      var url = new URL(location.href);
+      var isAllowedHost =
+        url.hostname === 'playentry.org' ||
+        url.hostname === 'localhost' ||
+        url.hostname === '127.0.0.1';
+      return isAllowedHost && url.pathname.indexOf('/ws/') === 0;
+    } catch (e) {
+      return false;
+    }
   }
 
   function reinitialize() {
@@ -1021,6 +1185,7 @@
 
   function cleanup() {
     sendToInject('STOP_POLLING');
+    sendToInject('STOP_FUNCTION_USAGE_POLLING');
 
     // 디버깅 탭 버튼 제거
     if (debuggingTabEl) {
@@ -1037,6 +1202,7 @@
     isDebuggerActive = false;
     expandedListIds.clear();
     currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], ready: false };
+    currentFunctionUsage = { ready: false, items: [], totals: { targets: 0, refs: 0, functions: 0 } };
   }
 
   /* ═══════════════════════════════════════════
@@ -1066,6 +1232,16 @@
     return str.length > DISPLAY_TRUNCATE_LIMIT
       ? str.slice(0, DISPLAY_TRUNCATE_LIMIT) + '…'
       : str;
+  }
+
+  function getUsageTypeLabel(type) {
+    switch (type) {
+      case 'variable': return '변수';
+      case 'list': return '리스트';
+      case 'message': return '신호';
+      case 'function': return '함수';
+      default: return '요소';
+    }
   }
 
   function flashElement(el, className) {
