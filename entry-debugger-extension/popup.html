@@ -50,18 +50,45 @@
       margin-top: 2px;
     }
 
-    /* ── Toggle Section ── */
-    .popup-toggle-section {
+    /* ── Controls ── */
+    .popup-controls {
+      padding: 12px 16px 10px;
+    }
+
+    .toggle-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px;
+      gap: 12px;
+      padding: 9px 0;
     }
 
-    .popup-toggle-label {
+    .toggle-row-master {
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .toggle-text {
+      min-width: 0;
+    }
+
+    .toggle-title {
+      display: block;
       font-size: 13px;
       font-weight: 600;
       color: #333;
+    }
+
+    .toggle-desc {
+      display: block;
+      margin-top: 3px;
+      color: #9aa5ad;
+      font-size: 10px;
+      line-height: 1.3;
+    }
+
+    .toggle-subgroup {
+      padding-top: 5px;
     }
 
     /* ── Toggle Switch ── */
@@ -235,13 +262,42 @@
     </div>
   </div>
 
-  <!-- 토글 스위치 -->
-  <div class="popup-toggle-section">
-    <span class="popup-toggle-label">디버거 활성화</span>
-    <label class="toggle-switch">
-      <input type="checkbox" id="toggle-enabled">
-      <span class="toggle-slider"></span>
-    </label>
+  <!-- 기능 토글 -->
+  <div class="popup-controls">
+    <div class="toggle-row toggle-row-master">
+      <span class="toggle-text">
+        <span class="toggle-title">모든 기능</span>
+        <span class="toggle-desc">디버깅 탭과 함수 바로가기를 함께 제어</span>
+      </span>
+      <label class="toggle-switch" aria-label="모든 기능 켜기 또는 끄기">
+        <input type="checkbox" id="toggle-all">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="toggle-subgroup">
+      <div class="toggle-row">
+        <span class="toggle-text">
+          <span class="toggle-title">디버깅 탭</span>
+          <span class="toggle-desc">속성 패널에 디버깅 탭 표시</span>
+        </span>
+        <label class="toggle-switch" aria-label="디버깅 탭 켜기 또는 끄기">
+          <input type="checkbox" id="toggle-debugger-tab">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-text">
+          <span class="toggle-title">함수 사용 바로가기</span>
+          <span class="toggle-desc">속성 탭에 함수 내부 사용 위치 표시</span>
+        </span>
+        <label class="toggle-switch" aria-label="함수 사용 바로가기 켜기 또는 끄기">
+          <input type="checkbox" id="toggle-function-usage">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
   </div>
 
   <!-- 상태 표시 -->
@@ -254,7 +310,7 @@
 
   <!-- 새로고침 안내 -->
   <div class="popup-hint" id="refresh-hint">
-    * 이미 열린 페이지에는 새로고침 후 적용됩니다.
+    * 열린 Entry 페이지에 바로 적용됩니다. 반영이 늦으면 새로고침하세요.
   </div>
 
   <!-- 도구 패밀리 링크 (원본: ent2/components/ToolsFamilyLink.tsx) -->

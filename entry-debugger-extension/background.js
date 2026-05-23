@@ -6,11 +6,70 @@
  * 메시지를 중계합니다.
  *
  * 메시지 프로토콜:
- *   GET_STATE       → { enabled: boolean }
- *   SET_STATE       → 상태 저장 + 콘텐츠 스크립트 브로드캐스트
+ *   GET_STATE       → 전체 기능 설정 조회
+ *   SET_STATE       → 구버전 전체 ON/OFF 호환 메시지
+ *   SET_SETTINGS    → 기능별 설정 저장 + 콘텐츠 스크립트 브로드캐스트
  *   GET_PAGE_STATUS → 현재 탭의 Entry 페이지 여부 조회
  */
 'use strict';
+
+var DEFAULT_SETTINGS = {
+  enabled: true,
+  debuggerTabEnabled: true,
+  functionUsageEnabled: true
+};
+
+function normalizeSettings(data) {
+  data = data || {};
+
+  var enabled = data.enabled !== false;
+  var debuggerTabEnabled = typeof data.debuggerTabEnabled === 'boolean'
+    ? data.debuggerTabEnabled
+    : enabled;
+  var functionUsageEnabled = typeof data.functionUsageEnabled === 'boolean'
+    ? data.functionUsageEnabled
+    : enabled;
+
+  if (!enabled) {
+    debuggerTabEnabled = false;
+    functionUsageEnabled = false;
+  }
+
+  enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled));
+
+  return {
+    enabled: enabled,
+    debuggerTabEnabled: enabled && debuggerTabEnabled,
+    functionUsageEnabled: enabled && functionUsageEnabled
+  };
+}
+
+function getSettings(callback) {
+  chrome.storage.local.get(DEFAULT_SETTINGS, function (data) {
+    callback(normalizeSettings(data));
+  });
+}
+
+function saveSettings(nextSettings, callback) {
+  chrome.storage.local.set(normalizeSettings(nextSettings), callback);
+}
+
+function broadcastSettings(settings) {
+  chrome.tabs.query({ url: [
+    'https://playentry.org/ws/*',
+    'http://localhost/ws/*',
+    'http://127.0.0.1/ws/*'
+  ] }, function (tabs) {
+    tabs.forEach(function (tab) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'APPLY_SETTINGS',
+        settings: settings
+      }).catch(function () {
+        // 콘텐츠 스크립트 미로딩 탭 무시
+      });
+    });
+  });
+}
 
 /* ═══════════════════════════════════════════
    1. 설치 시 기본값 설정
@@ -18,7 +77,7 @@
 
 chrome.runtime.onInstalled.addListener(function (details) {
   if (details.reason === 'install') {
-    chrome.storage.local.set({ enabled: true });
+    chrome.storage.local.set(DEFAULT_SETTINGS);
   }
 });
 
@@ -32,29 +91,40 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 
     /* ── 현재 토글 상태 조회 ── */
     case 'GET_STATE':
-      chrome.storage.local.get({ enabled: true }, function (data) {
-        sendResponse({ enabled: data.enabled });
+      getSettings(function (settings) {
+        sendResponse(settings);
       });
       return true; // 비동기 sendResponse
 
-    /* ── 토글 상태 변경 + 브로드캐스트 ── */
+    /* ── 구버전 전체 토글 상태 변경 + 브로드캐스트 ── */
     case 'SET_STATE':
-      var newState = message.enabled;
-      chrome.storage.local.set({ enabled: newState }, function () {
-        // 열려 있는 모든 Entry 워크스페이스 탭에 알림
-        chrome.tabs.query({ url: [
-          'https://playentry.org/ws/*',
-          'http://localhost/ws/*',
-          'http://127.0.0.1/ws/*'
-        ] }, function (tabs) {
-          tabs.forEach(function (tab) {
-            chrome.tabs.sendMessage(tab.id, {
-              type: newState ? 'ENABLE_DEBUGGER' : 'DISABLE_DEBUGGER'
-            }).catch(function () {
-              // 콘텐츠 스크립트 미로딩 탭 무시
-            });
-          });
+      var newState = message.enabled !== false;
+      saveSettings({
+        enabled: newState,
+        debuggerTabEnabled: newState,
+        functionUsageEnabled: newState
+      }, function () {
+        getSettings(function (settings) {
+          broadcastSettings(settings);
+          sendResponse({ success: true, settings: settings });
         });
+      });
+      return true; // 비동기 sendResponse
+
+    /* ── 기능별 설정 변경 + 브로드캐스트 ── */
+    case 'SET_SETTINGS':
+      saveSettings(message.settings || DEFAULT_SETTINGS, function () {
+        getSettings(function (settings) {
+          broadcastSettings(settings);
+          sendResponse({ success: true, settings: settings });
+        });
+      });
+      return true; // 비동기 sendResponse
+
+    /* ── 현재 설정만 열린 탭에 다시 적용 ── */
+    case 'BROADCAST_SETTINGS':
+      getSettings(function (settings) {
+        broadcastSettings(settings);
         sendResponse({ success: true });
       });
       return true; // 비동기 sendResponse

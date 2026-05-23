@@ -16,18 +16,18 @@
 /* ═══════════════════════════════════════════════════
    0. 디버깅 탭 버튼 (.propertyTabdebugging)
       - .propertyTab 마지막에 추가되는 확장 전용 탭
-      - 데이터 URI SVG 아이콘 (Entry 서버에 파일 추가 불가)
-      - 비활성: 회색 벌레 아이콘, 활성: 파랑 벌레 아이콘
+      - Entry 기본 propertyTab 이미지처럼 50x76 배경을 25x38로 축소
+      - 비활성: 회색 아이콘, 활성: 파란 탭 배경 + 흰 아이콘
    ═══════════════════════════════════════════════════ */
 
 .propertyTabdebugging {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2l1.88 1.88M16 2l-1.88 1.88'/%3E%3Cpath d='M9 7.13v-1a3.003 3.003 0 116 0v1'/%3E%3Cpath d='M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 014-4h4a4 4 0 014 4v3c0 3.3-2.7 6-6 6z'/%3E%3Cpath d='M12 20v-9'/%3E%3Cpath d='M6.53 9C4.6 8.8 3 7.1 3 5'/%3E%3Cpath d='M6 13H2'/%3E%3Cpath d='M3 21c0-2.1 1.7-3.9 3.8-4'/%3E%3Cpath d='M17.47 9C19.4 8.8 21 7.1 21 5'/%3E%3Cpath d='M18 13h4'/%3E%3Cpath d='M21 21c0-2.1-1.7-3.9-3.8-4'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2250%22%20height%3D%2276%22%20viewBox%3D%220%200%2050%2076%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%238fa3b1%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M17%2017l5%205M33%2017l-5%205%22%2F%3E%3Cpath%20d%3D%22M19%2030v-3a6%206%200%200112%200v3%22%2F%3E%3Cpath%20d%3D%22M25%2061c-8.8%200-16-7.2-16-16v-8c0-8.3%206.7-15%2015-15h2c8.3%200%2015%206.7%2015%2015v8c0%208.8-7.2%2016-16%2016z%22%2F%3E%3Cpath%20d%3D%22M25%2061V34%22%2F%3E%3Cpath%20d%3D%22M9%2036H4M41%2036h5M9%2045H4M41%2045h5%22%2F%3E%3Cpath%20d%3D%22M12%2029C8%2028%205%2025%205%2021M38%2029c4-1%207-4%207-8M12%2053c-4%201-7%204-7%208M38%2053c4%201%207%204%207%208%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
   background-repeat: no-repeat;
-  background-position: center center;
+  background-position: 0 0;
 }
 
 .propertyTabdebugging.selected {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%234f80ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2l1.88 1.88M16 2l-1.88 1.88'/%3E%3Cpath d='M9 7.13v-1a3.003 3.003 0 116 0v1'/%3E%3Cpath d='M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 014-4h4a4 4 0 014 4v3c0 3.3-2.7 6-6 6z'/%3E%3Cpath d='M12 20v-9'/%3E%3Cpath d='M6.53 9C4.6 8.8 3 7.1 3 5'/%3E%3Cpath d='M6 13H2'/%3E%3Cpath d='M3 21c0-2.1 1.7-3.9 3.8-4'/%3E%3Cpath d='M17.47 9C19.4 8.8 21 7.1 21 5'/%3E%3Cpath d='M18 13h4'/%3E%3Cpath d='M21 21c0-2.1-1.7-3.9-3.8-4'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2250%22%20height%3D%2276%22%20viewBox%3D%220%200%2050%2076%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%2250%22%20height%3D%2276%22%20rx%3D%226%22%20fill%3D%22%234f80ff%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M17%2017l5%205M33%2017l-5%205%22%2F%3E%3Cpath%20d%3D%22M19%2030v-3a6%206%200%200112%200v3%22%2F%3E%3Cpath%20d%3D%22M25%2061c-8.8%200-16-7.2-16-16v-8c0-8.3%206.7-15%2015-15h2c8.3%200%2015%206.7%2015%2015v8c0%208.8-7.2%2016-16%2016z%22%2F%3E%3Cpath%20d%3D%22M25%2061V34%22%2F%3E%3Cpath%20d%3D%22M9%2036H4M41%2036h5M9%2045H4M41%2045h5%22%2F%3E%3Cpath%20d%3D%22M12%2029C8%2028%205%2025%205%2021M38%2029c4-1%207-4%207-8M12%2053c-4%201-7%204-7%208M38%2053c4%201%207%204%207%208%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
 }
 
 
@@ -118,6 +118,14 @@
   color: #fff;
   border-color: #4f80ff;
   font-weight: 600;
+}
+
+.ed-subtab-separator {
+  width: 1px;
+  height: 18px;
+  margin: 2px 2px;
+  background: #d9d9d9;
+  flex: 0 0 auto;
 }
 
 .ed-toolbar-right {
@@ -481,6 +489,74 @@
   color: #e67e22;
 }
 
+.ed-badge-system {
+  background: #f1f3f5;
+  color: #6b7785;
+}
+
+.ed-badge-visible {
+  background: #eafaf1;
+  color: #27ae60;
+}
+
+.ed-badge-hidden {
+  background: #f3f4f6;
+  color: #8a8f98;
+}
+
+.ed-other-card .ed-var-name {
+  max-width: 118px;
+}
+
+.ed-other-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ed-other-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 7px;
+}
+
+.ed-btn-system-visible {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fafafa;
+  color: #555;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.ed-btn-system-visible:hover {
+  background: #f0f0f0;
+  border-color: #c8c8c8;
+  color: #333;
+}
+
+.ed-btn-system-visible-on {
+  border-color: #4f80ff;
+  background: #f2f6ff;
+  color: #4f80ff;
+}
+
+.ed-btn-system-visible-on:hover {
+  background: #e8f0fe;
+  border-color: #4f80ff;
+}
+
 
 /* ═══════════════════════════════════════════════════
    10. 리스트 카드 (.ed-list-card)
@@ -827,179 +903,67 @@
 
 
 /* ═══════════════════════════════════════════════════
-   13. 함수 내부 사용 위치 (.ed-fu-*)
+   13. 네이티브 속성 패널: 함수 내부 사용 위치
    ═══════════════════════════════════════════════════ */
 
-.ed-function-usage-summary {
-  margin: 0 0 8px;
-  padding: 6px 8px;
-  border: 1px solid #e5e5e5;
-  border-radius: 4px;
-  background: #fff;
-  color: #777;
-  font-size: 10px;
-  line-height: 1.4;
+.ed-native-function-usage {
+  margin: 8px 0 0;
+  font-family: 'NanumGothic', 'Nanum Gothic', 'Malgun Gothic', sans-serif;
 }
 
-.ed-fu-card {
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 5px;
-  margin-bottom: 7px;
-  overflow: hidden;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+.ed-native-function-usage-title {
+  margin-bottom: 8px;
 }
 
-.ed-fu-card:hover {
-  border-color: #c8c8c8;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+.ed-native-function-usage-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.ed-fu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 1px solid #eee;
-  background: #fbfbfc;
-}
-
-.ed-fu-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.ed-fu-kind {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 9px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.ed-fu-kind-variable {
-  background: #eaf4ff;
-  color: #2f73d9;
-}
-
-.ed-fu-kind-list {
-  background: #eafaf1;
-  color: #229954;
-}
-
-.ed-fu-kind-message {
-  background: #fff3df;
-  color: #d98200;
-}
-
-.ed-fu-kind-function {
-  background: #f2eafb;
-  color: #7d3c98;
-}
-
-.ed-fu-name {
-  color: #333;
-  font-size: 12px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ed-fu-count {
-  color: #999;
-  font-size: 10px;
-  flex-shrink: 0;
-}
-
-.ed-fu-refs {
-  padding: 4px 10px 8px;
-}
-
-.ed-fu-ref {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  column-gap: 8px;
-  row-gap: 2px;
-  align-items: center;
-  padding: 6px 0;
-}
-
-.ed-fu-ref + .ed-fu-ref {
-  border-top: 1px solid #f0f0f0;
-}
-
-.ed-fu-ref-main {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.ed-fu-owner,
-.ed-fu-block {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ed-fu-owner {
-  color: #333;
-  font-size: 11px;
-  font-weight: 700;
-  max-width: 100px;
-}
-
-.ed-fu-arrow {
-  color: #bbb;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.ed-fu-block {
-  color: #555;
-  font-size: 11px;
-}
-
-.ed-fu-ref-sub {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  color: #aaa;
-  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
-  font-size: 9px;
-}
-
-.ed-btn-fu-open {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 9px;
+.entryVariableSplitterWorkspace .list .ed-native-function-usage .obj_list .ed-native-function-usage-item {
+  position: relative;
+  height: 24px;
+  margin: 0 0 6px;
+  padding: 0;
   border: none;
+  box-sizing: content-box;
+  cursor: pointer;
+  list-style: none;
+}
+
+.entryVariableSplitterWorkspace .list .ed-native-function-usage .ed-native-function-usage-thumb {
+  position: static;
+  display: inline-block;
+  overflow: hidden;
+  width: 22px;
+  height: 24px;
+  margin-right: 8px;
+  border: 1px solid #aac5d5;
   border-radius: 4px;
-  background: #4f80ff;
-  color: #fff;
-  font-family: inherit;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20fill%3D%22%23728997%22%20fill-rule%3D%22nonzero%22%20d%3D%22M12.48%205.211c1.121-.059%201.859.276%202.17.89.252.496.162%201.133-.17%201.41-.48.404-1.145.162-1.278-.337l-.014-.064-.062.052c-.038.035-.081.08-.13.138l-.078.096c-.188.24-.401.59-.652%201.061l-.038.071%201.208.001c.416%200%20.76.311.81.714l.006.102c0%20.45-.365.816-.816.816l-2.015-.001-.445.904c-.594%201.184-.983%201.856-1.327%202.247l-.064.07c-1.016%201.067-1.951%201.489-3.67%201.245-.536-.182-.791-.572-.69-.989.092-.373.454-.644.833-.563l.05.007c.34.012.922-.672%201.681-2.206.035-.07.071-.145.11-.228l.227-.486h-.912a.816.816%200%200%201-.809-.714L6.4%209.345c0-.45.365-.816.815-.816h1.693l.068-.13c1.013-1.924%202.03-3.017%203.327-3.172z%22%2F%3E%3C%2Fsvg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: auto 80%;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+.entryVariableSplitterWorkspace .list .ed-native-function-usage .obj_list .ed-native-function-usage-text {
+  display: inline-block;
+  overflow: hidden;
+  width: calc(100% - 34px);
+  height: 24px;
+  color: #4d616e;
   font-size: 10px;
   font-weight: 600;
-  cursor: pointer;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  vertical-align: top;
   white-space: nowrap;
-  transition: background 0.12s ease;
-}
-
-.ed-btn-fu-open:hover {
-  background: #3b6de0;
+  box-sizing: border-box;
 }
 
 

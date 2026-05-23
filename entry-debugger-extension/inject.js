@@ -16,6 +16,10 @@
 
   const CHANNEL = '__ENTRY_DEBUGGER__';
   const POLL_INTERVAL = 200; // ms
+  const SYSTEM_VARIABLE_SHOW_X = 0;
+  const SYSTEM_VARIABLE_SHOW_Y = 0;
+  const SYSTEM_VARIABLE_HIDE_X = 500;
+  const SYSTEM_VARIABLE_HIDE_Y = 0;
   let pollingTimer = null;
   let isPolling = false;
 
@@ -37,18 +41,122 @@
   /**
    * 변수 배열을 직렬화 가능한 형태로 변환
    */
+  function getEntryVariableType(v) {
+    return v && (v.type || v.variableType || v.variableType_ || '');
+  }
+
+  function isSystemVariable(v) {
+    var type = getEntryVariableType(v);
+    return type === 'timer' || type === 'answer';
+  }
+
+  function readVariableName(v, fallbackName) {
+    if (!v) return fallbackName || '(이름 없음)';
+    if (typeof v.getName === 'function') {
+      return v.getName() || fallbackName || '(이름 없음)';
+    }
+    return v.name_ || v.name || fallbackName || '(이름 없음)';
+  }
+
+  function readVariableValue(v) {
+    if (!v) return '';
+    return typeof v.getValue === 'function' ? v.getValue() : v.value_;
+  }
+
+  function readVariableVisible(v) {
+    if (!v) return false;
+    if (typeof v.isVisible === 'function') {
+      var visible = v.isVisible();
+      if (typeof visible === 'boolean') return visible;
+    }
+    return v.visible_ !== false;
+  }
+
+  function readVariableCoordinate(v, getterName, propName) {
+    if (!v) return 0;
+    if (typeof v[getterName] === 'function') {
+      return v[getterName]();
+    }
+    return v[propName] || 0;
+  }
+
+  function writeVariableCoordinate(v, setterName, privatePropName, propName, value) {
+    if (!v) return;
+    if (typeof v[setterName] === 'function') {
+      v[setterName](value);
+      return;
+    }
+    v[privatePropName] = value;
+    v[propName] = value;
+  }
+
+  function writeVariableVisible(v, visible) {
+    if (!v) return;
+    if (typeof v.setVisible === 'function') {
+      v.setVisible(visible);
+    } else {
+      v.visible_ = visible;
+      v.visible = visible;
+    }
+  }
+
+  function readSystemVariableVisible(v) {
+    var x = Number(readVariableCoordinate(v, 'getX', 'x_'));
+    var y = Number(readVariableCoordinate(v, 'getY', 'y_'));
+    if (x === SYSTEM_VARIABLE_HIDE_X && y === SYSTEM_VARIABLE_HIDE_Y) {
+      return false;
+    }
+    return readVariableVisible(v);
+  }
+
   function serializeVariables(vars) {
     if (!Array.isArray(vars)) return [];
-    return vars.map(function (v) {
-      return {
+    return vars.reduce(function (result, v) {
+      if (isSystemVariable(v)) return result;
+      result.push({
         id: v.id_ || v.id || '',
-        name: v.name_ || v.name || '(이름 없음)',
-        value: typeof v.getValue === 'function' ? v.getValue() : v.value_,
+        name: readVariableName(v),
+        value: readVariableValue(v),
         type: 'variable',
-        visible: v.visible_ !== false,
+        visible: readVariableVisible(v),
         object: v.object_ || null
-      };
-    });
+      });
+      return result;
+    }, []);
+  }
+
+  function getSystemVariable(kind) {
+    var entry = safeGetEntry();
+    if (!entry) return null;
+    if (kind === 'timer') {
+      return entry.engine && entry.engine.projectTimer ? entry.engine.projectTimer : null;
+    }
+    if (kind === 'answer') {
+      return entry.container && entry.container.inputValue ? entry.container.inputValue : null;
+    }
+    return null;
+  }
+
+  function serializeSystemVariable(kind, fallbackName) {
+    var variable = getSystemVariable(kind);
+    if (!variable) return null;
+    return {
+      id: kind,
+      kind: kind,
+      name: readVariableName(variable, fallbackName),
+      value: readVariableValue(variable),
+      type: kind,
+      visible: readSystemVariableVisible(variable),
+      x: readVariableCoordinate(variable, 'getX', 'x_'),
+      y: readVariableCoordinate(variable, 'getY', 'y_')
+    };
+  }
+
+  function serializeSystemVariables() {
+    return [
+      serializeSystemVariable('timer', '초시계'),
+      serializeSystemVariable('answer', '대답')
+    ].filter(Boolean);
   }
 
   /**
@@ -113,13 +221,14 @@
   function buildSnapshot() {
     var container = safeGetContainer();
     if (!container) {
-      return { variables: [], lists: [], messages: [], ready: false };
+      return { variables: [], lists: [], messages: [], scenes: [], others: [], ready: false };
     }
     return {
       variables: serializeVariables(container.variables_ || []),
       lists: serializeLists(container.lists_ || []),
       messages: serializeMessages(container.messages_ || []),
       scenes: serializeScenes(),
+      others: serializeSystemVariables(),
       ready: true
     };
   }
@@ -301,6 +410,81 @@
     }
   }
 
+  function normalizeEntryValue(newValue) {
+    var parsed = Number(newValue);
+    return isNaN(parsed) ? String(newValue) : parsed;
+  }
+
+  function refreshVariableView(target) {
+    if (target && typeof target.updateView === 'function') {
+      target.updateView();
+    }
+  }
+
+  function setSystemVariableValue(kind, newValue) {
+    var target = getSystemVariable(kind);
+    var entry = safeGetEntry();
+    if (!target) {
+      return { success: false, error: '해당 기본 변수를 찾을 수 없습니다: ' + kind };
+    }
+
+    try {
+      var finalValue = normalizeEntryValue(newValue);
+
+      if (kind === 'timer') {
+        finalValue = Number(newValue);
+        if (isNaN(finalValue)) {
+          return { success: false, error: '초시계 값은 숫자로 입력해야 합니다.' };
+        }
+
+        if (entry && entry.engine && typeof entry.engine.updateProjectTimer === 'function') {
+          entry.engine.updateProjectTimer(finalValue);
+        } else if (typeof target.setValue === 'function') {
+          target.setValue(finalValue);
+        } else {
+          target.value_ = finalValue;
+        }
+      } else if (kind === 'answer') {
+        if (typeof target.setValue === 'function') {
+          target.setValue(finalValue);
+        } else {
+          target.value_ = finalValue;
+        }
+      } else {
+        return { success: false, error: '지원하지 않는 기본 변수입니다: ' + kind };
+      }
+
+      refreshVariableView(target);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  function setSystemVariableVisible(kind, visible) {
+    var target = getSystemVariable(kind);
+    if (!target) {
+      return { success: false, error: '해당 기본 변수를 찾을 수 없습니다: ' + kind };
+    }
+
+    try {
+      var shouldShow = !!visible;
+      var nextX = shouldShow ? SYSTEM_VARIABLE_SHOW_X : SYSTEM_VARIABLE_HIDE_X;
+      var nextY = shouldShow ? SYSTEM_VARIABLE_SHOW_Y : SYSTEM_VARIABLE_HIDE_Y;
+
+      // Entry 기본 변수는 visible 플래그만으로 안정적으로 숨겨지지 않는 경우가 있어
+      // 화면 밖 좌표로 이동시키고, 다시 보일 때는 원점으로 돌린다.
+      writeVariableVisible(target, true);
+      writeVariableCoordinate(target, 'setX', 'x_', 'x', nextX);
+      writeVariableCoordinate(target, 'setY', 'y_', 'y', nextY);
+
+      refreshVariableView(target);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   function setListItem(listId, index, newValue) {
     var container = safeGetContainer();
     if (!container || !Array.isArray(container.lists_)) {
@@ -436,6 +620,30 @@
           requestId: msg.requestId
         }, window.location.origin);
         // 즉시 스냅샷 갱신
+        prevSnapshotJSON = '';
+        pollAndBroadcast();
+        break;
+
+      case 'SET_SYSTEM_VARIABLE':
+        result = setSystemVariableValue(msg.payload.kind, msg.payload.value);
+        window.postMessage({
+          channel: CHANNEL,
+          type: 'SET_RESULT',
+          payload: result,
+          requestId: msg.requestId
+        }, window.location.origin);
+        prevSnapshotJSON = '';
+        pollAndBroadcast();
+        break;
+
+      case 'SET_SYSTEM_VISIBLE':
+        result = setSystemVariableVisible(msg.payload.kind, msg.payload.visible);
+        window.postMessage({
+          channel: CHANNEL,
+          type: 'SET_RESULT',
+          payload: result,
+          requestId: msg.requestId
+        }, window.location.origin);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;

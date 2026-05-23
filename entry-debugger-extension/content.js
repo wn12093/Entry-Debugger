@@ -34,22 +34,31 @@
   const TAB_CLASS      = 'propertyTabElement';
   const DEBUGGING_TAB  = 'propertyTabdebugging';
   const PANEL_ID       = 'ed-debugger-panel';
-  const FUNCTION_USAGE_SECTION = 'function-usages';
+
+  const DEFAULT_SETTINGS = {
+    enabled: true,
+    debuggerTabEnabled: true,
+    functionUsageEnabled: true
+  };
 
   let debuggerInjected = false;
-  let currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], ready: false };
-  let currentFunctionUsage = { ready: false, items: [], totals: { targets: 0, refs: 0, functions: 0 } };
+  let currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], others: [], ready: false };
   let panelEl = null;          // 디버거 패널 (#ed-debugger-panel)
   let debuggingTabEl = null;   // 디버깅 탭 버튼 (.propertyTabdebugging)
   let isDebuggerActive = false;
+  let extensionSettings = DEFAULT_SETTINGS;
+  let functionUsageStartTimer = null;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
 
   /* ═══════════════════════════════════════════
      1. Main World 스크립트 주입
      ═══════════════════════════════════════════ */
 
-  function injectMainWorldScript() {
+  function injectDebuggerScript() {
     injectPageScript('entry-debugger-inject', 'inject.js');
+  }
+
+  function injectFunctionUsageScript() {
     injectPageScript('entry-debugger-function-usage', 'function-usage-inspector.js');
   }
 
@@ -142,6 +151,8 @@
     debuggingTabEl = document.createElement('div');
     debuggingTabEl.className = TAB_CLASS + ' ' + DEBUGGING_TAB;
     debuggingTabEl.textContent = '디버깅';  // font-size:0 이므로 보이지 않지만 접근성용
+    debuggingTabEl.setAttribute('title', '디버깅');
+    debuggingTabEl.setAttribute('aria-label', '디버깅');
     propertyTab.appendChild(debuggingTabEl);
   }
 
@@ -163,6 +174,9 @@
    * 파괴→재생성되어도 리스너가 유지됩니다.
    */
   function setupTabDelegation(propertyTab) {
+    if (propertyTab.dataset.entryDebuggerDelegation === 'true') return;
+    propertyTab.dataset.entryDebuggerDelegation = 'true';
+
     propertyTab.addEventListener('click', function (e) {
       var clickedTab = e.target.closest('.' + TAB_CLASS);
       if (!clickedTab) return;
@@ -189,6 +203,7 @@
    *       패널을 표시하므로 Entry의 탭 전환 로직과 충돌하지 않습니다.
    */
   function activateDebugger() {
+    if (!isDebuggerTabFeatureEnabled()) return;
     if (!panelEl) return;
 
     // 1. 모든 탭에서 selected 제거
@@ -211,8 +226,6 @@
     // 폴링 시작
     sendToInject('START_POLLING');
     sendToInject('REQUEST_SNAPSHOT');
-    sendToInject('START_FUNCTION_USAGE_POLLING');
-    sendToInject('REQUEST_FUNCTION_USAGE');
   }
 
   /**
@@ -255,7 +268,8 @@
             '<button class="ed-subtab" data-tab="lists">리스트</button>' +
             '<button class="ed-subtab" data-tab="messages">신호</button>' +
             '<button class="ed-subtab" data-tab="scenes">장면</button>' +
-            '<button class="ed-subtab" data-tab="' + FUNCTION_USAGE_SECTION + '">함수 내부</button>' +
+            '<span class="ed-subtab-separator" aria-hidden="true"></span>' +
+            '<button class="ed-subtab" data-tab="others">기타</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
             '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
@@ -307,14 +321,13 @@
             '<div class="ed-items" id="ed-scene-list"></div>' +
           '</div>' +
 
-          /* 함수 내부 사용 섹션 */
-          '<div class="ed-section" id="ed-section-' + FUNCTION_USAGE_SECTION + '">' +
-            '<div class="ed-empty" id="ed-fu-empty">' +
-              '<div class="ed-empty-icon">&#x1F9E9;</div>' +
-              '<p>함수 안에서 사용된 변수, 리스트, 신호, 함수가 없습니다.</p>' +
+          /* 기타 섹션 */
+          '<div class="ed-section" id="ed-section-others">' +
+            '<div class="ed-empty" id="ed-other-empty">' +
+              '<div class="ed-empty-icon">&#x23F1;</div>' +
+              '<p>초시계 또는 대답을 찾을 수 없습니다.</p>' +
             '</div>' +
-            '<div class="ed-function-usage-summary" id="ed-fu-summary"></div>' +
-            '<div class="ed-items" id="ed-fu-list"></div>' +
+            '<div class="ed-items" id="ed-other-list"></div>' +
           '</div>' +
 
         '</div>' +
@@ -340,10 +353,6 @@
         });
         var target = panelEl.querySelector('#ed-section-' + tabName);
         if (target) target.classList.add('ed-section-active');
-
-        if (tabName === FUNCTION_USAGE_SECTION) {
-          sendToInject('REQUEST_FUNCTION_USAGE');
-        }
       });
     });
 
@@ -352,7 +361,6 @@
     if (refreshBtn) {
       refreshBtn.addEventListener('click', function () {
         sendToInject('REQUEST_SNAPSHOT');
-        sendToInject('REQUEST_FUNCTION_USAGE');
       });
     }
 
@@ -390,7 +398,7 @@
     renderLists(snapshot.lists, searchTerm);
     renderMessages(snapshot.messages || [], searchTerm);
     renderScenes(snapshot.scenes || [], searchTerm);
-    renderFunctionUsage(currentFunctionUsage, searchTerm);
+    renderOthers(snapshot.others || [], searchTerm);
   }
 
   /* ─── 변수 렌더링 ─── */
@@ -512,6 +520,167 @@
     });
 
     return card;
+  }
+
+  /* ─── 기타 렌더링: 초시계/대답 ─── */
+
+  function renderOthers(others, searchTerm) {
+    var listEl = panelEl.querySelector('#ed-other-list');
+    var emptyEl = panelEl.querySelector('#ed-other-empty');
+    if (!listEl || !emptyEl) return;
+
+    var filtered = others.filter(function (item) {
+      var value = item.value === undefined || item.value === null ? '' : String(item.value);
+      if (!searchTerm) return true;
+      return item.name.toLowerCase().indexOf(searchTerm) !== -1 ||
+             value.toLowerCase().indexOf(searchTerm) !== -1;
+    });
+
+    if (filtered.length === 0) {
+      emptyEl.style.display = '';
+      listEl.innerHTML = '';
+      return;
+    }
+
+    emptyEl.style.display = 'none';
+
+    var existingMap = {};
+    listEl.querySelectorAll('.ed-other-card').forEach(function (card) {
+      existingMap[card.dataset.kind] = card;
+    });
+
+    var fragment = document.createDocumentFragment();
+
+    filtered.forEach(function (item) {
+      var existing = existingMap[item.kind];
+      if (existing) {
+        updateOtherCard(existing, item);
+        fragment.appendChild(existing);
+      } else {
+        fragment.appendChild(createOtherCard(item));
+      }
+    });
+
+    listEl.innerHTML = '';
+    listEl.appendChild(fragment);
+  }
+
+  function updateOtherCard(card, item) {
+    card.dataset.kind = item.kind;
+    card.dataset.visible = item.visible ? 'true' : 'false';
+
+    var nameEl = card.querySelector('.ed-var-name');
+    if (nameEl) {
+      nameEl.textContent = item.name;
+      nameEl.title = item.name;
+    }
+
+    var visibleBadge = card.querySelector('.ed-other-visible');
+    if (visibleBadge) {
+      visibleBadge.textContent = item.visible ? '표시 중' : '숨김';
+      visibleBadge.className = 'ed-badge ed-other-visible ' +
+        (item.visible ? 'ed-badge-visible' : 'ed-badge-hidden');
+    }
+
+    var visibleBtn = card.querySelector('.ed-btn-system-visible');
+    if (visibleBtn) {
+      applyOtherVisibilityButtonState(visibleBtn, item.visible);
+    }
+
+    if (!card.classList.contains('ed-editing')) {
+      var fullVal = item.value === undefined || item.value === null ? '' : String(item.value);
+      var input = card.querySelector('.ed-var-input');
+      var displayBtn = card.querySelector('.ed-var-display');
+      if (input) input.value = fullVal;
+      if (displayBtn) {
+        displayBtn.textContent = truncateForDisplay(fullVal);
+        displayBtn.title = fullVal;
+      }
+    }
+  }
+
+  function createOtherCard(item) {
+    var card = document.createElement('div');
+    card.className = 'ed-var-card ed-other-card';
+    card.dataset.id = item.id || item.kind;
+    card.dataset.kind = item.kind;
+    card.dataset.visible = item.visible ? 'true' : 'false';
+
+    var fullVal = item.value === undefined || item.value === null ? '' : String(item.value);
+    var attrName = escapeAttr(item.name);
+    var attrFullVal = escapeAttr(fullVal);
+    var eName = escapeHTML(item.name);
+    var eDisplayVal = escapeHTML(truncateForDisplay(fullVal));
+    var visibleClass = item.visible ? 'ed-badge-visible' : 'ed-badge-hidden';
+    var visibleText = item.visible ? '표시 중' : '숨김';
+
+    card.innerHTML =
+      '<div class="ed-var-row-top">' +
+        '<span class="ed-var-name" title="' + attrName + '">' + eName + '</span>' +
+        '<span class="ed-other-badges">' +
+          '<span class="ed-badge ed-badge-system">기본</span>' +
+          '<span class="ed-badge ed-other-visible ' + visibleClass + '">' + visibleText + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<button class="ed-var-display" title="' + attrFullVal + '">' + eDisplayVal + '</button>' +
+      '<div class="ed-var-row-bottom">' +
+        '<input type="text" class="ed-var-input" value="' + attrFullVal + '" />' +
+        '<button class="ed-btn-apply" title="값 적용">&#x2714;</button>' +
+      '</div>' +
+      '<div class="ed-other-actions">' +
+        '<button class="ed-btn-system-visible" type="button"></button>' +
+      '</div>';
+
+    var displayBtn = card.querySelector('.ed-var-display');
+    var applyBtn = card.querySelector('.ed-btn-apply');
+    var input = card.querySelector('.ed-var-input');
+    var visibleBtn = card.querySelector('.ed-btn-system-visible');
+
+    function enterEdit() {
+      card.classList.add('ed-editing');
+      input.focus();
+      var len = input.value.length;
+      try { input.setSelectionRange(len, len); } catch (e) {}
+    }
+
+    function exitEdit() {
+      card.classList.remove('ed-editing');
+    }
+
+    applyOtherVisibilityButtonState(visibleBtn, item.visible);
+
+    displayBtn.addEventListener('click', enterEdit);
+
+    applyBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    applyBtn.addEventListener('click', function () {
+      sendToInject('SET_SYSTEM_VARIABLE', { kind: card.dataset.kind, value: input.value });
+      flashElement(card, 'ed-flash');
+      exitEdit();
+    });
+
+    visibleBtn.addEventListener('click', function () {
+      var nextVisible = card.dataset.visible !== 'true';
+      sendToInject('SET_SYSTEM_VISIBLE', { kind: card.dataset.kind, visible: nextVisible });
+      flashElement(card, 'ed-flash');
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') applyBtn.click();
+      else if (e.key === 'Escape') exitEdit();
+    });
+
+    input.addEventListener('blur', function () {
+      exitEdit();
+    });
+
+    return card;
+  }
+
+  function applyOtherVisibilityButtonState(button, visible) {
+    if (!button) return;
+    button.textContent = visible ? '숨기기' : '보이기';
+    button.title = visible ? '화면에서 숨기기' : '화면에 보이기';
+    button.classList.toggle('ed-btn-system-visible-on', !!visible);
   }
 
   /* ─── 리스트 렌더링 (DOM diffing + 펼침 상태 유지) ─── */
@@ -905,112 +1074,6 @@
     return card;
   }
 
-  /* ─── 함수 내부 사용 위치 렌더링 ─── */
-
-  function renderFunctionUsage(snapshot, searchTerm) {
-    if (!panelEl) return;
-
-    var listEl = panelEl.querySelector('#ed-fu-list');
-    var emptyEl = panelEl.querySelector('#ed-fu-empty');
-    var summaryEl = panelEl.querySelector('#ed-fu-summary');
-    if (!listEl || !emptyEl || !summaryEl) return;
-
-    var items = snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
-    var totals = snapshot && snapshot.totals ? snapshot.totals : { targets: 0, refs: 0, functions: 0 };
-
-    summaryEl.textContent = snapshot && snapshot.ready
-      ? '함수 ' + totals.functions + '개 검사 · 대상 ' + totals.targets + '개 · 사용 위치 ' + totals.refs + '개'
-      : 'Entry 함수 정보를 기다리는 중입니다.';
-
-    var filtered = items.filter(function (item) {
-      if (!searchTerm) return true;
-      if (item.targetName.toLowerCase().indexOf(searchTerm) !== -1) return true;
-      if (getUsageTypeLabel(item.targetType).toLowerCase().indexOf(searchTerm) !== -1) return true;
-      return item.refs.some(function (ref) {
-        return ref.ownerFunctionName.toLowerCase().indexOf(searchTerm) !== -1 ||
-               ref.blockLabel.toLowerCase().indexOf(searchTerm) !== -1 ||
-               ref.blockType.toLowerCase().indexOf(searchTerm) !== -1;
-      });
-    });
-
-    if (!snapshot || !snapshot.ready || filtered.length === 0) {
-      emptyEl.style.display = '';
-      listEl.innerHTML = '';
-      return;
-    }
-
-    emptyEl.style.display = 'none';
-    var fragment = document.createDocumentFragment();
-    filtered.forEach(function (item) {
-      fragment.appendChild(createFunctionUsageCard(item));
-    });
-
-    listEl.innerHTML = '';
-    listEl.appendChild(fragment);
-  }
-
-  function createFunctionUsageCard(item) {
-    var card = document.createElement('div');
-    card.className = 'ed-fu-card';
-    card.dataset.id = item.targetType + ':' + item.targetId;
-
-    var header = document.createElement('div');
-    header.className = 'ed-fu-header';
-    header.innerHTML =
-      '<div class="ed-fu-title">' +
-        '<span class="ed-fu-kind ed-fu-kind-' + escapeAttr(item.targetType) + '">' +
-          getUsageTypeLabel(item.targetType) +
-        '</span>' +
-        '<span class="ed-fu-name" title="' + escapeAttr(item.targetName) + '">' +
-          escapeHTML(item.targetName) +
-        '</span>' +
-      '</div>' +
-      '<span class="ed-fu-count">' + item.refs.length + '곳</span>';
-
-    var refs = document.createElement('div');
-    refs.className = 'ed-fu-refs';
-    item.refs.forEach(function (ref) {
-      refs.appendChild(createFunctionUsageRef(item, ref));
-    });
-
-    card.appendChild(header);
-    card.appendChild(refs);
-    return card;
-  }
-
-  function createFunctionUsageRef(item, ref) {
-    var row = document.createElement('div');
-    row.className = 'ed-fu-ref';
-    row.innerHTML =
-      '<div class="ed-fu-ref-main">' +
-        '<span class="ed-fu-owner" title="' + escapeAttr(ref.ownerFunctionName) + '">' +
-          escapeHTML(ref.ownerFunctionName) +
-        '</span>' +
-        '<span class="ed-fu-arrow">&#x203A;</span>' +
-        '<span class="ed-fu-block" title="' + escapeAttr(ref.blockType) + '">' +
-          escapeHTML(ref.blockLabel) +
-        '</span>' +
-      '</div>' +
-      '<div class="ed-fu-ref-sub">' +
-        '<span>블록 #' + ref.blockIndex + '</span>' +
-        '<span>' + escapeHTML(ref.blockType) + '</span>' +
-      '</div>' +
-      '<button class="ed-btn-fu-open" title="함수 편집 화면에서 이 블록 보기">보기</button>';
-
-    var openBtn = row.querySelector('.ed-btn-fu-open');
-    openBtn.addEventListener('click', function () {
-      sendToInject('OPEN_FUNCTION_USAGE', {
-        targetType: item.targetType,
-        targetId: item.targetId,
-        ownerFunctionId: ref.ownerFunctionId,
-        blockId: ref.blockId
-      }, 'fu-open-' + Date.now());
-      flashElement(row, 'ed-flash');
-    });
-
-    return row;
-  }
-
   /* ═══════════════════════════════════════════
      7. postMessage 통신
      ═══════════════════════════════════════════ */
@@ -1022,6 +1085,83 @@
       payload: payload || null,
       requestId: requestId || null
     }, window.location.origin);
+  }
+
+  function normalizeSettings(data) {
+    data = data || {};
+
+    var enabled = data.enabled !== false;
+    var debuggerTabEnabled = typeof data.debuggerTabEnabled === 'boolean'
+      ? data.debuggerTabEnabled
+      : enabled;
+    var functionUsageEnabled = typeof data.functionUsageEnabled === 'boolean'
+      ? data.functionUsageEnabled
+      : enabled;
+
+    if (!enabled) {
+      debuggerTabEnabled = false;
+      functionUsageEnabled = false;
+    }
+
+    enabled = !!(enabled && (debuggerTabEnabled || functionUsageEnabled));
+
+    return {
+      enabled: enabled,
+      debuggerTabEnabled: enabled && debuggerTabEnabled,
+      functionUsageEnabled: enabled && functionUsageEnabled
+    };
+  }
+
+  function isDebuggerTabFeatureEnabled() {
+    return !!(extensionSettings.enabled && extensionSettings.debuggerTabEnabled);
+  }
+
+  function isFunctionUsageFeatureEnabled() {
+    return !!(extensionSettings.enabled && extensionSettings.functionUsageEnabled);
+  }
+
+  function startFunctionUsageFeature() {
+    injectFunctionUsageScript();
+
+    if (functionUsageStartTimer) {
+      clearTimeout(functionUsageStartTimer);
+    }
+
+    functionUsageStartTimer = setTimeout(function () {
+      functionUsageStartTimer = null;
+      if (!isFunctionUsageFeatureEnabled()) return;
+      sendToInject('START_FUNCTION_USAGE_POLLING');
+      sendToInject('REQUEST_FUNCTION_USAGE');
+    }, 250);
+  }
+
+  function stopFunctionUsageFeature() {
+    if (functionUsageStartTimer) {
+      clearTimeout(functionUsageStartTimer);
+      functionUsageStartTimer = null;
+    }
+    sendToInject('STOP_FUNCTION_USAGE_POLLING');
+  }
+
+  function applySettings(settings) {
+    extensionSettings = normalizeSettings(settings);
+
+    if (!isEntryWorkspacePage() || !extensionSettings.enabled) {
+      cleanup();
+      return;
+    }
+
+    if (isFunctionUsageFeatureEnabled()) {
+      startFunctionUsageFeature();
+    } else {
+      stopFunctionUsageFeature();
+    }
+
+    if (isDebuggerTabFeatureEnabled()) {
+      initDebuggerTabFeature();
+    } else {
+      cleanupDebuggerTabFeature();
+    }
   }
 
   window.addEventListener('message', function (event) {
@@ -1039,7 +1179,7 @@
         break;
 
       case 'FUNCTION_USAGE_INSPECTOR_READY':
-        if (isDebuggerActive) {
+        if (isFunctionUsageFeatureEnabled()) {
           sendToInject('START_FUNCTION_USAGE_POLLING');
           sendToInject('REQUEST_FUNCTION_USAGE');
         }
@@ -1049,14 +1189,6 @@
         currentSnapshot = msg.payload;
         if (isDebuggerActive) {
           renderSnapshot(currentSnapshot);
-        }
-        break;
-
-      case 'FUNCTION_USAGE_SNAPSHOT':
-        currentFunctionUsage = msg.payload || { ready: false, items: [], totals: { targets: 0, refs: 0, functions: 0 } };
-        if (isDebuggerActive) {
-          var searchInput = panelEl && panelEl.querySelector('#ed-search');
-          renderFunctionUsage(currentFunctionUsage, (searchInput ? searchInput.value : '').toLowerCase());
         }
         break;
 
@@ -1083,6 +1215,10 @@
         break;
 
       case 'FUNCTION_USAGE_OPEN_RESULT':
+        if (!isDebuggerActive) {
+          return;
+        }
+
         if (msg.payload && msg.payload.success) {
           showToast('함수 블록으로 이동했습니다', 'info');
         } else if (msg.payload) {
@@ -1104,20 +1240,30 @@
 
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     switch (message.type) {
+      case 'APPLY_SETTINGS':
+        applySettings(message.settings || DEFAULT_SETTINGS);
+        sendResponse({ success: true });
+        break;
+
       case 'ENABLE_DEBUGGER':
-        init();
+        applySettings(DEFAULT_SETTINGS);
         sendResponse({ success: true });
         break;
 
       case 'DISABLE_DEBUGGER':
-        cleanup();
+        applySettings({
+          enabled: false,
+          debuggerTabEnabled: false,
+          functionUsageEnabled: false
+        });
         sendResponse({ success: true });
         break;
 
       case 'PING_STATUS':
         sendResponse({
           onEntryPage: isEntryWorkspacePage(),
-          injected: debuggerInjected
+          injected: debuggerInjected,
+          settings: extensionSettings
         });
         break;
     }
@@ -1151,12 +1297,13 @@
         currentURL = newURL;
         if (isEntryWorkspacePage()) {
           // SPA 이동 시에도 활성화 상태 확인
-          chrome.storage.local.get({ enabled: true }, function (data) {
-            if (data.enabled) {
+          chrome.storage.local.get(DEFAULT_SETTINGS, function (data) {
+            extensionSettings = normalizeSettings(data);
+            if (extensionSettings.enabled) {
               reinitialize();
-            } else {
-              cleanup();
+              return;
             }
+            cleanup();
           });
         } else {
           cleanup();
@@ -1183,9 +1330,17 @@
     init();
   }
 
-  function cleanup() {
+  function cleanupDebuggerTabFeature() {
     sendToInject('STOP_POLLING');
-    sendToInject('STOP_FUNCTION_USAGE_POLLING');
+
+    if (isDebuggerActive) {
+      var fallbackTab = document.querySelector(
+        '.propertyTab .' + TAB_CLASS + ':not(.' + DEBUGGING_TAB + ')'
+      );
+      if (fallbackTab && typeof fallbackTab.click === 'function') {
+        fallbackTab.click();
+      }
+    }
 
     // 디버깅 탭 버튼 제거
     if (debuggingTabEl) {
@@ -1201,8 +1356,12 @@
     debuggerInjected = false;
     isDebuggerActive = false;
     expandedListIds.clear();
-    currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], ready: false };
-    currentFunctionUsage = { ready: false, items: [], totals: { targets: 0, refs: 0, functions: 0 } };
+    currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], others: [], ready: false };
+  }
+
+  function cleanup() {
+    cleanupDebuggerTabFeature();
+    stopFunctionUsageFeature();
   }
 
   /* ═══════════════════════════════════════════
@@ -1232,16 +1391,6 @@
     return str.length > DISPLAY_TRUNCATE_LIMIT
       ? str.slice(0, DISPLAY_TRUNCATE_LIMIT) + '…'
       : str;
-  }
-
-  function getUsageTypeLabel(type) {
-    switch (type) {
-      case 'variable': return '변수';
-      case 'list': return '리스트';
-      case 'message': return '신호';
-      case 'function': return '함수';
-      default: return '요소';
-    }
   }
 
   function flashElement(el, className) {
@@ -1277,15 +1426,17 @@
      10. 초기화
      ═══════════════════════════════════════════ */
 
-  function init() {
+  function initDebuggerTabFeature() {
     if (debuggerInjected) return;
     if (!isEntryWorkspacePage()) return;
+    if (!isDebuggerTabFeatureEnabled()) return;
 
-    injectMainWorldScript();
+    injectDebuggerScript();
 
     waitForElement('.propertyTab', function (propertyTab) {
       waitForElement('.propertyContent', function (propertyContent) {
         if (debuggerInjected) return;
+        if (!isDebuggerTabFeatureEnabled()) return;
         debuggerInjected = true;
 
         createDebuggingTab(propertyTab);
@@ -1297,13 +1448,31 @@
     });
   }
 
+  function init() {
+    if (!isEntryWorkspacePage()) return;
+    if (!extensionSettings.enabled) {
+      cleanup();
+      return;
+    }
+
+    if (isFunctionUsageFeatureEnabled()) {
+      startFunctionUsageFeature();
+    } else {
+      stopFunctionUsageFeature();
+    }
+
+    if (isDebuggerTabFeatureEnabled()) {
+      initDebuggerTabFeature();
+    } else {
+      cleanupDebuggerTabFeature();
+    }
+  }
+
   observeSPANavigation();
 
   // 확장 활성화 상태에 따라 초기화 여부 결정
-  chrome.storage.local.get({ enabled: true }, function (data) {
-    if (data.enabled) {
-      init();
-    }
+  chrome.storage.local.get(DEFAULT_SETTINGS, function (data) {
+    applySettings(data);
   });
 
 })();

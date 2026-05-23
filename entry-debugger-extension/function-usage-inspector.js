@@ -14,6 +14,7 @@
 
   const CHANNEL = '__ENTRY_DEBUGGER__';
   const POLL_INTERVAL = 500;
+  const NATIVE_SECTION_CLASS = 'ed-native-function-usage';
   const VARIABLE_BLOCK_TYPES = [
     'get_variable',
     'change_variable',
@@ -268,6 +269,180 @@
     }
   }
 
+  function getSelectedAttributeTarget() {
+    const container = safeGetContainer();
+    if (!container || !container.selected) return null;
+
+    const selected = container.selected;
+    const id = getId(selected);
+    let targetType = null;
+
+    if (selected.type === 'list') {
+      targetType = 'list';
+    } else if (selected.type === 'variable' || selected.type === 'slide') {
+      targetType = 'variable';
+    } else if (id && toArray(container.messages_).some(function (message) {
+      return message === selected || getId(message) === id;
+    })) {
+      targetType = 'message';
+    } else if (id && container.functions_ && container.functions_[id] === selected) {
+      targetType = 'function';
+    }
+
+    if (!targetType || !id) return null;
+
+    return {
+      targetType: targetType,
+      targetId: id,
+      targetName: getName(selected),
+      listElement: selected.listElement || null,
+    };
+  }
+
+  function getNativeListSelector(targetType) {
+    switch (targetType) {
+      case 'variable':
+        return '.list.default_val, .list.cloud_variable, .list.real_time_variable, .list.local_val';
+      case 'list':
+        return '.list.default_list, .list.cloud_list, .list.real_time_list, .list.local_list';
+      case 'message':
+        return '.list.default_message';
+      case 'function':
+        return '.list.default_func';
+      default:
+        return '.list';
+    }
+  }
+
+  function isInDocument(element) {
+    return !!(element && document.documentElement && document.documentElement.contains(element));
+  }
+
+  function addUniqueElement(list, element) {
+    if (!element || typeof element.querySelector !== 'function') return;
+    if (!isInDocument(element)) return;
+    if (list.indexOf(element) === -1) {
+      list.push(element);
+    }
+  }
+
+  function getNativeTargetListElements(target) {
+    const elements = [];
+    addUniqueElement(elements, target.listElement);
+
+    const selector = getNativeListSelector(target.targetType)
+      .split(',')
+      .map(function (part) {
+        return '.entryVariableListWorkspace ' + part.trim();
+      })
+      .join(', ');
+
+    document.querySelectorAll(selector).forEach(function (element) {
+      if (!element.classList.contains('unfold') && !element.classList.contains('selected')) {
+        return;
+      }
+      addUniqueElement(elements, element);
+    });
+
+    return elements;
+  }
+
+  function findNativeUsageAnchor(listElement) {
+    if (!listElement || typeof listElement.querySelector !== 'function') return null;
+
+    const selectedBox = listElement.querySelector('.attr_inner_box') || listElement;
+    return selectedBox.querySelector('.use_obj, .use_block') || selectedBox;
+  }
+
+  function clearNativeFunctionUsageSections() {
+    const sections = document.querySelectorAll('.' + NATIVE_SECTION_CLASS);
+    sections.forEach(function (section) {
+      section.remove();
+    });
+  }
+
+  function findUsageItem(snapshot, target) {
+    if (!snapshot || !Array.isArray(snapshot.items) || !target) return null;
+    return snapshot.items.find(function (item) {
+      return item.targetType === target.targetType && item.targetId === target.targetId;
+    }) || null;
+  }
+
+  function renderNativeFunctionUsage(snapshot) {
+    const target = getSelectedAttributeTarget();
+    clearNativeFunctionUsageSections();
+
+    if (!target || !snapshot || !snapshot.ready) return;
+
+    const item = findUsageItem(snapshot, target);
+    if (!item || !item.refs.length) return;
+
+    getNativeTargetListElements(target).forEach(function (listElement) {
+      const anchor = findNativeUsageAnchor(listElement);
+      if (!anchor) return;
+      anchor.appendChild(createNativeFunctionUsageSection(item));
+    });
+  }
+
+  function createNativeFunctionUsageSection(item) {
+    const section = document.createElement('div');
+    section.className = NATIVE_SECTION_CLASS;
+
+    const title = document.createElement('span');
+    title.className = 'box_sjt ed-native-function-usage-title';
+    title.textContent = '함수에서 사용';
+    section.appendChild(title);
+
+    const list = document.createElement('ul');
+    list.className = 'obj_list ed-native-function-usage-list';
+    section.appendChild(list);
+
+    item.refs.forEach(function (ref) {
+      list.appendChild(createNativeFunctionUsageItem(item, ref));
+    });
+
+    return section;
+  }
+
+  function createNativeFunctionUsageItem(item, ref) {
+    const row = document.createElement('li');
+    row.className = 'ed-native-function-usage-item';
+    row.title = ref.ownerFunctionName + ' : ' + (ref.blockLabel || ref.blockType);
+    row.tabIndex = 0;
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', row.title);
+
+    const open = function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openFunctionUsage({
+        targetType: item.targetType,
+        targetId: item.targetId,
+        ownerFunctionId: ref.ownerFunctionId,
+        blockId: ref.blockId,
+      }, null);
+    };
+
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        open(event);
+      }
+    });
+
+    const thumb = document.createElement('span');
+    thumb.className = 'thmb ed-native-function-usage-thumb';
+    thumb.setAttribute('aria-hidden', 'true');
+    row.appendChild(thumb);
+
+    const text = document.createElement('span');
+    text.className = 'text ed-native-function-usage-text';
+    text.textContent = ref.ownerFunctionName + ' : ' + (ref.blockLabel || ref.blockType);
+
+    row.appendChild(text);
+    return row;
+  }
+
   function post(type, payload, requestId) {
     window.postMessage({
       channel: CHANNEL,
@@ -280,6 +455,8 @@
   function pollAndBroadcast(force) {
     const snapshot = buildFunctionUsageSnapshot();
     const json = JSON.stringify(snapshot);
+
+    renderNativeFunctionUsage(snapshot);
 
     if (force || json !== prevSnapshotJSON) {
       prevSnapshotJSON = json;
@@ -301,6 +478,7 @@
       clearInterval(pollingTimer);
       pollingTimer = null;
     }
+    clearNativeFunctionUsageSections();
   }
 
   function openFunctionUsage(payload, requestId) {
