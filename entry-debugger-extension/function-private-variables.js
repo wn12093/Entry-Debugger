@@ -15,12 +15,18 @@
   const PATCH_MARK = '__entryDebuggerFunctionPrivateVariablesPatched';
   const RETRY_INTERVAL = 300;
   const RETRY_TIMEOUT = 30000;
+  const Bridge = window.EntryDebuggerPageBridge || null;
+  const Adapter = window.EntryDebuggerEntryAdapter || null;
+  const Patches = window.EntryDebuggerPatchRegistry || null;
 
   let enabled = false;
   let retryTimer = null;
   let retryUntil = 0;
 
   function safeGetEntry() {
+    if (Adapter && typeof Adapter.getEntry === 'function') {
+      return Adapter.getEntry();
+    }
     try {
       return window.Entry || null;
     } catch (e) {
@@ -28,8 +34,36 @@
     }
   }
 
+  function post(type, payload, requestId) {
+    if (Bridge && typeof Bridge.post === 'function') {
+      Bridge.post(type, payload, requestId);
+      return;
+    }
+    window.postMessage({
+      channel: CHANNEL,
+      type: type,
+      payload: payload || null,
+      requestId: requestId || null
+    }, window.location.origin);
+  }
+
+  function onMessage(handler) {
+    if (Bridge && typeof Bridge.onMessage === 'function') {
+      Bridge.onMessage(handler);
+      return;
+    }
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.channel !== CHANNEL) return;
+      handler(event.data);
+    });
+  }
+
   function getNoTargetLabel(entry) {
     try {
+      if (Adapter && typeof Adapter.getLangBlock === 'function') {
+        return Adapter.getLangBlock('no_target', '대상 없음');
+      }
       return window.Lang?.Blocks?.no_target ||
         entry?.Lang?.Blocks?.no_target ||
         '대상 없음';
@@ -40,12 +74,17 @@
 
   function resolveObject(entry, object) {
     if (!object) {
-      return entry?.playground?.object || null;
+      return Adapter && typeof Adapter.getCurrentObject === 'function'
+        ? Adapter.getCurrentObject()
+        : entry?.playground?.object || null;
     }
     if (object.id) {
       return object;
     }
     try {
+      if (Adapter && typeof Adapter.getObjectById === 'function') {
+        return Adapter.getObjectById(object);
+      }
       return entry?.container?.getObject?.(object) || null;
     } catch (e) {
       return null;
@@ -64,6 +103,9 @@
   }
 
   function getItemName(item) {
+    if (Adapter && typeof Adapter.getItemName === 'function') {
+      return Adapter.getItemName(item);
+    }
     try {
       if (typeof item.getName === 'function') return item.getName();
     } catch (e) {}
@@ -71,6 +113,9 @@
   }
 
   function getItemId(item) {
+    if (Adapter && typeof Adapter.getItemId === 'function') {
+      return Adapter.getItemId(item);
+    }
     try {
       if (typeof item.getId === 'function') return item.getId();
     } catch (e) {}
@@ -100,6 +145,14 @@
   }
 
   function refreshVariableBlocks() {
+    if (Adapter && typeof Adapter.refreshBlockMenu === 'function') {
+      Adapter.refreshBlockMenu('variable');
+      try {
+        Adapter.getEntry()?.getMainWS?.()?.overlayBoard?.reDraw?.();
+      } catch (e) {}
+      return;
+    }
+
     const entry = safeGetEntry();
     const blockMenu = entry?.playground?.blockMenu;
 
@@ -125,19 +178,22 @@
       return true;
     }
 
-    const nativeGetDropdownList = container.getDropdownList;
-    container.getDropdownList = async function (menuName, object) {
-      const entryNow = safeGetEntry();
-      const targetObject = resolveObject(entryNow, object);
+    const patched = Patches && typeof Patches.patchMethod === 'function'
+      ? Patches.patchMethod(container, 'getDropdownList', 'function-private-variables', function (nativeGetDropdownList) {
+        return async function (menuName, object) {
+          const entryNow = safeGetEntry();
+          const targetObject = resolveObject(entryNow, object);
 
-      if (shouldUsePrivateVariableDropdown(entryNow, menuName, targetObject)) {
-        return buildDropdownList(entryNow, menuName, targetObject);
-      }
+          if (shouldUsePrivateVariableDropdown(entryNow, menuName, targetObject)) {
+            return buildDropdownList(entryNow, menuName, targetObject);
+          }
 
-      return nativeGetDropdownList.apply(this, arguments);
-    };
-    container[PATCH_MARK] = true;
-    return true;
+          return nativeGetDropdownList.apply(this, arguments);
+        };
+      })
+      : false;
+    container[PATCH_MARK] = patched;
+    return patched;
   }
 
   function patchDynamicDropdown(entry) {
@@ -152,22 +208,25 @@
       return true;
     }
 
-    const nativeGetTextByValue = proto.getTextByValue;
-    proto.getTextByValue = function (value) {
-      const menuName = this?._menuName;
-      if (
-        enabled &&
-        (menuName === 'variables' || menuName === 'lists') &&
-        typeof this._isBlockInBoardWhenFunctionEdit === 'function' &&
-        this._isBlockInBoardWhenFunctionEdit()
-      ) {
-        return BaseDropdown.prototype.getTextByValue.call(this, value);
-      }
+    const patched = Patches && typeof Patches.patchMethod === 'function'
+      ? Patches.patchMethod(proto, 'getTextByValue', 'function-private-variables', function (nativeGetTextByValue) {
+        return function (value) {
+          const menuName = this?._menuName;
+          if (
+            enabled &&
+            (menuName === 'variables' || menuName === 'lists') &&
+            typeof this._isBlockInBoardWhenFunctionEdit === 'function' &&
+            this._isBlockInBoardWhenFunctionEdit()
+          ) {
+            return BaseDropdown.prototype.getTextByValue.call(this, value);
+          }
 
-      return nativeGetTextByValue.apply(this, arguments);
-    };
-    proto[PATCH_MARK] = true;
-    return true;
+          return nativeGetTextByValue.apply(this, arguments);
+        };
+      })
+      : false;
+    proto[PATCH_MARK] = patched;
+    return patched;
   }
 
   function applyNow() {
@@ -209,27 +268,14 @@
     scheduleApply(changed);
   }
 
-  window.addEventListener('message', function (event) {
-    if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.channel !== CHANNEL) return;
-
-    const msg = event.data;
-
+  onMessage(function (msg) {
     switch (msg.type) {
       case 'SET_FUNCTION_PRIVATE_VARIABLES_ENABLED':
         setEnabled(!!(msg.payload && msg.payload.enabled));
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'FUNCTION_PRIVATE_VARIABLES_RESULT',
-          payload: { success: true, enabled: enabled },
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('FUNCTION_PRIVATE_VARIABLES_RESULT', { success: true, enabled: enabled }, msg.requestId);
         break;
     }
   });
 
-  window.postMessage({
-    channel: CHANNEL,
-    type: 'FUNCTION_PRIVATE_VARIABLES_READY'
-  }, window.location.origin);
+  post('FUNCTION_PRIVATE_VARIABLES_READY');
 })();

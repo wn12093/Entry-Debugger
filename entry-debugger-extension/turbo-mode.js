@@ -17,6 +17,9 @@
   const SPEED_BUTTON_BLINK_CLASS = 'entry-debugger-turbo-button-blink';
   const RETRY_INTERVAL = 300;
   const RETRY_TIMEOUT = 30000;
+  const Bridge = window.EntryDebuggerPageBridge || null;
+  const Adapter = window.EntryDebuggerEntryAdapter || null;
+  const Patches = window.EntryDebuggerPatchRegistry || null;
 
   let enabled = false;
   let blinkPending = false;
@@ -24,11 +27,39 @@
   let retryUntil = 0;
 
   function safeGetEntry() {
+    if (Adapter && typeof Adapter.getEntry === 'function') {
+      return Adapter.getEntry();
+    }
     try {
       return window.Entry || null;
     } catch (e) {
       return null;
     }
+  }
+
+  function post(type, payload, requestId) {
+    if (Bridge && typeof Bridge.post === 'function') {
+      Bridge.post(type, payload, requestId);
+      return;
+    }
+    window.postMessage({
+      channel: CHANNEL,
+      type: type,
+      payload: payload || null,
+      requestId: requestId || null
+    }, window.location.origin);
+  }
+
+  function onMessage(handler) {
+    if (Bridge && typeof Bridge.onMessage === 'function') {
+      Bridge.onMessage(handler);
+      return;
+    }
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.channel !== CHANNEL) return;
+      handler(event.data);
+    });
   }
 
   function ensureStyle() {
@@ -252,72 +283,81 @@
       return false;
     }
 
-    var originalSetSpeedMeter = proto.setSpeedMeter;
-    var originalToggleSpeedPanel = proto.toggleSpeedPanel;
+    var setPatched = Patches && typeof Patches.patchMethod === 'function'
+      ? Patches.patchMethod(proto, 'setSpeedMeter', 'turbo-mode', function (originalSetSpeedMeter) {
+        return function (FPS) {
+          if (!enabled) {
+            entry.isTurbo = false;
+            this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = false;
+            return originalSetSpeedMeter.call(this, FPS);
+          }
 
-    proto.setSpeedMeter = function (FPS) {
-      if (!enabled) {
-        entry.isTurbo = false;
-        this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = false;
-        return originalSetSpeedMeter.call(this, FPS);
-      }
+          ensureTurboSpeed(this);
 
-      ensureTurboSpeed(this);
+          if (FPS === TURBO_SPEED) {
+            entry.isTurbo = true;
+            this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = true;
+            if (entry.FPS !== TURBO_FPS) {
+              originalSetSpeedMeter.call(this, TURBO_FPS);
+            }
+            markTurboCell(this);
+            blinkSpeedButton(entry);
+            return;
+          }
 
-      if (FPS === TURBO_SPEED) {
-        entry.isTurbo = true;
-        this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = true;
-        if (entry.FPS !== TURBO_FPS) {
-          originalSetSpeedMeter.call(this, TURBO_FPS);
-        }
-        markTurboCell(this);
-        blinkSpeedButton(entry);
-        return;
-      }
+          if (this.__ENTRY_DEBUGGER_TURBO_PANEL_OPENING__ && this.__ENTRY_DEBUGGER_TURBO_ACTIVE__) {
+            originalSetSpeedMeter.call(this, TURBO_FPS);
+            entry.isTurbo = true;
+            markTurboCell(this);
+            return;
+          }
 
-      if (this.__ENTRY_DEBUGGER_TURBO_PANEL_OPENING__ && this.__ENTRY_DEBUGGER_TURBO_ACTIVE__) {
-        originalSetSpeedMeter.call(this, TURBO_FPS);
-        entry.isTurbo = true;
-        markTurboCell(this);
-        return;
-      }
+          entry.isTurbo = false;
+          this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = false;
+          var result = originalSetSpeedMeter.call(this, FPS);
+          if (this.speedPanelOn) {
+            decoratePanel(this);
+          }
+          return result;
+        };
+      })
+      : false;
 
-      entry.isTurbo = false;
-      this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = false;
-      var result = originalSetSpeedMeter.call(this, FPS);
-      if (this.speedPanelOn) {
-        decoratePanel(this);
-      }
-      return result;
-    };
+    var togglePatched = Patches && typeof Patches.patchMethod === 'function'
+      ? Patches.patchMethod(proto, 'toggleSpeedPanel', 'turbo-mode', function (originalToggleSpeedPanel) {
+        return function () {
+          if (enabled) {
+            ensureTurboSpeed(this);
+          }
 
-    proto.toggleSpeedPanel = function () {
-      if (enabled) {
-        ensureTurboSpeed(this);
-      }
+          this.__ENTRY_DEBUGGER_TURBO_PANEL_OPENING__ = true;
+          var result;
+          try {
+            result = originalToggleSpeedPanel.apply(this, arguments);
+          } finally {
+            this.__ENTRY_DEBUGGER_TURBO_PANEL_OPENING__ = false;
+          }
 
-      this.__ENTRY_DEBUGGER_TURBO_PANEL_OPENING__ = true;
-      var result;
-      try {
-        result = originalToggleSpeedPanel.apply(this, arguments);
-      } finally {
-        this.__ENTRY_DEBUGGER_TURBO_PANEL_OPENING__ = false;
-      }
+          if (enabled && this.speedPanelOn) {
+            decoratePanel(this);
+            if (this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ || entry.isTurbo) {
+              this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = true;
+              entry.isTurbo = true;
+              markTurboCell(this);
+            }
+          }
 
-      if (enabled && this.speedPanelOn) {
-        decoratePanel(this);
-        if (this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ || entry.isTurbo) {
-          this.__ENTRY_DEBUGGER_TURBO_ACTIVE__ = true;
-          entry.isTurbo = true;
-          markTurboCell(this);
-        }
-      }
+          return result;
+        };
+      })
+      : false;
 
-      return result;
-    };
+    if (!Patches || typeof Patches.patchMethod !== 'function') {
+      return false;
+    }
 
-    proto.__ENTRY_DEBUGGER_TURBO_PATCHED__ = true;
-    return true;
+    proto.__ENTRY_DEBUGGER_TURBO_PATCHED__ = !!(setPatched && togglePatched);
+    return proto.__ENTRY_DEBUGGER_TURBO_PATCHED__;
   }
 
   function patchCurrentEngine(entry) {
@@ -389,24 +429,12 @@
     }
   }
 
-  window.addEventListener('message', function (event) {
-    if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.channel !== CHANNEL) return;
-
-    var msg = event.data;
+  onMessage(function (msg) {
     if (msg.type !== 'SET_TURBO_MODE_ENABLED') return;
 
     setEnabled(!!(msg.payload && msg.payload.enabled));
-    window.postMessage({
-      channel: CHANNEL,
-      type: 'TURBO_MODE_RESULT',
-      payload: { success: true, enabled: enabled },
-      requestId: msg.requestId
-    }, window.location.origin);
+    post('TURBO_MODE_RESULT', { success: true, enabled: enabled }, msg.requestId);
   });
 
-  window.postMessage({
-    channel: CHANNEL,
-    type: 'TURBO_MODE_READY'
-  }, window.location.origin);
+  post('TURBO_MODE_READY');
 })();

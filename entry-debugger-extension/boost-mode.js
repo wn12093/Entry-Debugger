@@ -14,6 +14,9 @@
   const STORAGE_KEY = '__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__';
   const RETRY_INTERVAL = 300;
   const RETRY_TIMEOUT = 30000;
+  const Bridge = window.EntryDebuggerPageBridge || null;
+  const Adapter = window.EntryDebuggerEntryAdapter || null;
+  const Patches = window.EntryDebuggerPatchRegistry || null;
 
   let enabled = readStoredEnabled();
   let entryValue = null;
@@ -26,6 +29,42 @@
       return window.localStorage.getItem(STORAGE_KEY) === '1';
     } catch (e) {
       return false;
+    }
+  }
+
+  function post(type, payload, requestId) {
+    if (Bridge && typeof Bridge.post === 'function') {
+      Bridge.post(type, payload, requestId);
+      return;
+    }
+    window.postMessage({
+      channel: CHANNEL,
+      type: type,
+      payload: payload || null,
+      requestId: requestId || null
+    }, window.location.origin);
+  }
+
+  function onMessage(handler) {
+    if (Bridge && typeof Bridge.onMessage === 'function') {
+      Bridge.onMessage(handler);
+      return;
+    }
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.channel !== CHANNEL) return;
+      handler(event.data);
+    });
+  }
+
+  function safeGetEntry() {
+    if (Adapter && typeof Adapter.getEntry === 'function') {
+      return Adapter.getEntry();
+    }
+    try {
+      return window.Entry || null;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -66,17 +105,30 @@
       return false;
     }
 
-    var originalInit = entry.init;
-    entry.init = function (container, options) {
-      options = applyBoostOption(options || {});
-      var result = originalInit.call(this, container, options);
-      markEntryOptions(this);
-      return result;
-    };
+    var patched = false;
+    if (Patches && typeof Patches.patchMethod === 'function') {
+      patched = Patches.patchMethod(entry, 'init', 'boost-mode', function (originalInit) {
+        return function (container, options) {
+          options = applyBoostOption(options || {});
+          var result = originalInit.call(this, container, options);
+          markEntryOptions(this);
+          return result;
+        };
+      });
+    } else {
+      var originalInit = entry.init;
+      entry.init = function (container, options) {
+        options = applyBoostOption(options || {});
+        var result = originalInit.call(this, container, options);
+        markEntryOptions(this);
+        return result;
+      };
+      patched = true;
+    }
 
-    entry.__ENTRY_DEBUGGER_BOOST_PATCHED__ = true;
+    entry.__ENTRY_DEBUGGER_BOOST_PATCHED__ = patched;
     markEntryOptions(entry);
-    return true;
+    return patched;
   }
 
   function clearRetry() {
@@ -92,7 +144,7 @@
 
     function tick() {
       retryTimer = null;
-      var patched = patchEntry(entryValue || window.Entry);
+      var patched = patchEntry(entryValue || safeGetEntry());
       if (!patched && Date.now() < retryUntil) {
         retryTimer = setTimeout(tick, RETRY_INTERVAL);
       }
@@ -113,7 +165,7 @@
     }
 
     if (descriptor && descriptor.configurable === false) {
-      patchEntry(window.Entry);
+      patchEntry(safeGetEntry());
       schedulePatchRetry();
       return;
     }
@@ -121,8 +173,8 @@
     if (descriptor && 'value' in descriptor && descriptor.value) {
       entryValue = descriptor.value;
       patchEntry(entryValue);
-    } else if (window.Entry) {
-      entryValue = window.Entry;
+    } else if (safeGetEntry()) {
+      entryValue = safeGetEntry();
       patchEntry(entryValue);
     }
 
@@ -139,7 +191,7 @@
         }
       });
     } catch (e) {
-      patchEntry(window.Entry);
+      patchEntry(safeGetEntry());
     }
 
     schedulePatchRetry();
@@ -148,31 +200,18 @@
   function setEnabled(nextEnabled) {
     enabled = !!nextEnabled;
     writeStoredEnabled(enabled);
-    patchEntry(entryValue || window.Entry);
+    patchEntry(entryValue || safeGetEntry());
     schedulePatchRetry();
   }
 
-  window.addEventListener('message', function (event) {
-    if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.channel !== CHANNEL) return;
-
-    var msg = event.data;
+  onMessage(function (msg) {
     if (msg.type !== 'SET_BOOST_MODE_ENABLED') return;
 
     setEnabled(!!(msg.payload && msg.payload.enabled));
-    window.postMessage({
-      channel: CHANNEL,
-      type: 'BOOST_MODE_RESULT',
-      payload: { success: true, enabled: enabled },
-      requestId: msg.requestId
-    }, window.location.origin);
+    post('BOOST_MODE_RESULT', { success: true, enabled: enabled }, msg.requestId);
   });
 
   installEntryHook();
 
-  window.postMessage({
-    channel: CHANNEL,
-    type: 'BOOST_MODE_READY',
-    payload: { enabled: enabled }
-  }, window.location.origin);
+  post('BOOST_MODE_READY', { enabled: enabled });
 })();

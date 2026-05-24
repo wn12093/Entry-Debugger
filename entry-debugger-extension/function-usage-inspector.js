@@ -15,6 +15,8 @@
   const CHANNEL = '__ENTRY_DEBUGGER__';
   const POLL_INTERVAL = 500;
   const NATIVE_SECTION_CLASS = 'ed-native-function-usage';
+  const Bridge = window.EntryDebuggerPageBridge || null;
+  const Adapter = window.EntryDebuggerEntryAdapter || null;
   const VARIABLE_BLOCK_TYPES = [
     'get_variable',
     'change_variable',
@@ -36,6 +38,9 @@
   let prevSnapshotJSON = '';
 
   function safeGetEntry() {
+    if (Adapter && typeof Adapter.getEntry === 'function') {
+      return Adapter.getEntry();
+    }
     try {
       return window.Entry || null;
     } catch (e) {
@@ -44,8 +49,23 @@
   }
 
   function safeGetContainer() {
+    if (Adapter && typeof Adapter.getVariableContainer === 'function') {
+      return Adapter.getVariableContainer();
+    }
     const entry = safeGetEntry();
     return entry && entry.variableContainer ? entry.variableContainer : null;
+  }
+
+  function onMessage(handler) {
+    if (Bridge && typeof Bridge.onMessage === 'function') {
+      Bridge.onMessage(handler);
+      return;
+    }
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.channel !== CHANNEL) return;
+      handler(event.data);
+    });
   }
 
   function toArray(value) {
@@ -60,10 +80,16 @@
   }
 
   function getId(item) {
+    if (Adapter && typeof Adapter.getItemId === 'function') {
+      return Adapter.getItemId(item);
+    }
     return item ? (item.id_ || item.id || '') : '';
   }
 
   function getName(item, fallback) {
+    if (Adapter && typeof Adapter.getItemName === 'function') {
+      return Adapter.getItemName(item, fallback || '(이름 없음)');
+    }
     if (!item) return fallback || '(이름 없음)';
     return String(item.name_ || item.name || item.description || fallback || '(이름 없음)');
   }
@@ -444,6 +470,10 @@
   }
 
   function post(type, payload, requestId) {
+    if (Bridge && typeof Bridge.post === 'function') {
+      Bridge.post(type, payload, requestId);
+      return;
+    }
     window.postMessage({
       channel: CHANNEL,
       type: type,
@@ -568,12 +598,7 @@
     }, 120);
   }
 
-  window.addEventListener('message', function (event) {
-    if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.channel !== CHANNEL) return;
-
-    const msg = event.data;
-
+  onMessage(function (msg) {
     switch (msg.type) {
       case 'START_FUNCTION_USAGE_POLLING':
         startPolling();

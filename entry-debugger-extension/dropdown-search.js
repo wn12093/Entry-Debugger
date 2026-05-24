@@ -15,6 +15,9 @@
   const PATCH_MARK = '__entryDebuggerDropdownSearchPatched';
   const RETRY_INTERVAL = 300;
   const RETRY_TIMEOUT = 30000;
+  const Bridge = window.EntryDebuggerPageBridge || null;
+  const Adapter = window.EntryDebuggerEntryAdapter || null;
+  const Patches = window.EntryDebuggerPatchRegistry || null;
   const TARGET_MENUS = {
     variables: true,
     lists: true,
@@ -26,11 +29,39 @@
   let retryUntil = 0;
 
   function safeGetEntry() {
+    if (Adapter && typeof Adapter.getEntry === 'function') {
+      return Adapter.getEntry();
+    }
     try {
       return window.Entry || null;
     } catch (e) {
       return null;
     }
+  }
+
+  function post(type, payload, requestId) {
+    if (Bridge && typeof Bridge.post === 'function') {
+      Bridge.post(type, payload, requestId);
+      return;
+    }
+    window.postMessage({
+      channel: CHANNEL,
+      type: type,
+      payload: payload || null,
+      requestId: requestId || null
+    }, window.location.origin);
+  }
+
+  function onMessage(handler) {
+    if (Bridge && typeof Bridge.onMessage === 'function') {
+      Bridge.onMessage(handler);
+      return;
+    }
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.channel !== CHANNEL) return;
+      handler(event.data);
+    });
   }
 
   function ensureStyle() {
@@ -347,19 +378,22 @@
       return true;
     }
 
-    const nativeRenderOptions = proto.renderOptions;
-    proto.renderOptions = function () {
-      if (enabled && isTargetField(this)) {
-        try {
-          renderSearchOptions(this);
-          return;
-        } catch (e) {}
-      }
+    const patched = Patches && typeof Patches.patchMethod === 'function'
+      ? Patches.patchMethod(proto, 'renderOptions', 'dropdown-search', function (nativeRenderOptions) {
+        return function () {
+          if (enabled && isTargetField(this)) {
+            try {
+              renderSearchOptions(this);
+              return;
+            } catch (e) {}
+          }
 
-      return nativeRenderOptions.apply(this, arguments);
-    };
-    proto[PATCH_MARK] = true;
-    return true;
+          return nativeRenderOptions.apply(this, arguments);
+        };
+      })
+      : false;
+    proto[PATCH_MARK] = patched;
+    return patched;
   }
 
   function applyNow() {
@@ -393,24 +427,12 @@
     scheduleApply();
   }
 
-  window.addEventListener('message', function (event) {
-    if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.channel !== CHANNEL) return;
-
-    const msg = event.data;
+  onMessage(function (msg) {
     if (msg.type === 'SET_DROPDOWN_SEARCH_ENABLED') {
       setEnabled(!!(msg.payload && msg.payload.enabled));
-      window.postMessage({
-        channel: CHANNEL,
-        type: 'DROPDOWN_SEARCH_RESULT',
-        payload: { success: true, enabled: enabled },
-        requestId: msg.requestId
-      }, window.location.origin);
+      post('DROPDOWN_SEARCH_RESULT', { success: true, enabled: enabled }, msg.requestId);
     }
   });
 
-  window.postMessage({
-    channel: CHANNEL,
-    type: 'DROPDOWN_SEARCH_READY'
-  }, window.location.origin);
+  post('DROPDOWN_SEARCH_READY');
 })();

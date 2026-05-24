@@ -35,6 +35,11 @@
   const DEBUGGING_TAB  = 'propertyTabdebugging';
   const PANEL_ID       = 'ed-debugger-panel';
   const BOOST_MODE_STORAGE_KEY = '__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__';
+  const PAGE_CORE_SCRIPTS = [
+    ['entry-debugger-page-bridge', 'page-bridge.js'],
+    ['entry-debugger-entry-adapter', 'entry-adapter.js'],
+    ['entry-debugger-patch-registry', 'patch-registry.js']
+  ];
 
   const SharedSettings = window.EntryDebuggerSettings;
   const DEFAULT_SETTINGS = SharedSettings.DEFAULT_SETTINGS;
@@ -48,6 +53,7 @@
   let extensionSettings = DEFAULT_SETTINGS;
   let settingsLoaded = false;
   let functionUsageStartTimer = null;
+  let pageCoreScriptsInjected = false;
   let dropdownSearchScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
@@ -57,32 +63,47 @@
      ═══════════════════════════════════════════ */
 
   function injectDebuggerScript() {
+    injectPageCoreScripts();
     injectPageScript('entry-debugger-inject', 'inject.js');
   }
 
   function injectFunctionUsageScript() {
+    injectPageCoreScripts();
     injectPageScript('entry-debugger-function-usage', 'function-usage-inspector.js');
   }
 
   function injectConsoleDebuggingScript() {
+    injectPageCoreScripts();
     injectPageScript('entry-debugger-console-debugging', 'console-debugging.js');
   }
 
   function injectBoostModeScript() {
+    injectPageCoreScripts();
     injectPageScript('entry-debugger-boost-mode', 'boost-mode.js');
   }
 
   function injectTurboModeScript() {
+    injectPageCoreScripts();
     injectPageScript('entry-debugger-turbo-mode', 'turbo-mode.js');
   }
 
   function injectFunctionPrivateVariablesScript() {
+    injectPageCoreScripts();
     injectPageScript('entry-debugger-function-private-variables', 'function-private-variables.js');
   }
 
   function injectDropdownSearchScript() {
+    injectPageCoreScripts();
     dropdownSearchScriptInjected = true;
     injectPageScript('entry-debugger-dropdown-search', 'dropdown-search.js');
+  }
+
+  function injectPageCoreScripts() {
+    if (pageCoreScriptsInjected) return;
+    pageCoreScriptsInjected = true;
+    PAGE_CORE_SCRIPTS.forEach(function (scriptInfo) {
+      injectPageScript(scriptInfo[0], scriptInfo[1]);
+    });
   }
 
   function injectPageScript(id, src) {

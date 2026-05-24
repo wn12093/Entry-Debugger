@@ -14,6 +14,9 @@
   const INJECTED_MARK = '__entryDebuggerConsoleDebuggingOption';
   const RETRY_INTERVAL = 300;
   const RETRY_TIMEOUT = 30000;
+  const Bridge = window.EntryDebuggerPageBridge || null;
+  const Adapter = window.EntryDebuggerEntryAdapter || null;
+  const Patches = window.EntryDebuggerPatchRegistry || null;
 
   const LOG_OPTIONS = [
     { label: '[LOG]', value: 'entryDebuggerLog' },
@@ -37,6 +40,9 @@
   let retryUntil = 0;
 
   function safeGetEntry() {
+    if (Adapter && typeof Adapter.getEntry === 'function') {
+      return Adapter.getEntry();
+    }
     try {
       return window.Entry || null;
     } catch (e) {
@@ -44,8 +50,36 @@
     }
   }
 
+  function post(type, payload, requestId) {
+    if (Bridge && typeof Bridge.post === 'function') {
+      Bridge.post(type, payload, requestId);
+      return;
+    }
+    window.postMessage({
+      channel: CHANNEL,
+      type: type,
+      payload: payload || null,
+      requestId: requestId || null
+    }, window.location.origin);
+  }
+
+  function onMessage(handler) {
+    if (Bridge && typeof Bridge.onMessage === 'function') {
+      Bridge.onMessage(handler);
+      return;
+    }
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.channel !== CHANNEL) return;
+      handler(event.data);
+    });
+  }
+
   function getYellLabel() {
     try {
+      if (Adapter && typeof Adapter.getLangBlock === 'function') {
+        return Adapter.getLangBlock('yell', '외치기');
+      }
       if (window.Lang && window.Lang.Blocks && window.Lang.Blocks.yell) {
         return window.Lang.Blocks.yell;
       }
@@ -100,19 +134,23 @@
       return false;
     }
 
-    var nativeFunc = block.func;
-    block.func = function (sprite, script) {
-      var mode = script.getField('OPTION', script);
-      if (isConsoleMode(mode)) {
-        var message = script.getValue('VALUE', script);
-        printConsoleMessage(formatDialogMessage(message), mode);
-        return script.callReturn();
-      }
+    var patched = Patches && typeof Patches.patchMethod === 'function'
+      ? Patches.patchMethod(block, 'func', 'console-dialog-runtime', function (nativeFunc) {
+        return function (sprite, script) {
+          var mode = script.getField('OPTION', script);
+          if (isConsoleMode(mode)) {
+            var message = script.getValue('VALUE', script);
+            printConsoleMessage(formatDialogMessage(message), mode);
+            return script.callReturn();
+          }
 
-      return nativeFunc.apply(this, arguments);
-    };
-    block[RUNTIME_PATCH_MARK] = true;
-    return true;
+          return nativeFunc.apply(this, arguments);
+        };
+      })
+      : false;
+
+    block[RUNTIME_PATCH_MARK] = patched;
+    return patched;
   }
 
   function patchDialogTimeRuntime(block) {
@@ -120,55 +158,59 @@
       return false;
     }
 
-    var nativeFunc = block.func;
-    block.func = function (sprite, script) {
-      var mode = script.getField('OPTION', script);
-      if (!isConsoleMode(mode)) {
-        return nativeFunc.apply(this, arguments);
-      }
-
-      if (!script.isStart) {
-        var entry = safeGetEntry();
-        var values = script.getValues(['SECOND', 'VALUE'], script);
-        var timeValue = Number(values[0]);
-        var message = formatDialogMessage(values[1]);
-        var timeoutId = 0;
-
-        script.isStart = true;
-        script.timeFlag = 1;
-        printConsoleMessage(message, mode);
-
-        var stopConsoleWait = function () {
-          script.timeFlag = 0;
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-            timeoutId = 0;
+    var patched = Patches && typeof Patches.patchMethod === 'function'
+      ? Patches.patchMethod(block, 'func', 'console-dialog-time-runtime', function (nativeFunc) {
+        return function (sprite, script) {
+          var mode = script.getField('OPTION', script);
+          if (!isConsoleMode(mode)) {
+            return nativeFunc.apply(this, arguments);
           }
+
+          if (!script.isStart) {
+            var entry = safeGetEntry();
+            var values = script.getValues(['SECOND', 'VALUE'], script);
+            var timeValue = Number(values[0]);
+            var message = formatDialogMessage(values[1]);
+            var timeoutId = 0;
+
+            script.isStart = true;
+            script.timeFlag = 1;
+            printConsoleMessage(message, mode);
+
+            var stopConsoleWait = function () {
+              script.timeFlag = 0;
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = 0;
+              }
+            };
+
+            script.__entryDebuggerConsoleStop = stopConsoleWait;
+            try {
+              if (entry && entry.engine && typeof entry.engine.setTimeout === 'function') {
+                timeoutId = entry.engine.setTimeout(stopConsoleWait, timeValue * 1000);
+              } else {
+                timeoutId = setTimeout(stopConsoleWait, timeValue * 1000);
+              }
+            } catch (e) {
+              stopConsoleWait();
+            }
+          }
+
+          if (script.timeFlag == 0) {
+            delete script.timeFlag;
+            delete script.isStart;
+            delete script.__entryDebuggerConsoleStop;
+            return script.callReturn();
+          }
+
+          return script;
         };
+      })
+      : false;
 
-        script.__entryDebuggerConsoleStop = stopConsoleWait;
-        try {
-          if (entry && entry.engine && typeof entry.engine.setTimeout === 'function') {
-            timeoutId = entry.engine.setTimeout(stopConsoleWait, timeValue * 1000);
-          } else {
-            timeoutId = setTimeout(stopConsoleWait, timeValue * 1000);
-          }
-        } catch (e) {
-          stopConsoleWait();
-        }
-      }
-
-      if (script.timeFlag == 0) {
-        delete script.timeFlag;
-        delete script.isStart;
-        delete script.__entryDebuggerConsoleStop;
-        return script.callReturn();
-      }
-
-      return script;
-    };
-    block[RUNTIME_PATCH_MARK] = true;
-    return true;
+    block[RUNTIME_PATCH_MARK] = patched;
+    return patched;
   }
 
   function createMarkedOption(optionData) {
@@ -264,6 +306,11 @@
   }
 
   function refreshLooksBlocks() {
+    if (Adapter && typeof Adapter.refreshBlockMenu === 'function') {
+      Adapter.refreshBlockMenu('looks');
+      return;
+    }
+
     var entry = safeGetEntry();
     if (!entry || !entry.playground) return;
 
@@ -320,27 +367,14 @@
     }
   }
 
-  window.addEventListener('message', function (event) {
-    if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.channel !== CHANNEL) return;
-
-    var msg = event.data;
-
+  onMessage(function (msg) {
     switch (msg.type) {
       case 'SET_CONSOLE_DEBUGGING_ENABLED':
         setEnabled(!!(msg.payload && msg.payload.enabled));
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'CONSOLE_DEBUGGING_RESULT',
-          payload: { success: true, enabled: enabled },
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('CONSOLE_DEBUGGING_RESULT', { success: true, enabled: enabled }, msg.requestId);
         break;
     }
   });
 
-  window.postMessage({
-    channel: CHANNEL,
-    type: 'CONSOLE_DEBUGGING_READY'
-  }, window.location.origin);
+  post('CONSOLE_DEBUGGING_READY');
 })();

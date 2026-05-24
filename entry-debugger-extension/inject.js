@@ -20,12 +20,17 @@
   const SYSTEM_VARIABLE_SHOW_Y = 0;
   const SYSTEM_VARIABLE_HIDE_X = 500;
   const SYSTEM_VARIABLE_HIDE_Y = 0;
+  const Bridge = window.EntryDebuggerPageBridge || null;
+  const Adapter = window.EntryDebuggerEntryAdapter || null;
   let pollingTimer = null;
   let isPolling = false;
 
   /* ───────── 유틸리티 ───────── */
 
   function safeGetEntry() {
+    if (Adapter && typeof Adapter.getEntry === 'function') {
+      return Adapter.getEntry();
+    }
     try {
       return window.Entry || null;
     } catch {
@@ -34,8 +39,36 @@
   }
 
   function safeGetContainer() {
+    if (Adapter && typeof Adapter.getVariableContainer === 'function') {
+      return Adapter.getVariableContainer();
+    }
     const entry = safeGetEntry();
     return entry && entry.variableContainer ? entry.variableContainer : null;
+  }
+
+  function post(type, payload, requestId) {
+    if (Bridge && typeof Bridge.post === 'function') {
+      Bridge.post(type, payload, requestId);
+      return;
+    }
+    window.postMessage({
+      channel: CHANNEL,
+      type: type,
+      payload: payload || null,
+      requestId: requestId || null
+    }, window.location.origin);
+  }
+
+  function onMessage(handler) {
+    if (Bridge && typeof Bridge.onMessage === 'function') {
+      Bridge.onMessage(handler);
+      return;
+    }
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.channel !== CHANNEL) return;
+      handler(event.data);
+    });
   }
 
   /**
@@ -118,6 +151,9 @@
   }
 
   function getEntryObjectById(objectId) {
+    if (Adapter && typeof Adapter.getObjectById === 'function') {
+      return Adapter.getObjectById(objectId);
+    }
     var entry = safeGetEntry();
     if (!entry || !objectId) return null;
 
@@ -137,6 +173,9 @@
   }
 
   function readEntryObjectName(object, fallbackName) {
+    if (Adapter && typeof Adapter.readObjectName === 'function') {
+      return Adapter.readObjectName(object, fallbackName);
+    }
     if (!object) return fallbackName || '(오브젝트 없음)';
     if (typeof object.getName === 'function') {
       return object.getName() || fallbackName || '(오브젝트 없음)';
@@ -145,6 +184,17 @@
   }
 
   function getCurrentObjectInfo() {
+    if (Adapter && typeof Adapter.getCurrentObject === 'function') {
+      var adapterObject = Adapter.getCurrentObject();
+      var adapterId = adapterObject && (adapterObject.id || adapterObject.id_);
+      if (!adapterId) return null;
+
+      return {
+        id: adapterId,
+        name: readEntryObjectName(adapterObject, adapterId)
+      };
+    }
+
     var entry = safeGetEntry();
     if (!entry) return null;
 
@@ -388,11 +438,7 @@
     // 변화가 있을 때만 전송 (성능 최적화)
     if (json !== prevSnapshotJSON) {
       prevSnapshotJSON = json;
-      window.postMessage({
-        channel: CHANNEL,
-        type: 'SNAPSHOT',
-        payload: snapshot
-      }, window.location.origin);
+      post('SNAPSHOT', snapshot);
     }
   }
 
@@ -866,12 +912,7 @@
 
   /* ───────── 메시지 수신 핸들러 ───────── */
 
-  window.addEventListener('message', function (event) {
-    // origin 검증
-    if (event.origin !== window.location.origin) return;
-    if (!event.data || event.data.channel !== CHANNEL) return;
-
-    var msg = event.data;
+  onMessage(function (msg) {
     var result;
 
     switch (msg.type) {
@@ -890,12 +931,7 @@
 
       case 'SET_VARIABLE':
         result = setVariableValue(msg.payload.id, msg.payload.value);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'SET_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('SET_RESULT', result, msg.requestId);
         // 즉시 스냅샷 갱신
         prevSnapshotJSON = '';
         pollAndBroadcast();
@@ -903,24 +939,14 @@
 
       case 'SET_SYSTEM_VARIABLE':
         result = setSystemVariableValue(msg.payload.kind, msg.payload.value);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'SET_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('SET_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
 
       case 'SET_SYSTEM_VISIBLE':
         result = setSystemVariableVisible(msg.payload.kind, msg.payload.visible);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'SET_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('SET_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
@@ -932,48 +958,28 @@
           msg.payload.scope,
           msg.payload.objectId
         );
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'SET_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('SET_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
 
       case 'SET_LIST_ITEM':
         result = setListItem(msg.payload.listId, msg.payload.index, msg.payload.value);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'SET_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('SET_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
 
       case 'ADD_LIST_ITEM':
         result = addListItem(msg.payload.listId, msg.payload.value);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'SET_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('SET_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
 
       case 'REMOVE_LIST_ITEM':
         result = removeListItem(msg.payload.listId, msg.payload.index);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'SET_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('SET_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
@@ -1026,12 +1032,7 @@
             console.error('[Entry Debugger] 장면 전환 오류:', e);
           }
         }
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'CHANGE_SCENE_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('CHANGE_SCENE_RESULT', result, msg.requestId);
         // 장면 전환 후 스냅샷 즉시 갱신
         prevSnapshotJSON = '';
         pollAndBroadcast();
@@ -1039,44 +1040,27 @@
 
       case 'RAISE_MESSAGE':
         result = raiseMessage(msg.payload.id);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'RAISE_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('RAISE_RESULT', result, msg.requestId);
         break;
 
       case 'ADD_GENERATED_OBJECT':
         result = addGeneratedObject(msg.payload);
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'ADD_GENERATED_OBJECT_RESULT',
-          payload: result,
-          requestId: msg.requestId
-        }, window.location.origin);
+        post('ADD_GENERATED_OBJECT_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
         break;
 
       case 'PING':
         var entry = safeGetEntry();
-        window.postMessage({
-          channel: CHANNEL,
-          type: 'PONG',
-          payload: {
-            entryReady: !!entry,
-            containerReady: !!safeGetContainer()
-          }
-        }, window.location.origin);
+        post('PONG', {
+          entryReady: !!entry,
+          containerReady: !!safeGetContainer()
+        });
         break;
     }
   });
 
   // 주입 완료 신호
-  window.postMessage({
-    channel: CHANNEL,
-    type: 'INJECT_READY'
-  }, window.location.origin);
+  post('INJECT_READY');
 
 })();
