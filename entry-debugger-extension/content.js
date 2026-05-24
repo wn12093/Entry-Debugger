@@ -75,6 +75,10 @@
     injectPageScript('entry-debugger-turbo-mode', 'turbo-mode.js');
   }
 
+  function injectFunctionPrivateVariablesScript() {
+    injectPageScript('entry-debugger-function-private-variables', 'function-private-variables.js');
+  }
+
   function injectPageScript(id, src) {
     if (document.getElementById(id)) return;
 
@@ -503,6 +507,13 @@
       extensionSettings.debuggerTabEnabled &&
       extensionSettings.labTabEnabled &&
       extensionSettings.eoUploaderEnabled
+    );
+  }
+
+  function isFunctionPrivateVariablesFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.functionPrivateVariablesEnabled
     );
   }
 
@@ -1498,6 +1509,15 @@
     sendToInject('SET_TURBO_MODE_ENABLED', { enabled: false });
   }
 
+  function applyFunctionPrivateVariablesFeature() {
+    injectFunctionPrivateVariablesScript();
+    setTimeout(function () {
+      sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', {
+        enabled: isFunctionPrivateVariablesFeatureEnabled()
+      });
+    }, 150);
+  }
+
   function applySettings(settings) {
     extensionSettings = normalizeSettings(settings);
     settingsLoaded = true;
@@ -1513,6 +1533,8 @@
     } else {
       stopTurboModeFeature();
     }
+
+    applyFunctionPrivateVariablesFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();
@@ -1571,6 +1593,13 @@
         if (isTurboModeFeatureEnabled()) {
           sendToInject('SET_TURBO_MODE_ENABLED', { enabled: true });
         }
+        break;
+
+      case 'FUNCTION_PRIVATE_VARIABLES_READY':
+        if (!settingsLoaded) return;
+        sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', {
+          enabled: isFunctionPrivateVariablesFeatureEnabled()
+        });
         break;
 
       case 'SNAPSHOT':
@@ -1761,6 +1790,7 @@
     stopFunctionUsageFeature();
     stopConsoleDebuggingFeature();
     stopTurboModeFeature();
+    sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', { enabled: false });
   }
 
   /* ═══════════════════════════════════════════
@@ -1860,6 +1890,8 @@
     } else {
       stopTurboModeFeature();
     }
+
+    applyFunctionPrivateVariablesFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();

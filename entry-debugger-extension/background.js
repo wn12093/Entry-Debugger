@@ -87,9 +87,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         functionUsageEnabled: newState,
         consoleDebuggingEnabled: newState,
         boostModeEnabled: newState,
+        functionPrivateVariablesEnabled: newState,
         labTabEnabled: newState,
         eoUploaderEnabled: false,
-        turboModeEnabled: false
+        turboModeEnabled: false,
       }, function () {
         getSettings(function (settings) {
           broadcastSettings(settings);

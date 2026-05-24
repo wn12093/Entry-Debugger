@@ -14,7 +14,8 @@
     boostModeEnabled: false,
     labTabEnabled: false,
     eoUploaderEnabled: false,
-    turboModeEnabled: false
+    turboModeEnabled: false,
+    functionPrivateVariablesEnabled: true
   };
 
   var MAIN_FEATURE_KEYS = [
@@ -22,6 +23,7 @@
     'functionUsageEnabled',
     'consoleDebuggingEnabled',
     'boostModeEnabled',
+    'functionPrivateVariablesEnabled',
     'labTabEnabled'
   ];
 
@@ -54,6 +56,9 @@
     var turboModeEnabled = typeof data.turboModeEnabled === 'boolean'
       ? data.turboModeEnabled
       : false;
+    var functionPrivateVariablesEnabled = typeof data.functionPrivateVariablesEnabled === 'boolean'
+      ? data.functionPrivateVariablesEnabled
+      : true;
 
     if (!debuggerTabEnabled) {
       labTabEnabled = false;
@@ -72,6 +77,7 @@
         functionUsageEnabled ||
         consoleDebuggingEnabled ||
         boostModeEnabled ||
+        functionPrivateVariablesEnabled ||
         labTabEnabled ||
         turboModeEnabled
       )
@@ -85,6 +91,7 @@
       labTabEnabled = false;
       eoUploaderEnabled = false;
       turboModeEnabled = false;
+      functionPrivateVariablesEnabled = false;
     }
 
     return {
@@ -95,7 +102,8 @@
       boostModeEnabled: enabled && boostModeEnabled,
       labTabEnabled: enabled && labTabEnabled,
       eoUploaderEnabled: enabled && eoUploaderEnabled,
-      turboModeEnabled: enabled && turboModeEnabled
+      turboModeEnabled: enabled && turboModeEnabled,
+      functionPrivateVariablesEnabled: enabled && functionPrivateVariablesEnabled
     };
   }
 
