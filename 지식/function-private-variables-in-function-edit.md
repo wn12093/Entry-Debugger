@@ -2,7 +2,7 @@
 
 확인 날짜: 2026-05-24
 
-대상 기능: 함수 편집 화면의 블록 꾸러미에서 현재 오브젝트의 개인 변수/리스트를 보이게 하는 실험실 옵션.
+대상 기능: 함수 편집 화면의 블록 꾸러미에서 현재 오브젝트의 개인 변수/리스트를 보이게 하는 팝업 옵션.
 
 ## 배경
 
@@ -26,7 +26,7 @@ if (
 
 파일: `entry-debugger-extension/function-private-variables.js`
 
-- Main World에 주입되는 별도 실험실 모듈이다.
+- Main World에 주입되는 별도 모듈이다.
 - Entry JSON은 수정하지 않는다.
 - `Entry.container.getDropdownList()`를 래핑한다.
 - 토글이 켜져 있고 `Entry.Func.isEdit === true`일 때만 `variables`/`lists` 메뉴를 직접 생성한다.

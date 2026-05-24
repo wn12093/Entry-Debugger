@@ -48,6 +48,7 @@
   let extensionSettings = DEFAULT_SETTINGS;
   let settingsLoaded = false;
   let functionUsageStartTimer = null;
+  let dropdownSearchScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
 
@@ -77,6 +78,11 @@
 
   function injectFunctionPrivateVariablesScript() {
     injectPageScript('entry-debugger-function-private-variables', 'function-private-variables.js');
+  }
+
+  function injectDropdownSearchScript() {
+    dropdownSearchScriptInjected = true;
+    injectPageScript('entry-debugger-dropdown-search', 'dropdown-search.js');
   }
 
   function injectPageScript(id, src) {
@@ -383,6 +389,16 @@
                   '<span class="ed-lab-slider"></span>' +
                 '</label>' +
               '</div>' +
+              '<div class="ed-lab-setting">' +
+                '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">속성 검색으로 찾기</span>' +
+                  '<span class="ed-lab-desc">변수/신호/리스트 드롭다운에 검색 추가</span>' +
+                '</span>' +
+                '<label class="ed-lab-switch" aria-label="속성 검색으로 찾기">' +
+                  '<input type="checkbox" id="ed-toggle-dropdown-search">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
+              '</div>' +
             '</div>' +
             '<div class="ed-empty" id="ed-other-empty">' +
               '<div class="ed-empty-icon">&#x23F1;</div>' +
@@ -481,6 +497,16 @@
         });
       });
     }
+
+    var dropdownSearchToggle = panelEl.querySelector('#ed-toggle-dropdown-search');
+    if (dropdownSearchToggle && dropdownSearchToggle.dataset.bound !== 'true') {
+      dropdownSearchToggle.dataset.bound = 'true';
+      dropdownSearchToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          dropdownSearchEnabled: dropdownSearchToggle.checked
+        });
+      });
+    }
   }
 
   function renderLabControls() {
@@ -494,6 +520,11 @@
     var eoUploaderToggle = panelEl.querySelector('#ed-toggle-eo-uploader');
     if (eoUploaderToggle) {
       eoUploaderToggle.checked = !!extensionSettings.eoUploaderEnabled;
+    }
+
+    var dropdownSearchToggle = panelEl.querySelector('#ed-toggle-dropdown-search');
+    if (dropdownSearchToggle) {
+      dropdownSearchToggle.checked = !!extensionSettings.dropdownSearchEnabled;
     }
   }
 
@@ -514,6 +545,15 @@
     return !!(
       extensionSettings.enabled &&
       extensionSettings.functionPrivateVariablesEnabled
+    );
+  }
+
+  function isDropdownSearchFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.debuggerTabEnabled &&
+      extensionSettings.labTabEnabled &&
+      extensionSettings.dropdownSearchEnabled
     );
   }
 
@@ -1518,6 +1558,21 @@
     }, 150);
   }
 
+  function applyDropdownSearchFeature() {
+    var shouldEnable = isDropdownSearchFeatureEnabled();
+    if (shouldEnable) {
+      injectDropdownSearchScript();
+    } else if (!dropdownSearchScriptInjected) {
+      return;
+    }
+
+    setTimeout(function () {
+      sendToInject('SET_DROPDOWN_SEARCH_ENABLED', {
+        enabled: shouldEnable
+      });
+    }, 150);
+  }
+
   function applySettings(settings) {
     extensionSettings = normalizeSettings(settings);
     settingsLoaded = true;
@@ -1535,6 +1590,7 @@
     }
 
     applyFunctionPrivateVariablesFeature();
+    applyDropdownSearchFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();
@@ -1599,6 +1655,13 @@
         if (!settingsLoaded) return;
         sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', {
           enabled: isFunctionPrivateVariablesFeatureEnabled()
+        });
+        break;
+
+      case 'DROPDOWN_SEARCH_READY':
+        if (!settingsLoaded) return;
+        sendToInject('SET_DROPDOWN_SEARCH_ENABLED', {
+          enabled: isDropdownSearchFeatureEnabled()
         });
         break;
 
@@ -1791,6 +1854,7 @@
     stopConsoleDebuggingFeature();
     stopTurboModeFeature();
     sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', { enabled: false });
+    sendToInject('SET_DROPDOWN_SEARCH_ENABLED', { enabled: false });
   }
 
   /* ═══════════════════════════════════════════
@@ -1892,6 +1956,7 @@
     }
 
     applyFunctionPrivateVariablesFeature();
+    applyDropdownSearchFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();

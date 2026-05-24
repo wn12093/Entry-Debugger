@@ -91,6 +91,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         labTabEnabled: newState,
         eoUploaderEnabled: false,
         turboModeEnabled: false,
+        dropdownSearchEnabled: false,
       }, function () {
         getSettings(function (settings) {
           broadcastSettings(settings);

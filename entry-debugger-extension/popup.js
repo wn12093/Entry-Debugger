@@ -51,7 +51,8 @@ allToggle.addEventListener('change', function () {
     boostModeEnabled: enabled,
     labTabEnabled: enabled,
     eoUploaderEnabled: false,
-    turboModeEnabled: enabled ? currentSettings.turboModeEnabled : false
+    turboModeEnabled: enabled ? currentSettings.turboModeEnabled : false,
+    dropdownSearchEnabled: enabled ? currentSettings.dropdownSearchEnabled : false
   });
 });
 
@@ -105,6 +106,9 @@ function saveSettingsFromControls() {
       : false,
     turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.turboModeEnabled
+      : false,
+    dropdownSearchEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.dropdownSearchEnabled
       : false
   });
 }

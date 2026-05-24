@@ -15,6 +15,7 @@
     labTabEnabled: false,
     eoUploaderEnabled: false,
     turboModeEnabled: false,
+    dropdownSearchEnabled: false,
     functionPrivateVariablesEnabled: true
   };
 
@@ -56,6 +57,9 @@
     var turboModeEnabled = typeof data.turboModeEnabled === 'boolean'
       ? data.turboModeEnabled
       : false;
+    var dropdownSearchEnabled = typeof data.dropdownSearchEnabled === 'boolean'
+      ? data.dropdownSearchEnabled
+      : false;
     var functionPrivateVariablesEnabled = typeof data.functionPrivateVariablesEnabled === 'boolean'
       ? data.functionPrivateVariablesEnabled
       : true;
@@ -63,11 +67,13 @@
     if (!debuggerTabEnabled) {
       labTabEnabled = false;
       eoUploaderEnabled = false;
+      dropdownSearchEnabled = false;
     }
 
     if (!labTabEnabled) {
       eoUploaderEnabled = false;
       turboModeEnabled = false;
+      dropdownSearchEnabled = false;
     }
 
     enabled = !!(
@@ -91,6 +97,7 @@
       labTabEnabled = false;
       eoUploaderEnabled = false;
       turboModeEnabled = false;
+      dropdownSearchEnabled = false;
       functionPrivateVariablesEnabled = false;
     }
 
@@ -103,6 +110,7 @@
       labTabEnabled: enabled && labTabEnabled,
       eoUploaderEnabled: enabled && eoUploaderEnabled,
       turboModeEnabled: enabled && turboModeEnabled,
+      dropdownSearchEnabled: enabled && dropdownSearchEnabled,
       functionPrivateVariablesEnabled: enabled && functionPrivateVariablesEnabled
     };
   }
