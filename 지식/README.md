@@ -12,6 +12,7 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [콘솔 디버깅 말하기 블록 옵션 확장 기록](./entry-dialog-yell-console-debugging.md)
 - [부스트/터보 모드 확장 기록](./entry-boost-turbo-mode-extension.md)
 - [엔트리 .eo 대량 모양 생성기 기록](./entry-eo-generator-extension.md)
+- [Entry .eo 내장 생성기 정정 사항](./entry-eo-built-in-generator.md)
 
 ## 관리 규칙
 
