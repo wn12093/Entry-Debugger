@@ -403,6 +403,53 @@
     }
   }
 
+  /**
+   * 내장 생성기에서 만든 오브젝트 모델을 현재 Entry 편집기에 직접 추가합니다.
+   * .eo 다운로드와 별개로, 파일은 data URL을 사용해 현재 세션에서 바로 보이게 합니다.
+   */
+  function addGeneratedObject(payload) {
+    var entry = safeGetEntry();
+    if (!entry || !entry.container) {
+      return { success: false, error: 'Entry.container를 찾을 수 없습니다.' };
+    }
+    if (!payload || !payload.object) {
+      return { success: false, error: '추가할 오브젝트 데이터가 없습니다.' };
+    }
+
+    try {
+      var objectModel = payload.object;
+      if (entry.scene && entry.scene.selectedScene) {
+        objectModel.scene = entry.scene.selectedScene.id;
+      }
+      if (!objectModel.scene && entry.scene && typeof entry.scene.getScenes === 'function') {
+        var scenes = entry.scene.getScenes();
+        if (scenes && scenes[0]) objectModel.scene = scenes[0].id;
+      }
+      if (!objectModel.scene && entry.scene && entry.scene.scenes_ && entry.scene.scenes_[0]) {
+        objectModel.scene = entry.scene.scenes_[0].id;
+      }
+
+      if (!objectModel.scene) {
+        return { success: false, error: '추가할 장면을 찾을 수 없습니다.' };
+      }
+
+      if (typeof entry.container.addObject === 'function') {
+        entry.container.addObject(objectModel, 0);
+      } else if (typeof entry.container.addObjectFunc === 'function') {
+        entry.container.addObjectFunc(objectModel, 0);
+      } else {
+        return { success: false, error: '오브젝트 추가 API를 찾을 수 없습니다.' };
+      }
+
+      if (entry.toast && typeof entry.toast.alert === 'function') {
+        entry.toast.alert('Entry Debugger', '오브젝트를 추가했습니다.');
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err && err.message ? err.message : String(err) };
+    }
+  }
+
   /* ───────── 메시지 수신 핸들러 ───────── */
 
   window.addEventListener('message', function (event) {
@@ -543,6 +590,18 @@
           payload: result,
           requestId: msg.requestId
         }, window.location.origin);
+        break;
+
+      case 'ADD_GENERATED_OBJECT':
+        result = addGeneratedObject(msg.payload);
+        window.postMessage({
+          channel: CHANNEL,
+          type: 'ADD_GENERATED_OBJECT_RESULT',
+          payload: result,
+          requestId: msg.requestId
+        }, window.location.origin);
+        prevSnapshotJSON = '';
+        pollAndBroadcast();
         break;
 
       case 'PING':

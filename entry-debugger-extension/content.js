@@ -246,6 +246,7 @@
             '<button class="ed-subtab" data-tab="lists">리스트</button>' +
             '<button class="ed-subtab" data-tab="messages">신호</button>' +
             '<button class="ed-subtab" data-tab="scenes">장면</button>' +
+            '<button class="ed-subtab" data-tab="generator">생성기</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
             '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
@@ -297,6 +298,26 @@
             '<div class="ed-items" id="ed-scene-list"></div>' +
           '</div>' +
 
+          /* 오브젝트 생성기 섹션 */
+          '<div class="ed-section" id="ed-section-generator">' +
+            '<div class="ed-generator">' +
+              '<label class="ed-generator-label" for="ed-generator-name">오브젝트 이름</label>' +
+              '<input type="text" class="ed-generator-input" id="ed-generator-name" placeholder="새 오브젝트" />' +
+              '<label class="ed-generator-drop" for="ed-generator-files">' +
+                '<span class="ed-generator-drop-title">이미지 파일 선택</span>' +
+                '<span class="ed-generator-drop-desc">PNG, JPG, JPEG, GIF, WEBP, SVG 지원 · BMP 제외</span>' +
+              '</label>' +
+              '<input type="file" id="ed-generator-files" class="ed-generator-file" multiple ' +
+                'accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />' +
+              '<div class="ed-generator-file-list" id="ed-generator-file-list">선택된 파일 없음</div>' +
+              '<div class="ed-generator-actions">' +
+                '<button class="ed-generator-btn ed-generator-btn-primary" id="ed-generator-add">현재 작품에 추가</button>' +
+                '<button class="ed-generator-btn" id="ed-generator-download">.eo 다운로드</button>' +
+              '</div>' +
+              '<div class="ed-generator-status" id="ed-generator-status">비트맵은 PNG로 변환하고 SVG는 PNG 미리보기 파일을 함께 만듭니다.</div>' +
+            '</div>' +
+          '</div>' +
+
         '</div>' +
 
       '</div>'
@@ -338,6 +359,529 @@
         renderSnapshot(currentSnapshot);
       });
     }
+
+    bindGeneratorEvents();
+  }
+
+  /* ═══════════════════════════════════════════
+     5.5. 내장 오브젝트 생성기
+     ═══════════════════════════════════════════ */
+
+  const EO_ACCEPTED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
+
+  function bindGeneratorEvents() {
+    if (!panelEl) return;
+
+    var fileInput = panelEl.querySelector('#ed-generator-files');
+    var addBtn = panelEl.querySelector('#ed-generator-add');
+    var downloadBtn = panelEl.querySelector('#ed-generator-download');
+    var nameInput = panelEl.querySelector('#ed-generator-name');
+
+    if (fileInput && !fileInput.dataset.bound) {
+      fileInput.dataset.bound = '1';
+      fileInput.addEventListener('change', function () {
+        renderGeneratorFileList();
+        if (nameInput && !nameInput.value.trim() && fileInput.files && fileInput.files[0]) {
+          nameInput.value = stripExtension(fileInput.files[0].name);
+        }
+      });
+    }
+
+    if (addBtn && !addBtn.dataset.bound) {
+      addBtn.dataset.bound = '1';
+      addBtn.addEventListener('click', async function () {
+        await runGeneratorAction('add');
+      });
+    }
+
+    if (downloadBtn && !downloadBtn.dataset.bound) {
+      downloadBtn.dataset.bound = '1';
+      downloadBtn.addEventListener('click', async function () {
+        await runGeneratorAction('download');
+      });
+    }
+  }
+
+  function renderGeneratorFileList() {
+    var fileInput = panelEl && panelEl.querySelector('#ed-generator-files');
+    var listEl = panelEl && panelEl.querySelector('#ed-generator-file-list');
+    if (!fileInput || !listEl) return;
+
+    var files = Array.prototype.slice.call(fileInput.files || []);
+    if (!files.length) {
+      listEl.textContent = '선택된 파일 없음';
+      return;
+    }
+
+    listEl.innerHTML = files.map(function (file) {
+      var ext = getFileExtension(file.name).toUpperCase();
+      return '<div class="ed-generator-file-item">' +
+        '<span>' + escapeHTML(file.name) + '</span>' +
+        '<em>' + escapeHTML(ext || 'FILE') + '</em>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function runGeneratorAction(action) {
+    var fileInput = panelEl && panelEl.querySelector('#ed-generator-files');
+    var nameInput = panelEl && panelEl.querySelector('#ed-generator-name');
+    var files = fileInput ? Array.prototype.slice.call(fileInput.files || []) : [];
+    var objectName = nameInput && nameInput.value.trim()
+      ? nameInput.value.trim()
+      : (files[0] ? stripExtension(files[0].name) : '새 오브젝트');
+
+    if (!files.length) {
+      setGeneratorStatus('이미지 파일을 먼저 선택하세요.', 'error');
+      return;
+    }
+
+    setGeneratorBusy(true);
+    setGeneratorStatus('이미지를 변환하는 중...', 'info');
+
+    try {
+      var generated = await buildEntryObjectPackage(files, objectName);
+      if (action === 'download') {
+        var eoBlob = await createEoBlob(generated);
+        downloadBlob(eoBlob, sanitizeDownloadName(objectName).replace(/\.eo$/i, '') + '.eo');
+        setGeneratorStatus('.eo 파일을 만들었습니다.', 'success');
+      } else {
+        sendToInject('ADD_GENERATED_OBJECT', generated.entryPayload);
+        setGeneratorStatus('현재 작품에 추가 요청을 보냈습니다.', 'info');
+      }
+    } catch (err) {
+      setGeneratorStatus(err && err.message ? err.message : String(err), 'error');
+    } finally {
+      setGeneratorBusy(false);
+    }
+  }
+
+  function setGeneratorBusy(isBusy) {
+    if (!panelEl) return;
+    ['#ed-generator-add', '#ed-generator-download', '#ed-generator-files', '#ed-generator-name']
+      .forEach(function (selector) {
+        var el = panelEl.querySelector(selector);
+        if (el) el.disabled = !!isBusy;
+      });
+  }
+
+  function setGeneratorStatus(text, type) {
+    var statusEl = panelEl && panelEl.querySelector('#ed-generator-status');
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.className = 'ed-generator-status ed-generator-status-' + (type || 'info');
+  }
+
+  async function buildEntryObjectPackage(files, objectName) {
+    var pictures = [];
+    var directPictures = [];
+    var entries = [];
+
+    for (var i = 0; i < files.length; i++) {
+      var picture = await buildPictureAsset(files[i], i);
+      pictures.push(picture.packagePicture);
+      directPictures.push(picture.directPicture);
+      entries = entries.concat(picture.entries);
+    }
+
+    var firstDimension = pictures[0].dimension;
+    var objectId = randomEntryId(8);
+    var selectedPictureId = pictures[0].id;
+    var scale = 200 / (firstDimension.width + firstDimension.height);
+
+    var objectModel = {
+      id: objectId,
+      name: objectName,
+      objectType: 'sprite',
+      rotateMethod: 'free',
+      scene: null,
+      script: [],
+      sprite: {
+        pictures: pictures,
+        sounds: []
+      },
+      selectedPictureId: selectedPictureId,
+      entity: {
+        x: 0,
+        y: 0,
+        regX: firstDimension.width / 2,
+        regY: firstDimension.height / 2,
+        scaleX: scale,
+        scaleY: scale,
+        rotation: 0,
+        direction: 90,
+        width: firstDimension.width,
+        height: firstDimension.height,
+        font: 'undefinedpx ',
+        visible: true
+      },
+      lock: false,
+      active: true
+    };
+
+    var directObject = JSON.parse(JSON.stringify(objectModel));
+    directObject.sprite.pictures = directPictures;
+
+    var objectJson = {
+      objects: [objectModel],
+      variables: [],
+      messages: [],
+      functions: [],
+      tables: [],
+      expansionBlocks: [],
+      aiUtilizeBlocks: []
+    };
+
+    return {
+      objectName: objectName,
+      objectJson: objectJson,
+      entries: entries,
+      entryPayload: {
+        object: directObject
+      }
+    };
+  }
+
+  async function buildPictureAsset(file, index) {
+    var ext = getFileExtension(file.name);
+    if (ext === 'bmp') {
+      throw new Error('BMP 파일은 Entry가 지원하지 않아 사용할 수 없습니다: ' + file.name);
+    }
+    if (EO_ACCEPTED_EXTENSIONS.indexOf(ext) === -1) {
+      throw new Error('지원하지 않는 파일 형식입니다: ' + file.name);
+    }
+
+    var pictureId = randomEntryId(4);
+    var filename = randomEntryId(32);
+    var dirA = filename.slice(0, 2);
+    var dirB = filename.slice(2, 4);
+    var displayName = stripExtension(file.name) || ('모양' + (index + 1));
+    var basePath = 'temp/' + dirA + '/' + dirB;
+    var tarBasePath = 'object/' + dirA + '/' + dirB;
+
+    if (ext === 'svg') {
+      var svgText = await readFileAsText(file);
+      var dimension = extractSvgDimensions(svgText);
+      var fullPng = await rasterizeSvgFullSize(svgText, dimension.width, dimension.height);
+      var thumbPng = await rasterizeSvgThumb(svgText, dimension.width, dimension.height);
+      var svgBytes = new TextEncoder().encode(svgText);
+      var fullPngBytes = new Uint8Array(await fullPng.arrayBuffer());
+      var thumbPngBytes = new Uint8Array(await thumbPng.arrayBuffer());
+      var svgDataUrl = await blobToDataUrl(new Blob([svgBytes], { type: 'image/svg+xml' }));
+      var thumbDataUrl = await blobToDataUrl(thumbPng);
+
+      return {
+        packagePicture: {
+          id: pictureId,
+          name: displayName,
+          filename: filename,
+          imageType: 'svg',
+          fileurl: basePath + '/image/' + filename + '.svg',
+          thumbUrl: basePath + '/thumb/' + filename + '.png',
+          dimension: dimension
+        },
+        directPicture: {
+          id: pictureId,
+          name: displayName,
+          filename: filename,
+          imageType: 'svg',
+          fileurl: svgDataUrl,
+          thumbUrl: thumbDataUrl,
+          dimension: dimension
+        },
+        entries: [
+          { path: tarBasePath + '/image/' + filename + '.svg', bytes: svgBytes },
+          { path: tarBasePath + '/image/' + filename + '.png', bytes: fullPngBytes },
+          { path: tarBasePath + '/thumb/' + filename + '.png', bytes: thumbPngBytes }
+        ]
+      };
+    }
+
+    var bitmap = await bitmapToPng(file);
+    var thumb = await rasterizeBitmapThumb(bitmap.imageSource, bitmap.width, bitmap.height);
+    var pngBytes = new Uint8Array(await bitmap.blob.arrayBuffer());
+    var thumbBytes = new Uint8Array(await thumb.arrayBuffer());
+    var pngDataUrl = await blobToDataUrl(bitmap.blob);
+    var thumbDataUrlBitmap = await blobToDataUrl(thumb);
+    if (bitmap.close) bitmap.close();
+
+    var bitmapDimension = {
+      width: bitmap.width,
+      height: bitmap.height
+    };
+
+    return {
+      packagePicture: {
+        id: pictureId,
+        name: displayName,
+        filename: filename,
+        imageType: 'png',
+        fileurl: basePath + '/image/' + filename + '.png',
+        thumbUrl: basePath + '/thumb/' + filename + '.png',
+        dimension: bitmapDimension
+      },
+      directPicture: {
+        id: pictureId,
+        name: displayName,
+        filename: filename,
+        imageType: 'png',
+        fileurl: pngDataUrl,
+        thumbUrl: thumbDataUrlBitmap,
+        dimension: bitmapDimension
+      },
+      entries: [
+        { path: tarBasePath + '/image/' + filename + '.png', bytes: pngBytes },
+        { path: tarBasePath + '/thumb/' + filename + '.png', bytes: thumbBytes }
+      ]
+    };
+  }
+
+  async function createEoBlob(generated) {
+    var objectJsonBytes = new TextEncoder().encode(JSON.stringify(generated.objectJson, null, 2));
+    var tarEntries = [{ path: 'object.json', bytes: objectJsonBytes }].concat(generated.entries);
+    var tarBytes = createTarBytes(tarEntries);
+    var gzipBytes = await gzipUint8Array(tarBytes);
+    return new Blob([gzipBytes], { type: 'application/octet-stream' });
+  }
+
+  async function bitmapToPng(file) {
+    var source;
+    var close = null;
+    if (typeof createImageBitmap === 'function') {
+      source = await createImageBitmap(file);
+      close = function () {
+        if (source && typeof source.close === 'function') source.close();
+      };
+    } else {
+      source = await loadImageFromBlob(file);
+    }
+
+    var width = source.width || source.naturalWidth;
+    var height = source.height || source.naturalHeight;
+    if (!width || !height) {
+      if (close) close();
+      throw new Error('이미지 크기를 읽을 수 없습니다: ' + file.name);
+    }
+
+    var canvas = createCanvas(width, height);
+    canvas.getContext('2d').drawImage(source, 0, 0, width, height);
+    var blob = await canvasToPngBlob(canvas);
+    return { blob: blob, width: width, height: height, imageSource: source, close: close };
+  }
+
+  async function rasterizeBitmapThumb(source, srcW, srcH) {
+    var size = thumbSize(srcW, srcH);
+    var canvas = createCanvas(size.w, size.h);
+    canvas.getContext('2d').drawImage(source, 0, 0, size.w, size.h);
+    return canvasToPngBlob(canvas);
+  }
+
+  async function rasterizeSvgFullSize(svgText, width, height) {
+    var blob = new Blob([svgText], { type: 'image/svg+xml' });
+    var img = await loadImageFromBlob(blob);
+    var canvas = createCanvas(width, height);
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+    return canvasToPngBlob(canvas);
+  }
+
+  async function rasterizeSvgThumb(svgText, srcW, srcH) {
+    var size = thumbSize(srcW, srcH);
+    return rasterizeSvgFullSize(svgText, size.w, size.h);
+  }
+
+  function extractSvgDimensions(svgText) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(svgText, 'image/svg+xml');
+    var svg = doc.documentElement;
+    if (!svg || svg.nodeName.toLowerCase() === 'parsererror') {
+      throw new Error('SVG 파일을 해석할 수 없습니다.');
+    }
+
+    var width = parseFloat(svg.getAttribute('width'));
+    var height = parseFloat(svg.getAttribute('height'));
+    if (!width || !height) {
+      var viewBox = svg.getAttribute('viewBox');
+      if (viewBox) {
+        var parts = viewBox.trim().split(/\s+/).map(Number);
+        if (parts.length >= 4) {
+          width = width || parts[2];
+          height = height || parts[3];
+        }
+      }
+    }
+
+    width = Math.round(width);
+    height = Math.round(height);
+    if (!width || !height || width < 1 || height < 1) {
+      throw new Error('SVG의 width/height 또는 viewBox를 찾을 수 없습니다.');
+    }
+    return { width: width, height: height };
+  }
+
+  function thumbSize(width, height) {
+    return width >= height
+      ? { w: 96, h: Math.max(1, Math.round(height * 96 / width)) }
+      : { w: Math.max(1, Math.round(width * 96 / height)), h: 96 };
+  }
+
+  function createCanvas(width, height) {
+    if (typeof OffscreenCanvas === 'function') {
+      return new OffscreenCanvas(width, height);
+    }
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+
+  function canvasToPngBlob(canvas) {
+    if (canvas.convertToBlob) {
+      return canvas.convertToBlob({ type: 'image/png' });
+    }
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (blob) resolve(blob);
+        else reject(new Error('PNG 변환에 실패했습니다.'));
+      }, 'image/png');
+    });
+  }
+
+  function loadImageFromBlob(blob) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('이미지를 불러올 수 없습니다.'));
+      };
+      img.src = url;
+    });
+  }
+
+  function readFileAsText(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('파일을 읽을 수 없습니다: ' + file.name)); };
+      reader.readAsText(file);
+    });
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('Data URL 변환에 실패했습니다.')); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function createTarBytes(entries) {
+    var chunks = [];
+    entries.forEach(function (entry) {
+      var data = entry.bytes instanceof Uint8Array ? entry.bytes : new Uint8Array(entry.bytes);
+      var header = createTarHeader(entry.path, data.length);
+      chunks.push(header, data);
+      var padding = (512 - (data.length % 512)) % 512;
+      if (padding) chunks.push(new Uint8Array(padding));
+    });
+    chunks.push(new Uint8Array(1024));
+    return concatUint8Arrays(chunks);
+  }
+
+  function createTarHeader(path, size) {
+    var header = new Uint8Array(512);
+    writeTarString(header, 0, 100, path);
+    writeTarString(header, 100, 8, '0000644\0');
+    writeTarString(header, 108, 8, '0000000\0');
+    writeTarString(header, 116, 8, '0000000\0');
+    writeTarString(header, 124, 12, formatTarOctal(size, 12));
+    writeTarString(header, 136, 12, formatTarOctal(Math.floor(Date.now() / 1000), 12));
+    for (var i = 148; i < 156; i++) header[i] = 32;
+    header[156] = 48;
+    writeTarString(header, 257, 6, 'ustar\0');
+    writeTarString(header, 263, 2, '00');
+
+    var checksum = 0;
+    for (var j = 0; j < header.length; j++) checksum += header[j];
+    var checksumText = checksum.toString(8).padStart(6, '0');
+    writeTarString(header, 148, 6, checksumText);
+    header[154] = 0;
+    header[155] = 32;
+    return header;
+  }
+
+  function writeTarString(buffer, offset, length, text) {
+    var bytes = new TextEncoder().encode(text);
+    var max = Math.min(length, bytes.length);
+    for (var i = 0; i < max; i++) buffer[offset + i] = bytes[i];
+  }
+
+  function formatTarOctal(value, length) {
+    return value.toString(8).padStart(length - 1, '0') + '\0';
+  }
+
+  async function gzipUint8Array(bytes) {
+    if (typeof CompressionStream !== 'function') {
+      throw new Error('이 브라우저는 gzip 압축을 지원하지 않습니다.');
+    }
+    var stream = new CompressionStream('gzip');
+    var writer = stream.writable.getWriter();
+    await writer.write(bytes);
+    await writer.close();
+    var buffer = await new Response(stream.readable).arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+
+  function concatUint8Arrays(chunks) {
+    var total = chunks.reduce(function (sum, chunk) { return sum + chunk.length; }, 0);
+    var output = new Uint8Array(total);
+    var offset = 0;
+    chunks.forEach(function (chunk) {
+      output.set(chunk, offset);
+      offset += chunk.length;
+    });
+    return output;
+  }
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename.replace(/\.gz$/i, '.eo');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function getFileExtension(name) {
+    var parts = String(name || '').split('.');
+    return parts.length > 1 ? parts.pop().toLowerCase() : '';
+  }
+
+  function stripExtension(name) {
+    return String(name || '').replace(/\.[^.]+$/, '');
+  }
+
+  function sanitizeDownloadName(name) {
+    return String(name || 'entry-object')
+      .replace(/[\\/:*?"<>|]+/g, '_')
+      .trim() || 'entry-object';
+  }
+
+  function randomEntryId(length) {
+    var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    var output = '';
+    var values = new Uint8Array(length);
+    crypto.getRandomValues(values);
+    for (var i = 0; i < length; i++) {
+      output += chars[values[i] % chars.length];
+    }
+    return output;
   }
 
   /* ═══════════════════════════════════════════
@@ -935,6 +1479,17 @@
         }
         break;
 
+      case 'ADD_GENERATED_OBJECT_RESULT':
+        if (msg.payload && msg.payload.success) {
+          showToast('오브젝트 추가 완료', 'info');
+          setGeneratorStatus('현재 작품에 오브젝트를 추가했습니다.', 'success');
+          sendToInject('REQUEST_SNAPSHOT');
+        } else if (msg.payload) {
+          showToast('오브젝트 추가 오류: ' + msg.payload.error, 'error');
+          setGeneratorStatus('오브젝트 추가 오류: ' + msg.payload.error, 'error');
+        }
+        break;
+
       case 'PONG':
         if (msg.payload && msg.payload.entryReady) {
           updateStatus('연결됨');
@@ -1011,7 +1566,8 @@
   }
 
   function isEntryWorkspacePage() {
-    return /^https:\/\/playentry\.org\/ws\//.test(location.href);
+    return /^https:\/\/playentry\.org\/ws\//.test(location.href) ||
+           /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/ws\//.test(location.href);
   }
 
   function reinitialize() {

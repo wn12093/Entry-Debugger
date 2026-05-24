@@ -16,7 +16,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://playentry.org/ws/*"],
+      "matches": [
+        "https://playentry.org/ws/*",
+        "http://localhost/ws/*",
+        "http://127.0.0.1/ws/*"
+      ],
       "js": ["content.js"],
       "css": ["style.css"],
       "run_at": "document_idle"
@@ -25,7 +29,11 @@
   "web_accessible_resources": [
     {
       "resources": ["inject.js"],
-      "matches": ["https://playentry.org/*"]
+      "matches": [
+        "https://playentry.org/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ]
     }
   ],
   "icons": {
