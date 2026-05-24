@@ -858,9 +858,6 @@
         return { success: false, error: '오브젝트 추가 API를 찾을 수 없습니다.' };
       }
 
-      if (entry.toast && typeof entry.toast.alert === 'function') {
-        entry.toast.alert('Entry Debugger', '오브젝트를 추가했습니다.');
-      }
       return { success: true };
     } catch (err) {
       return { success: false, error: err && err.message ? err.message : String(err) };

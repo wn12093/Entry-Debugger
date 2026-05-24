@@ -36,15 +36,9 @@
   const PANEL_ID       = 'ed-debugger-panel';
   const BOOST_MODE_STORAGE_KEY = '__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__';
 
-  const DEFAULT_SETTINGS = {
-    enabled: true,
-    debuggerTabEnabled: true,
-    functionUsageEnabled: true,
-    consoleDebuggingEnabled: true,
-    boostModeEnabled: false,
-    labTabEnabled: false,
-    turboModeEnabled: false
-  };
+  const SharedSettings = window.EntryDebuggerSettings;
+  const DEFAULT_SETTINGS = SharedSettings.DEFAULT_SETTINGS;
+  const normalizeSettings = SharedSettings.normalize;
 
   let debuggerInjected = false;
   let currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], others: [], ready: false };
@@ -55,6 +49,7 @@
   let settingsLoaded = false;
   let functionUsageStartTimer = null;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
+  let eoUploader = null;
 
   /* ═══════════════════════════════════════════
      1. Main World 스크립트 주입
@@ -281,69 +276,88 @@
   function buildPanelHTML() {
     return (
       '<div class="ed-wrapper">' +
+        buildToolbarHTML() +
+        buildSearchHTML() +
+        '<div class="ed-scroll-area" id="ed-scroll-area">' +
+          buildEmptyListSectionHTML({
+            id: 'variables',
+            emptyId: 'ed-var-empty',
+            listId: 'ed-var-list',
+            icon: '&#x1F50D;',
+            message: '변수가 없거나 Entry가 로드되지 않았습니다.',
+            active: true
+          }) +
+          buildEmptyListSectionHTML({
+            id: 'lists',
+            emptyId: 'ed-list-empty',
+            listId: 'ed-list-list',
+            icon: '&#x1F4CB;',
+            message: '리스트가 없거나 Entry가 로드되지 않았습니다.'
+          }) +
+          buildEmptyListSectionHTML({
+            id: 'messages',
+            emptyId: 'ed-msg-empty',
+            listId: 'ed-msg-list',
+            icon: '&#x1F4E1;',
+            message: '신호가 없거나 Entry가 로드되지 않았습니다.'
+          }) +
+          buildEmptyListSectionHTML({
+            id: 'scenes',
+            emptyId: 'ed-scene-empty',
+            listId: 'ed-scene-list',
+            icon: '&#x1F3AC;',
+            message: '장면이 없거나 Entry가 로드되지 않았습니다.'
+          }) +
+          buildLabSectionHTML() +
+          buildUploaderSectionHTML() +
+        '</div>' +
+      '</div>'
+    );
+  }
 
-        /* ── 상단 툴바 ── */
+  function buildToolbarHTML() {
+    return (
         '<div class="ed-toolbar">' +
           '<div class="ed-toolbar-tabs">' +
             '<button class="ed-subtab ed-subtab-active" data-tab="variables">변수</button>' +
             '<button class="ed-subtab" data-tab="lists">리스트</button>' +
             '<button class="ed-subtab" data-tab="messages">신호</button>' +
             '<button class="ed-subtab" data-tab="scenes">장면</button>' +
-            '<span class="ed-subtab-separator ed-lab-only" aria-hidden="true"></span>' +
+            '<span class="ed-subtab-separator ed-optional-only" aria-hidden="true"></span>' +
             '<button class="ed-subtab ed-lab-only" data-tab="others">실험실</button>' +
+            '<button class="ed-subtab ed-eo-uploader-only" data-tab="generator">업로더</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
             '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
             '<span class="ed-status" id="ed-status">대기 중</span>' +
           '</div>' +
-        '</div>' +
+        '</div>'
+    );
+  }
 
-        /* ── 검색 바 ── */
+  function buildSearchHTML() {
+    return (
         '<div class="ed-search-wrap">' +
           '<input type="text" class="ed-search" id="ed-search" placeholder="이름으로 검색..." />' +
+        '</div>'
+    );
+  }
+
+  function buildEmptyListSectionHTML(options) {
+    return (
+      '<div class="ed-section' + (options.active ? ' ed-section-active' : '') + '" id="ed-section-' + options.id + '">' +
+        '<div class="ed-empty" id="' + options.emptyId + '">' +
+          '<div class="ed-empty-icon">' + options.icon + '</div>' +
+          '<p>' + options.message + '</p>' +
         '</div>' +
+        '<div class="ed-items" id="' + options.listId + '"></div>' +
+      '</div>'
+    );
+  }
 
-        /* ── 콘텐츠 영역 ── */
-        '<div class="ed-scroll-area" id="ed-scroll-area">' +
-
-          /* 변수 섹션 */
-          '<div class="ed-section ed-section-active" id="ed-section-variables">' +
-            '<div class="ed-empty" id="ed-var-empty">' +
-              '<div class="ed-empty-icon">&#x1F50D;</div>' +
-              '<p>변수가 없거나 Entry가 로드되지 않았습니다.</p>' +
-            '</div>' +
-            '<div class="ed-items" id="ed-var-list"></div>' +
-          '</div>' +
-
-          /* 리스트 섹션 */
-          '<div class="ed-section" id="ed-section-lists">' +
-            '<div class="ed-empty" id="ed-list-empty">' +
-              '<div class="ed-empty-icon">&#x1F4CB;</div>' +
-              '<p>리스트가 없거나 Entry가 로드되지 않았습니다.</p>' +
-            '</div>' +
-            '<div class="ed-items" id="ed-list-list"></div>' +
-          '</div>' +
-
-          /* 신호 섹션 */
-          '<div class="ed-section" id="ed-section-messages">' +
-            '<div class="ed-empty" id="ed-msg-empty">' +
-              '<div class="ed-empty-icon">&#x1F4E1;</div>' +
-              '<p>신호가 없거나 Entry가 로드되지 않았습니다.</p>' +
-            '</div>' +
-            '<div class="ed-items" id="ed-msg-list"></div>' +
-          '</div>' +
-
-          /* 장면 섹션 */
-          '<div class="ed-section" id="ed-section-scenes">' +
-            '<div class="ed-empty" id="ed-scene-empty">' +
-              '<div class="ed-empty-icon">&#x1F3AC;</div>' +
-              '<p>장면이 없거나 Entry가 로드되지 않았습니다.</p>' +
-            '</div>' +
-            '<div class="ed-items" id="ed-scene-list"></div>' +
-          '</div>' +
-
-          /* 실험실 섹션 */
-          '<div class="ed-section ed-lab-only" id="ed-section-others">' +
+  function buildLabSectionHTML() {
+    return (
+      '<div class="ed-section ed-lab-only" id="ed-section-others">' +
             '<div class="ed-lab-controls">' +
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
@@ -355,12 +369,15 @@
                   '<span class="ed-lab-slider"></span>' +
                 '</label>' +
               '</div>' +
-              '<div class="ed-lab-setting ed-lab-action-setting">' +
+              '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
                   '<span class="ed-lab-title">다량 이미지 업로더</span>' +
-                  '<span class="ed-lab-desc">여러 개의 모양이 포함된 .eo 파일을 생성합니다</span>' +
+                  '<span class="ed-lab-desc">실험실 옆에 업로더 탭 표시</span>' +
                 '</span>' +
-                '<button class="ed-lab-action-button" id="ed-open-eo-generator" type="button">열기</button>' +
+                '<label class="ed-lab-switch" aria-label="다량 이미지 업로더 탭 표시">' +
+                  '<input type="checkbox" id="ed-toggle-eo-uploader">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
               '</div>' +
             '</div>' +
             '<div class="ed-empty" id="ed-other-empty">' +
@@ -368,10 +385,29 @@
               '<p>초시계 또는 대답을 찾을 수 없습니다.</p>' +
             '</div>' +
             '<div class="ed-items" id="ed-other-list"></div>' +
-          '</div>' +
+      '</div>'
+    );
+  }
 
-        '</div>' +
-
+  function buildUploaderSectionHTML() {
+    return (
+      '<div class="ed-section ed-eo-uploader-only" id="ed-section-generator">' +
+            '<div class="ed-generator">' +
+              '<label class="ed-generator-label" for="ed-generator-object-name">오브젝트 이름</label>' +
+              '<input class="ed-generator-input" id="ed-generator-object-name" type="text" value="새 오브젝트" maxlength="40">' +
+              '<input class="ed-generator-file" id="ed-generator-file" type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/png,image/jpeg,image/gif,image/webp,image/svg+xml">' +
+              '<button class="ed-generator-drop" id="ed-generator-drop" type="button">' +
+                '<span class="ed-generator-drop-title">이미지를 선택하거나 여기에 놓기</span>' +
+                '<span class="ed-generator-drop-desc">PNG, JPG, GIF, WEBP는 PNG로 변환하고 SVG는 원본과 PNG 미리보기를 함께 만듭니다. BMP는 지원하지 않습니다.</span>' +
+              '</button>' +
+              '<div class="ed-generator-file-list" id="ed-generator-file-list">선택된 이미지가 없습니다.</div>' +
+              '<div class="ed-generator-actions">' +
+                '<button class="ed-generator-btn" id="ed-generator-download" type="button" disabled>.eo 다운로드</button>' +
+                '<button class="ed-generator-btn ed-generator-btn-primary" id="ed-generator-add" type="button" disabled>엔트리에 추가</button>' +
+                '<button class="ed-generator-btn" id="ed-generator-clear" type="button" disabled>비우기</button>' +
+              '</div>' +
+              '<div class="ed-generator-status ed-generator-status-info" id="ed-generator-status">이미지를 추가하면 현재 작품에 바로 넣거나 .eo로 저장할 수 있습니다.</div>' +
+            '</div>' +
       '</div>'
     );
   }
@@ -413,7 +449,9 @@
     }
 
     bindLabControls();
+    bindGeneratorEvents();
     applyLabTabVisibility();
+    renderGeneratorFileList();
     renderLabControls();
   }
 
@@ -430,11 +468,13 @@
       });
     }
 
-    var eoGeneratorButton = panelEl.querySelector('#ed-open-eo-generator');
-    if (eoGeneratorButton && eoGeneratorButton.dataset.bound !== 'true') {
-      eoGeneratorButton.dataset.bound = 'true';
-      eoGeneratorButton.addEventListener('click', function () {
-        chrome.runtime.sendMessage({ type: 'OPEN_EO_GENERATOR' });
+    var eoUploaderToggle = panelEl.querySelector('#ed-toggle-eo-uploader');
+    if (eoUploaderToggle && eoUploaderToggle.dataset.bound !== 'true') {
+      eoUploaderToggle.dataset.bound = 'true';
+      eoUploaderToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          eoUploaderEnabled: eoUploaderToggle.checked
+        });
       });
     }
   }
@@ -446,27 +486,76 @@
     if (turboToggle) {
       turboToggle.checked = !!extensionSettings.turboModeEnabled;
     }
+
+    var eoUploaderToggle = panelEl.querySelector('#ed-toggle-eo-uploader');
+    if (eoUploaderToggle) {
+      eoUploaderToggle.checked = !!extensionSettings.eoUploaderEnabled;
+    }
   }
 
   function isLabTabFeatureEnabled() {
     return !!(extensionSettings.enabled && extensionSettings.labTabEnabled);
   }
 
+  function isEoUploaderFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.debuggerTabEnabled &&
+      extensionSettings.labTabEnabled &&
+      extensionSettings.eoUploaderEnabled
+    );
+  }
+
   function applyLabTabVisibility() {
     if (!panelEl) return;
 
     var visible = isLabTabFeatureEnabled();
+    var uploaderVisible = isEoUploaderFeatureEnabled();
     panelEl.querySelectorAll('.ed-lab-only').forEach(function (el) {
       el.style.display = visible ? '' : 'none';
     });
+    panelEl.querySelectorAll('.ed-eo-uploader-only').forEach(function (el) {
+      el.style.display = uploaderVisible ? '' : 'none';
+    });
+    panelEl.querySelectorAll('.ed-optional-only').forEach(function (el) {
+      el.style.display = (visible || uploaderVisible) ? '' : 'none';
+    });
 
     var labSection = panelEl.querySelector('#ed-section-others');
-    if (!visible && labSection && labSection.classList.contains('ed-section-active')) {
+    var uploaderSection = panelEl.querySelector('#ed-section-generator');
+    var activeHidden =
+      (!visible && labSection && labSection.classList.contains('ed-section-active')) ||
+      (!uploaderVisible && uploaderSection && uploaderSection.classList.contains('ed-section-active'));
+
+    if (activeHidden) {
       var variableTab = panelEl.querySelector('.ed-subtab[data-tab="variables"]');
       if (variableTab) {
         variableTab.click();
       }
     }
+  }
+
+  function getEoUploader() {
+    if (!eoUploader && window.EntryDebuggerEoUploader) {
+      eoUploader = window.EntryDebuggerEoUploader.create({
+        getPanelEl: function () { return panelEl; },
+        sendToInject: sendToInject,
+        showToast: showToast,
+        escapeHTML: escapeHTML,
+        escapeAttr: escapeAttr
+      });
+    }
+    return eoUploader;
+  }
+
+  function bindGeneratorEvents() {
+    var uploader = getEoUploader();
+    if (uploader) uploader.bindEvents();
+  }
+
+  function renderGeneratorFileList() {
+    var uploader = getEoUploader();
+    if (uploader) uploader.renderFileList();
   }
 
   function saveSettingsFromPanel(partialSettings) {
@@ -480,6 +569,7 @@
       if (response && response.settings) {
         extensionSettings = normalizeSettings(response.settings);
         applyLabTabVisibility();
+        renderGeneratorFileList();
         renderLabControls();
       }
     });
@@ -1321,69 +1411,6 @@
     }, window.location.origin);
   }
 
-  function normalizeSettings(data) {
-    data = data || {};
-
-    var enabled = data.enabled !== false;
-    var debuggerTabEnabled = typeof data.debuggerTabEnabled === 'boolean'
-      ? data.debuggerTabEnabled
-      : enabled;
-    var functionUsageEnabled = typeof data.functionUsageEnabled === 'boolean'
-      ? data.functionUsageEnabled
-      : enabled;
-    var consoleDebuggingEnabled = typeof data.consoleDebuggingEnabled === 'boolean'
-      ? data.consoleDebuggingEnabled
-      : enabled;
-    var boostModeEnabled = typeof data.boostModeEnabled === 'boolean'
-      ? data.boostModeEnabled
-      : false;
-    var labTabEnabled = typeof data.labTabEnabled === 'boolean'
-      ? data.labTabEnabled
-      : false;
-    var turboModeEnabled = typeof data.turboModeEnabled === 'boolean'
-      ? data.turboModeEnabled
-      : false;
-
-    if (!debuggerTabEnabled) {
-      labTabEnabled = false;
-    }
-
-    if (!labTabEnabled) {
-      turboModeEnabled = false;
-    }
-
-    if (!enabled) {
-      debuggerTabEnabled = false;
-      functionUsageEnabled = false;
-      consoleDebuggingEnabled = false;
-      boostModeEnabled = false;
-      labTabEnabled = false;
-      turboModeEnabled = false;
-    }
-
-    enabled = !!(
-      enabled &&
-      (
-        debuggerTabEnabled ||
-        functionUsageEnabled ||
-        consoleDebuggingEnabled ||
-        boostModeEnabled ||
-        labTabEnabled ||
-        turboModeEnabled
-      )
-    );
-
-    return {
-      enabled: enabled,
-      debuggerTabEnabled: enabled && debuggerTabEnabled,
-      functionUsageEnabled: enabled && functionUsageEnabled,
-      consoleDebuggingEnabled: enabled && consoleDebuggingEnabled,
-      boostModeEnabled: enabled && boostModeEnabled,
-      labTabEnabled: enabled && labTabEnabled,
-      turboModeEnabled: enabled && turboModeEnabled
-    };
-  }
-
   function isDebuggerTabFeatureEnabled() {
     return !!(extensionSettings.enabled && extensionSettings.debuggerTabEnabled);
   }
@@ -1578,6 +1605,10 @@
         }
         break;
 
+      case 'ADD_GENERATED_OBJECT_RESULT':
+        getEoUploader()?.handleAddResult(msg);
+        break;
+
       case 'FUNCTION_USAGE_OPEN_RESULT':
         if (!isDebuggerActive) {
           return;
@@ -1622,6 +1653,7 @@
           consoleDebuggingEnabled: false,
           boostModeEnabled: false,
           labTabEnabled: false,
+          eoUploaderEnabled: false,
           turboModeEnabled: false
         });
         sendResponse({ success: true });
@@ -1683,11 +1715,9 @@
   function isEntryWorkspacePage() {
     try {
       var url = new URL(location.href);
-      var isAllowedHost =
-        url.hostname === 'playentry.org' ||
-        url.hostname === 'localhost' ||
-        url.hostname === '127.0.0.1';
-      return isAllowedHost && url.pathname.indexOf('/ws/') === 0;
+      return url.protocol === 'https:' &&
+        url.hostname === 'playentry.org' &&
+        url.pathname.indexOf('/ws/') === 0;
     } catch (e) {
       return false;
     }
@@ -1724,6 +1754,8 @@
     debuggerInjected = false;
     isDebuggerActive = false;
     expandedListIds.clear();
+    if (eoUploader) eoUploader.cleanup();
+    eoUploader = null;
     currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], others: [], ready: false };
   }
 

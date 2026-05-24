@@ -2,91 +2,59 @@
 
 확인 날짜: 2026-05-24
 
-대상 기능: 여러 이미지 파일을 한 오브젝트의 모양으로 묶은 `.eo` 파일을 클라이언트에서 생성한다. 포맷의 단일 기준은 `C:\Users\young\prg\ENTRY\MYentry\docs\entry-reference\08-eo-format.md`다.
+대상 기능: 여러 이미지 파일을 한 오브젝트의 모양으로 묶어 현재 Entry 작품에 바로 추가하거나, Entry가 가져올 수 있는 `.eo` 파일로 다운로드한다.
 
-## 산출 위치
+## 현재 운영 방식
 
-독립 설치용 폴더: `eo-generator/`
+- 독립 생성기 페이지를 새 탭으로 여는 방식은 사용하지 않는다.
+- 확장프로그램 팝업에서는 `실험실 탭`만 켜고 끈다.
+- `다량 이미지 업로더` 토글은 디버깅 패널의 `실험실` 탭 안에 있다.
+- 실험실 탭이 꺼지면 업로더 설정도 함께 꺼진다.
+- 기본값은 꺼짐이다.
+- 토글을 켜면 디버깅 패널의 `실험실` 옆에 `업로더` 탭이 생긴다.
+- 업로더 탭은 두 동작을 제공한다.
+  - `엔트리에 추가`: 현재 열린 Entry 편집기에 오브젝트 모델을 직접 추가한다.
+  - `.eo 다운로드`: 같은 모양 구성으로 tar.gz 패키지를 만들고 `.eo` 확장자로 저장한다.
 
-Entry Debugger 실험실 내장 폴더: `entry-debugger-extension/eo-generator/`
+## 독립 생성기 정리
 
-```text
-eo-generator/
-├── manifest.json
-├── background.js
-├── README.md
-├── package.json
-├── app/
-│   ├── index.html
-│   ├── app.css
-│   ├── app.js
-│   └── modules/
-│       ├── constants.js
-│       ├── eo-builder.js
-│       ├── ids.js
-│       ├── image-processing.js
-│       ├── tar.js
-│       └── utils.js
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
-```
+`entry-debugger-extension/eo-generator/` 독립 페이지 폴더는 제거했다. 사용자에게 노출되는 경로는 디버깅 패널의 내장 `업로더` 탭뿐이며, 실제 생성 로직은 `entry-debugger-extension/eo-uploader.js`에 있다.
 
-## 구현 요약
+## 이미지 타입 규칙
 
-- MV3 확장으로 만들었고, 툴바 아이콘 클릭 시 `app/index.html`을 새 탭으로 연다.
-- Entry Debugger 확장 안에도 같은 앱을 내장했다. 실험실 탭의 `다량 이미지 업로더` 버튼을 누르면 `chrome.runtime.getURL('eo-generator/index.html')`을 새 탭으로 연다.
-- 입력 포맷은 PNG, JPG, BMP, SVG다.
-- 모든 처리는 브라우저 안에서 수행하며 외부 서버 통신은 없다.
-- gzip 압축은 Chrome 내장 `CompressionStream('gzip')`을 사용한다.
-- tar는 직접 구현했다. `object/` 디렉터리 엔트리와 각 partition 디렉터리 엔트리를 포함한다.
-- 결과 파일명은 `<오브젝트명>.eo`이며 Windows 파일명 금지 문자를 `_`로 치환한다.
-- JS는 기능별 ES module로 분리했다. `app.js`는 UI 진입점만 맡고, `.eo` 포맷 생성은 `modules/eo-builder.js`, tar는 `modules/tar.js`, 이미지 처리는 `modules/image-processing.js`에서 담당한다.
+- `picture.imageType`은 `png` 또는 `svg`만 사용한다.
+- PNG/JPG/JPEG/GIF/WEBP 입력은 모두 PNG로 다시 인코딩한다.
+- BMP는 입력 단계에서 거부한다.
+- SVG는 `imageType: "svg"`와 `.svg` fileurl을 유지하되, Entry 표시용 PNG를 함께 만든다.
 
-## 08-eo-format.md 대응
+## `.eo` tar 구성
 
-| 섹션 | 구현 |
-| --- | --- |
-| §1 | `modules/tar.js`의 `buildTarBlob()`, `makeTarHeader()`, `modules/eo-builder.js`의 `gzipBlob()` |
-| §2 | `modules/eo-builder.js`의 `buildTarEntries()`, `partitionPath()` |
-| §3 | `modules/eo-builder.js`의 `buildObjectJson()`, `buildPictureJson()`, `buildEntityJson()` |
-| §4 | `modules/ids.js`의 `uniqueFileId()`, `uniqueShortId()` |
-| §5 | `modules/image-processing.js`의 `thumbSize()`, `makeThumbBlob()` |
-| §6 | `fileurl: temp/{xx}/{yy}/image/{filename}.{ext}` |
-| §7 | `autoScale()`로 첫 번째 모양 긴 변 기준 `200 / max(w, h)` 계산 |
-| §8 | selected picture 기준 `entity.width/height/regX/regY` 설정 |
-| §9 | `getImageType()`으로 지원 이미지 판별 |
+비트맵 picture:
 
-## 주의 사항
+- `object/{xx}/{yy}/image/{filename}.png`
+- `object/{xx}/{yy}/thumb/{filename}.png`
 
-- §7에 따라 `.eo` 내부의 `dimension.scaleX/scaleY`와 `entity.scaleX/scaleY`는 모든 모양이 같은 값을 사용한다.
-- SVG 썸네일은 확장자 보존을 우선해 원본을 thumb에도 복사한다. PNG/JPG/BMP는 긴 변 96px 썸네일을 생성하며, BMP는 24-bit BMP로 직접 인코딩한다.
-- 원본 합산 10MB 초과와 개별 이미지 1MB 초과는 차단하지 않고 경고한다.
-- 사운드, 블록 스크립트, 변수, 신호, 함수, 여러 오브젝트 생성은 범위 밖으로 두었다.
+SVG picture:
 
-## 검증
+- `object/{xx}/{yy}/image/{filename}.svg`
+- `object/{xx}/{yy}/image/{filename}.png`
+- `object/{xx}/{yy}/thumb/{filename}.png`
 
-정적 검증:
+`object.json`의 `fileurl`은 `temp/{xx}/{yy}/image/{filename}.png|svg` 형식이다.
 
-```powershell
-node --check "Entry Debugger/eo-generator/app/app.js"
-node --check "Entry Debugger/eo-generator/app/modules/eo-builder.js"
-node --check "Entry Debugger/eo-generator/background.js"
-Get-Content -Raw -Encoding UTF8 "Entry Debugger/eo-generator/manifest.json" | ConvertFrom-Json
-```
+## Entry 직접 추가
 
-생성 파일 검증:
+- `eo-uploader.js`가 이미지 파일을 data URL로 변환한다.
+- `ADD_GENERATED_OBJECT` 메시지로 page world의 `inject.js`에 오브젝트 모델을 보낸다.
+- `inject.js`는 현재 선택된 장면을 찾아 `Entry.container.addObject()` 또는 `addObjectFunc()`로 추가한다.
 
-```powershell
-tar -tvf "생성된파일.eo"
-```
+## 검증 체크리스트
 
-확인해야 할 핵심 경로:
-
-```text
-object/
-object/object.json
-object/{xx}/{yy}/image/{filename}.{ext}
-object/{xx}/{yy}/thumb/{filename}.{ext}
-```
+- 실험실 탭 안의 `다량 이미지 업로더`는 기본 꺼짐이다.
+- 토글을 켜면 디버깅 패널에 `업로더` 탭이 나타난다.
+- BMP 드롭 시 거부 메시지가 표시된다.
+- JPG/GIF/WEBP 입력도 `.eo` 내부에서는 PNG로 저장된다.
+- SVG 입력은 SVG 원본, image PNG, thumb PNG 3개를 가진다.
+- `entity.regX === width / 2`, `entity.regY === height / 2`다.
+- 다운로드 파일명은 `.eo`로 끝난다.
+- `엔트리에 추가` 후 현재 작품의 오브젝트 목록에 새 오브젝트가 생긴다.

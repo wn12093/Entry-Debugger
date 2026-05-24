@@ -6,15 +6,9 @@
  */
 'use strict';
 
-var DEFAULT_SETTINGS = {
-  enabled: true,
-  debuggerTabEnabled: true,
-  functionUsageEnabled: true,
-  consoleDebuggingEnabled: true,
-  boostModeEnabled: false,
-  labTabEnabled: false,
-  turboModeEnabled: false
-};
+var SharedSettings = window.EntryDebuggerSettings;
+var DEFAULT_SETTINGS = SharedSettings.DEFAULT_SETTINGS;
+var normalizeSettings = SharedSettings.normalize;
 
 var allToggle = document.getElementById('toggle-all');
 var debuggerTabToggle = document.getElementById('toggle-debugger-tab');
@@ -54,6 +48,7 @@ allToggle.addEventListener('change', function () {
     consoleDebuggingEnabled: enabled,
     boostModeEnabled: enabled,
     labTabEnabled: enabled,
+    eoUploaderEnabled: false,
     turboModeEnabled: enabled ? currentSettings.turboModeEnabled : false
   });
 });
@@ -68,6 +63,9 @@ debuggerTabToggle.addEventListener('change', function () {
     consoleDebuggingEnabled: consoleDebuggingToggle.checked,
     boostModeEnabled: boostModeToggle.checked,
     labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    eoUploaderEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.eoUploaderEnabled
+      : false,
     turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.turboModeEnabled
       : false
@@ -84,6 +82,9 @@ functionUsageToggle.addEventListener('change', function () {
     consoleDebuggingEnabled: consoleDebuggingToggle.checked,
     boostModeEnabled: boostModeToggle.checked,
     labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    eoUploaderEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.eoUploaderEnabled
+      : false,
     turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.turboModeEnabled
       : false
@@ -100,6 +101,9 @@ consoleDebuggingToggle.addEventListener('change', function () {
     consoleDebuggingEnabled: consoleDebuggingToggle.checked,
     boostModeEnabled: boostModeToggle.checked,
     labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    eoUploaderEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.eoUploaderEnabled
+      : false,
     turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.turboModeEnabled
       : false
@@ -116,6 +120,9 @@ boostModeToggle.addEventListener('change', function () {
     consoleDebuggingEnabled: consoleDebuggingToggle.checked,
     boostModeEnabled: boostModeToggle.checked,
     labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    eoUploaderEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.eoUploaderEnabled
+      : false,
     turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.turboModeEnabled
       : false
@@ -132,6 +139,9 @@ labTabToggle.addEventListener('change', function () {
     consoleDebuggingEnabled: consoleDebuggingToggle.checked,
     boostModeEnabled: boostModeToggle.checked,
     labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
+    eoUploaderEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.eoUploaderEnabled
+      : false,
     turboModeEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.turboModeEnabled
       : false
@@ -183,76 +193,7 @@ function isAnyFeatureChecked() {
 }
 
 function getEnabledFeatureCount() {
-  var count = 0;
-  if (currentSettings.debuggerTabEnabled) count++;
-  if (currentSettings.functionUsageEnabled) count++;
-  if (currentSettings.consoleDebuggingEnabled) count++;
-  if (currentSettings.boostModeEnabled) count++;
-  if (currentSettings.labTabEnabled) count++;
-  return count;
-}
-
-function normalizeSettings(settings) {
-  settings = settings || DEFAULT_SETTINGS;
-
-  var enabled = settings.enabled !== false;
-  var debuggerTabEnabled = typeof settings.debuggerTabEnabled === 'boolean'
-    ? settings.debuggerTabEnabled
-    : enabled;
-  var functionUsageEnabled = typeof settings.functionUsageEnabled === 'boolean'
-    ? settings.functionUsageEnabled
-    : enabled;
-  var consoleDebuggingEnabled = typeof settings.consoleDebuggingEnabled === 'boolean'
-    ? settings.consoleDebuggingEnabled
-    : enabled;
-  var boostModeEnabled = typeof settings.boostModeEnabled === 'boolean'
-    ? settings.boostModeEnabled
-    : false;
-  var labTabEnabled = typeof settings.labTabEnabled === 'boolean'
-    ? settings.labTabEnabled
-    : false;
-  var turboModeEnabled = typeof settings.turboModeEnabled === 'boolean'
-    ? settings.turboModeEnabled
-    : false;
-
-  if (!debuggerTabEnabled) {
-    labTabEnabled = false;
-  }
-
-  if (!labTabEnabled) {
-    turboModeEnabled = false;
-  }
-
-  enabled = !!(
-    enabled &&
-    (
-      debuggerTabEnabled ||
-      functionUsageEnabled ||
-      consoleDebuggingEnabled ||
-      boostModeEnabled ||
-      labTabEnabled ||
-      turboModeEnabled
-    )
-  );
-
-  if (!enabled) {
-    debuggerTabEnabled = false;
-    functionUsageEnabled = false;
-    consoleDebuggingEnabled = false;
-    boostModeEnabled = false;
-    labTabEnabled = false;
-    turboModeEnabled = false;
-  }
-
-  return {
-    enabled: enabled,
-    debuggerTabEnabled: enabled && debuggerTabEnabled,
-    functionUsageEnabled: enabled && functionUsageEnabled,
-    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled,
-    boostModeEnabled: enabled && boostModeEnabled,
-    labTabEnabled: enabled && labTabEnabled,
-    turboModeEnabled: enabled && turboModeEnabled
-  };
+  return SharedSettings.getEnabledMainFeatureCount(currentSettings);
 }
 
 /* ═══════════════════════════════════════════
@@ -294,7 +235,6 @@ function getEnabledFeatureText() {
   if (currentSettings.labTabEnabled) {
     enabledFeatures.push('실험실 탭');
   }
-
   if (enabledFeatures.length === 5) {
     return '모든 기능 켜짐';
   }

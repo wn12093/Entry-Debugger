@@ -13,78 +13,11 @@
  */
 'use strict';
 
-var DEFAULT_SETTINGS = {
-  enabled: true,
-  debuggerTabEnabled: true,
-  functionUsageEnabled: true,
-  consoleDebuggingEnabled: true,
-  boostModeEnabled: false,
-  labTabEnabled: false,
-  turboModeEnabled: false
-};
+importScripts('settings.js');
 
-function normalizeSettings(data) {
-  data = data || {};
-
-  var enabled = data.enabled !== false;
-  var debuggerTabEnabled = typeof data.debuggerTabEnabled === 'boolean'
-    ? data.debuggerTabEnabled
-    : enabled;
-  var functionUsageEnabled = typeof data.functionUsageEnabled === 'boolean'
-    ? data.functionUsageEnabled
-    : enabled;
-  var consoleDebuggingEnabled = typeof data.consoleDebuggingEnabled === 'boolean'
-    ? data.consoleDebuggingEnabled
-    : enabled;
-  var boostModeEnabled = typeof data.boostModeEnabled === 'boolean'
-    ? data.boostModeEnabled
-    : false;
-  var labTabEnabled = typeof data.labTabEnabled === 'boolean'
-    ? data.labTabEnabled
-    : false;
-  var turboModeEnabled = typeof data.turboModeEnabled === 'boolean'
-    ? data.turboModeEnabled
-    : false;
-
-  if (!debuggerTabEnabled) {
-    labTabEnabled = false;
-  }
-
-  if (!labTabEnabled) {
-    turboModeEnabled = false;
-  }
-
-  if (!enabled) {
-    debuggerTabEnabled = false;
-    functionUsageEnabled = false;
-    consoleDebuggingEnabled = false;
-    boostModeEnabled = false;
-    labTabEnabled = false;
-    turboModeEnabled = false;
-  }
-
-  enabled = !!(
-    enabled &&
-    (
-      debuggerTabEnabled ||
-      functionUsageEnabled ||
-      consoleDebuggingEnabled ||
-      boostModeEnabled ||
-      labTabEnabled ||
-      turboModeEnabled
-    )
-  );
-
-  return {
-    enabled: enabled,
-    debuggerTabEnabled: enabled && debuggerTabEnabled,
-    functionUsageEnabled: enabled && functionUsageEnabled,
-    consoleDebuggingEnabled: enabled && consoleDebuggingEnabled,
-    boostModeEnabled: enabled && boostModeEnabled,
-    labTabEnabled: enabled && labTabEnabled,
-    turboModeEnabled: enabled && turboModeEnabled
-  };
-}
+var SharedSettings = self.EntryDebuggerSettings;
+var DEFAULT_SETTINGS = SharedSettings.DEFAULT_SETTINGS;
+var normalizeSettings = SharedSettings.normalize;
 
 function getSettings(callback) {
   chrome.storage.local.get(DEFAULT_SETTINGS, function (data) {
@@ -98,9 +31,7 @@ function saveSettings(nextSettings, callback) {
 
 function broadcastSettings(settings) {
   chrome.tabs.query({ url: [
-    'https://playentry.org/ws/*',
-    'http://localhost/ws/*',
-    'http://127.0.0.1/ws/*'
+    'https://playentry.org/ws/*'
   ] }, function (tabs) {
     tabs.forEach(function (tab) {
       chrome.tabs.sendMessage(tab.id, {
@@ -120,6 +51,15 @@ function broadcastSettings(settings) {
 chrome.runtime.onInstalled.addListener(function (details) {
   if (details.reason === 'install') {
     chrome.storage.local.set(DEFAULT_SETTINGS);
+    return;
+  }
+
+  if (details.reason === 'update') {
+    chrome.storage.local.get(DEFAULT_SETTINGS, function (data) {
+      chrome.storage.local.set(normalizeSettings(Object.assign({}, data, {
+        boostModeEnabled: false
+      })));
+    });
   }
 });
 
@@ -148,6 +88,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         consoleDebuggingEnabled: newState,
         boostModeEnabled: newState,
         labTabEnabled: newState,
+        eoUploaderEnabled: false,
         turboModeEnabled: false
       }, function () {
         getSettings(function (settings) {
@@ -179,18 +120,6 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     /* tabs 권한 없이도 동작하도록 URL 사전 체크 없이
        content script에 직접 PING_STATUS를 보냄.
        content script가 로딩되어 있으면 응답, 아니면 catch 처리. */
-    case 'OPEN_EO_GENERATOR':
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('eo-generator/index.html')
-      }, function (tab) {
-        sendResponse({
-          success: !chrome.runtime.lastError,
-          tabId: tab && tab.id,
-          error: chrome.runtime.lastError && chrome.runtime.lastError.message
-        });
-      });
-      return true;
-
     case 'GET_PAGE_STATUS':
       chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (tabs[0]) {
