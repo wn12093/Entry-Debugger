@@ -1458,16 +1458,17 @@
     sendToInject('STOP_FUNCTION_USAGE_POLLING');
   }
 
-  function startConsoleDebuggingFeature() {
-    injectConsoleDebuggingScript();
-    setTimeout(function () {
-      if (!isConsoleDebuggingFeatureEnabled()) return;
-      sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: true });
-    }, 150);
-  }
-
   function stopConsoleDebuggingFeature() {
     sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: false });
+  }
+
+  function applyConsoleDebuggingFeature() {
+    injectConsoleDebuggingScript();
+    setTimeout(function () {
+      sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', {
+        enabled: isConsoleDebuggingFeatureEnabled()
+      });
+    }, 150);
   }
 
   function mirrorBoostModeSetting(enabled) {
@@ -1519,11 +1520,7 @@
       stopFunctionUsageFeature();
     }
 
-    if (isConsoleDebuggingFeatureEnabled()) {
-      startConsoleDebuggingFeature();
-    } else {
-      stopConsoleDebuggingFeature();
-    }
+    applyConsoleDebuggingFeature();
 
     if (isDebuggerTabFeatureEnabled()) {
       initDebuggerTabFeature();
@@ -1559,9 +1556,9 @@
 
       case 'CONSOLE_DEBUGGING_READY':
         if (!settingsLoaded) return;
-        if (isConsoleDebuggingFeatureEnabled()) {
-          sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', { enabled: true });
-        }
+        sendToInject('SET_CONSOLE_DEBUGGING_ENABLED', {
+          enabled: isConsoleDebuggingFeatureEnabled()
+        });
         break;
 
       case 'BOOST_MODE_READY':
@@ -1870,11 +1867,7 @@
       stopFunctionUsageFeature();
     }
 
-    if (isConsoleDebuggingFeatureEnabled()) {
-      startConsoleDebuggingFeature();
-    } else {
-      stopConsoleDebuggingFeature();
-    }
+    applyConsoleDebuggingFeature();
 
     if (isDebuggerTabFeatureEnabled()) {
       initDebuggerTabFeature();

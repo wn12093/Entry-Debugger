@@ -22,6 +22,15 @@
     { label: '[ERROR]', value: 'targetChecker fail simplebar-mask' },
     { label: '[DEBUG]', value: 'entryDimmed' }
   ];
+  const CONSOLE_MODE_CLASS_MAP = {
+    '': '',
+    entryDebuggerLog: '',
+    'ask ': 'ask ',
+    'speak ': 'speak ',
+    'targetChecker fail simplebar-mask': 'targetChecker fail simplebar-mask',
+    entryDimmed: 'entryDimmed'
+  };
+  const RUNTIME_PATCH_MARK = '__entryDebuggerConsoleDebuggingRuntimePatched';
 
   let enabled = false;
   let retryTimer = null;
@@ -50,6 +59,116 @@
 
   function getExtraOptions() {
     return [{ label: getYellLabel(), value: 'yell' }].concat(LOG_OPTIONS);
+  }
+
+  function isConsoleMode(mode) {
+    return Object.prototype.hasOwnProperty.call(CONSOLE_MODE_CLASS_MAP, mode);
+  }
+
+  function formatDialogMessage(message) {
+    var entry = safeGetEntry();
+
+    if (message === '') {
+      message = '    ';
+    } else if (typeof message === 'boolean') {
+      message = message ? 'True' : 'False';
+    } else {
+      message = '' + message;
+    }
+
+    try {
+      if (entry && typeof entry.convertToRoundedDecimals === 'function') {
+        return entry.convertToRoundedDecimals(message, 3);
+      }
+    } catch (e) {}
+
+    return message;
+  }
+
+  function printConsoleMessage(message, mode) {
+    var entry = safeGetEntry();
+    var consoleClass = CONSOLE_MODE_CLASS_MAP[mode];
+
+    if (!enabled) return;
+    if (!entry || !entry.console || typeof entry.console.print !== 'function') return;
+
+    entry.console.print(message, consoleClass);
+  }
+
+  function patchDialogRuntime(block) {
+    if (!block || typeof block.func !== 'function' || block[RUNTIME_PATCH_MARK]) {
+      return false;
+    }
+
+    var nativeFunc = block.func;
+    block.func = function (sprite, script) {
+      var mode = script.getField('OPTION', script);
+      if (isConsoleMode(mode)) {
+        var message = script.getValue('VALUE', script);
+        printConsoleMessage(formatDialogMessage(message), mode);
+        return script.callReturn();
+      }
+
+      return nativeFunc.apply(this, arguments);
+    };
+    block[RUNTIME_PATCH_MARK] = true;
+    return true;
+  }
+
+  function patchDialogTimeRuntime(block) {
+    if (!block || typeof block.func !== 'function' || block[RUNTIME_PATCH_MARK]) {
+      return false;
+    }
+
+    var nativeFunc = block.func;
+    block.func = function (sprite, script) {
+      var mode = script.getField('OPTION', script);
+      if (!isConsoleMode(mode)) {
+        return nativeFunc.apply(this, arguments);
+      }
+
+      if (!script.isStart) {
+        var entry = safeGetEntry();
+        var values = script.getValues(['SECOND', 'VALUE'], script);
+        var timeValue = Number(values[0]);
+        var message = formatDialogMessage(values[1]);
+        var timeoutId = 0;
+
+        script.isStart = true;
+        script.timeFlag = 1;
+        printConsoleMessage(message, mode);
+
+        var stopConsoleWait = function () {
+          script.timeFlag = 0;
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = 0;
+          }
+        };
+
+        script.__entryDebuggerConsoleStop = stopConsoleWait;
+        try {
+          if (entry && entry.engine && typeof entry.engine.setTimeout === 'function') {
+            timeoutId = entry.engine.setTimeout(stopConsoleWait, timeValue * 1000);
+          } else {
+            timeoutId = setTimeout(stopConsoleWait, timeValue * 1000);
+          }
+        } catch (e) {
+          stopConsoleWait();
+        }
+      }
+
+      if (script.timeFlag == 0) {
+        delete script.timeFlag;
+        delete script.isStart;
+        delete script.__entryDebuggerConsoleStop;
+        return script.callReturn();
+      }
+
+      return script;
+    };
+    block[RUNTIME_PATCH_MARK] = true;
+    return true;
   }
 
   function createMarkedOption(optionData) {
@@ -136,6 +255,8 @@
     }
 
     var changed = false;
+    patchDialogRuntime(block.dialog);
+    patchDialogTimeRuntime(block.dialog_time);
     changed = patchBlock(block.dialog, 1) || changed;
     changed = patchBlock(block.dialog_time, 2) || changed;
 
