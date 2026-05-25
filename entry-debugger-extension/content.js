@@ -443,15 +443,14 @@
               '<input class="ed-generator-file" id="ed-generator-file" type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/png,image/jpeg,image/gif,image/webp,image/svg+xml">' +
               '<button class="ed-generator-drop" id="ed-generator-drop" type="button">' +
                 '<span class="ed-generator-drop-title">이미지를 선택하거나 여기에 놓기</span>' +
-                '<span class="ed-generator-drop-desc">PNG, JPG, GIF, WEBP는 PNG로 변환하고 SVG는 원본과 PNG 미리보기를 함께 만듭니다. BMP는 지원하지 않습니다.</span>' +
+                '<span class="ed-generator-drop-desc">PNG, JPG, GIF, WEBP는 PNG로 변환하고 SVG는 원본과 PNG 미리보기를 함께 만듭니다. 다운로드한 .eo 파일은 오브젝트 추가하기의 파일 업로드로 넣으세요.</span>' +
               '</button>' +
               '<div class="ed-generator-file-list" id="ed-generator-file-list">선택된 이미지가 없습니다.</div>' +
               '<div class="ed-generator-actions">' +
                 '<button class="ed-generator-btn" id="ed-generator-download" type="button" disabled>.eo 다운로드</button>' +
-                '<button class="ed-generator-btn ed-generator-btn-primary" id="ed-generator-add" type="button" disabled>엔트리에 추가</button>' +
                 '<button class="ed-generator-btn" id="ed-generator-clear" type="button" disabled>비우기</button>' +
               '</div>' +
-              '<div class="ed-generator-status ed-generator-status-info" id="ed-generator-status">이미지를 추가하면 현재 작품에 바로 넣거나 .eo로 저장할 수 있습니다.</div>' +
+              '<div class="ed-generator-status ed-generator-status-info" id="ed-generator-status">이미지를 추가해 .eo로 저장한 뒤, 엔트리의 오브젝트 추가하기 &gt; 파일 업로드에서 업로드하세요.</div>' +
             '</div>' +
       '</div>'
     );
@@ -1717,10 +1716,6 @@
         } else if (msg.payload) {
           showToast('장면 전환 오류: ' + msg.payload.error, 'error');
         }
-        break;
-
-      case 'ADD_GENERATED_OBJECT_RESULT':
-        getEoUploader()?.handleAddResult(msg);
         break;
 
       case 'FUNCTION_USAGE_OPEN_RESULT':

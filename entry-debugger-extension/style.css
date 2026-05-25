@@ -1234,6 +1234,11 @@
   color: #27ae60;
 }
 
+.ed-generator-status-warning {
+  background: #fff8e6;
+  color: #a36b00;
+}
+
 .ed-generator-status-error {
   background: #fdedeb;
   color: #e74c3c;

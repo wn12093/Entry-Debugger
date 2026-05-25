@@ -1,10 +1,12 @@
 /**
- * eo-uploader.js - Built-in Entry object uploader and .eo generator.
+ * eo-uploader.js - Built-in Entry .eo generator.
  */
 (function (global) {
   'use strict';
 
   var THUMB_LONG_EDGE = 96;
+  var ENTRY_UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024;
+  var DEFAULT_STATUS = '이미지를 추가해 .eo로 저장한 뒤, 엔트리의 오브젝트 추가하기 > 파일 업로드에서 업로드하세요.';
   var STAGE_TARGET_LONG_EDGE = 200;
   var TAR_BLOCK_SIZE = 512;
   var FILE_ID_LENGTH = 32;
@@ -17,9 +19,6 @@
 
     var files = [];
     var busy = false;
-    var pendingAddRequestId = null;
-    var pendingAddTimer = null;
-
     function getPanel() {
       return deps.getPanelEl ? deps.getPanelEl() : null;
     }
@@ -36,21 +35,12 @@
       return escapeHTML(str).replace(/"/g, '&quot;');
     }
 
-    function sendToInject(type, payload, requestId) {
-      if (deps.sendToInject) deps.sendToInject(type, payload, requestId);
-    }
-
-    function showToast(message, type) {
-      if (deps.showToast) deps.showToast(message, type);
-    }
-
     function bindEvents() {
       var panel = getPanel();
       if (!panel) return;
 
       var fileInput = panel.querySelector('#ed-generator-file');
       var drop = panel.querySelector('#ed-generator-drop');
-      var addButton = panel.querySelector('#ed-generator-add');
       var downloadButton = panel.querySelector('#ed-generator-download');
       var clearButton = panel.querySelector('#ed-generator-clear');
 
@@ -81,17 +71,10 @@
         });
       }
 
-      if (addButton && addButton.dataset.bound !== 'true') {
-        addButton.dataset.bound = 'true';
-        addButton.addEventListener('click', function () {
-          runAction('add');
-        });
-      }
-
       if (downloadButton && downloadButton.dataset.bound !== 'true') {
         downloadButton.dataset.bound = 'true';
         downloadButton.addEventListener('click', function () {
-          runAction('download');
+          runDownload();
         });
       }
 
@@ -101,7 +84,7 @@
           if (busy) return;
           files = [];
           renderFileList();
-          setStatus('이미지를 추가하면 현재 작품에 바로 넣거나 .eo로 저장할 수 있습니다.', 'info');
+          setStatus(DEFAULT_STATUS, 'info');
         });
       }
 
@@ -132,15 +115,22 @@
       }
 
       renderFileList();
+      var totalSize = getSelectedFilesSize();
+      var limitMessage = getUploadLimitWarning(totalSize, '선택한 이미지 총 용량');
 
       if (rejectedBmp || rejectedOther) {
         var parts = [];
         if (accepted.length) parts.push(accepted.length + '개 추가');
         if (rejectedBmp) parts.push('BMP ' + rejectedBmp + '개 거부');
         if (rejectedOther) parts.push('지원하지 않는 파일 ' + rejectedOther + '개 제외');
-        setStatus(parts.join(', ') + '.', rejectedBmp ? 'error' : 'info');
+        setStatus(
+          parts.join(', ') + '.' + (limitMessage ? ' ' + limitMessage : ''),
+          rejectedBmp ? 'error' : (limitMessage ? 'warning' : 'info')
+        );
+      } else if (limitMessage) {
+        setStatus(accepted.length + '개 이미지를 추가했습니다. ' + limitMessage, 'warning');
       } else {
-        setStatus(accepted.length + '개 이미지를 추가했습니다.', 'success');
+        setStatus(accepted.length + '개 이미지를 추가했습니다. .eo 다운로드 후 오브젝트 추가하기 > 파일 업로드에서 업로드하세요.', 'success');
       }
     }
 
@@ -149,7 +139,6 @@
       if (!panel) return;
 
       var list = panel.querySelector('#ed-generator-file-list');
-      var addButton = panel.querySelector('#ed-generator-add');
       var downloadButton = panel.querySelector('#ed-generator-download');
       var clearButton = panel.querySelector('#ed-generator-clear');
       var hasFiles = files.length > 0;
@@ -169,7 +158,6 @@
         }
       }
 
-      if (addButton) addButton.disabled = busy || !hasFiles;
       if (downloadButton) downloadButton.disabled = busy || !hasFiles;
       if (clearButton) clearButton.disabled = busy || !hasFiles;
     }
@@ -184,7 +172,13 @@
       status.textContent = message;
     }
 
-    async function runAction(action) {
+    function getSelectedFilesSize() {
+      return files.reduce(function (sum, file) {
+        return sum + (file && file.size || 0);
+      }, 0);
+    }
+
+    async function runDownload() {
       var panel = getPanel();
       if (busy) return;
       if (!files.length) {
@@ -201,29 +195,18 @@
         var objectName = sanitizeFileName(objectNameInput && objectNameInput.value || '새 오브젝트');
         objectName = objectName.replace(/\.eo$/i, '') || '새 오브젝트';
         var assets = await buildAssets(files);
+        var objectJson = buildObjectJson(assets, objectName);
+        var blob = await createEoBlob(objectJson, assets);
+        downloadEoBlob(blob, objectName + '.eo');
 
-        if (action === 'download') {
-          var objectJson = buildObjectJson(assets, objectName, false);
-          var blob = await createEoBlob(objectJson, assets);
-          downloadEoBlob(blob, objectName + '.eo');
-          setStatus('다운로드를 시작했습니다. 파일 확장자는 .eo로 저장됩니다.', 'success');
-          busy = false;
-          renderFileList();
-          return;
+        var limitMessage = getUploadLimitWarning(blob.size, '생성된 .eo 파일 용량');
+        if (limitMessage) {
+          setStatus('다운로드를 시작했습니다. ' + limitMessage, 'warning');
+        } else {
+          setStatus('다운로드를 시작했습니다. 받은 .eo 파일은 엔트리의 오브젝트 추가하기 > 파일 업로드에서 업로드하세요.', 'success');
         }
-
-        var directObject = buildObjectModel(assets, objectName, true);
-        pendingAddRequestId = 'eo-add-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-        if (pendingAddTimer) clearTimeout(pendingAddTimer);
-        pendingAddTimer = setTimeout(function () {
-          pendingAddTimer = null;
-          pendingAddRequestId = null;
-          busy = false;
-          renderFileList();
-          setStatus('엔트리 추가 응답이 지연되고 있습니다. 페이지 상태를 확인하세요.', 'error');
-        }, 8000);
-        setStatus('현재 Entry 작품에 오브젝트를 추가하는 중입니다...', 'info');
-        sendToInject('ADD_GENERATED_OBJECT', { object: directObject }, pendingAddRequestId);
+        busy = false;
+        renderFileList();
       } catch (err) {
         busy = false;
         renderFileList();
@@ -231,45 +214,14 @@
       }
     }
 
-    function handleAddResult(message) {
-      if (pendingAddRequestId && message.requestId && message.requestId !== pendingAddRequestId) {
-        return false;
-      }
-
-      if (pendingAddTimer) {
-        clearTimeout(pendingAddTimer);
-        pendingAddTimer = null;
-      }
-      pendingAddRequestId = null;
-      busy = false;
-      renderFileList();
-
-      if (message.payload && message.payload.success) {
-        setStatus('현재 Entry 작품에 오브젝트를 추가했습니다.', 'success');
-        showToast('오브젝트를 추가했습니다', 'info');
-        sendToInject('REQUEST_SNAPSHOT');
-      } else if (message.payload) {
-        setStatus('엔트리 추가 오류: ' + message.payload.error, 'error');
-        showToast('오브젝트 추가 오류: ' + message.payload.error, 'error');
-      }
-
-      return true;
-    }
-
     function cleanup() {
       files = [];
       busy = false;
-      pendingAddRequestId = null;
-      if (pendingAddTimer) {
-        clearTimeout(pendingAddTimer);
-        pendingAddTimer = null;
-      }
     }
 
     return {
       bindEvents: bindEvents,
       renderFileList: renderFileList,
-      handleAddResult: handleAddResult,
       cleanup: cleanup
     };
   }
@@ -332,16 +284,13 @@
       width: width,
       height: height,
       imageBytes: await blobToUint8Array(fullBlob),
-      thumbBytes: await blobToUint8Array(thumbBlob),
-      directFileUrl: await blobToDataURL(fullBlob),
-      directThumbUrl: await blobToDataURL(thumbBlob)
+      thumbBytes: await blobToUint8Array(thumbBlob)
     };
   }
 
   async function processSvgFile(file, id, fileId, name) {
     var svgText = await file.text();
     var size = extractSvgDimensions(svgText);
-    var svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
     var fullBlob = await rasterizeSvg(svgText, size.width, size.height);
     var thumb = getThumbSize(size.width, size.height);
     var thumbBlob = await rasterizeSvg(svgText, thumb.width, thumb.height);
@@ -355,13 +304,11 @@
       height: size.height,
       svgBytes: new TextEncoder().encode(svgText),
       fullPngBytes: await blobToUint8Array(fullBlob),
-      thumbBytes: await blobToUint8Array(thumbBlob),
-      directFileUrl: await blobToDataURL(svgBlob),
-      directThumbUrl: await blobToDataURL(thumbBlob)
+      thumbBytes: await blobToUint8Array(thumbBlob)
     };
   }
 
-  function buildObjectJson(assets, objectName, direct) {
+  function buildObjectJson(assets, objectName) {
     return {
       functions: [],
       variables: [],
@@ -370,12 +317,12 @@
       expansionBlocks: [],
       aiUtilizeBlocks: [],
       objects: [
-        buildObjectModel(assets, objectName, direct)
+        buildObjectModel(assets, objectName)
       ]
     };
   }
 
-  function buildObjectModel(assets, objectName, direct) {
+  function buildObjectModel(assets, objectName) {
     var selected = assets[0];
     var usedIds = new Set(assets.map(function (asset) { return asset.id; }));
     var objectId = uniqueId(SHORT_ID_LENGTH, usedIds);
@@ -393,7 +340,7 @@
       lock: false,
       sprite: {
         pictures: assets.map(function (asset) {
-          return buildPictureJson(asset, scale, direct);
+          return buildPictureJson(asset, scale);
         }),
         sounds: []
       },
@@ -414,13 +361,13 @@
     };
   }
 
-  function buildPictureJson(asset, scale, direct) {
-    var picture = {
+  function buildPictureJson(asset, scale) {
+    return {
       id: asset.id,
       name: asset.name,
       filename: asset.fileId,
       imageType: asset.imageType,
-      fileurl: direct ? asset.directFileUrl : getPictureFileUrl(asset),
+      fileurl: getPictureFileUrl(asset),
       dimension: {
         width: asset.width,
         height: asset.height,
@@ -428,12 +375,6 @@
         scaleY: scale
       }
     };
-
-    if (direct) {
-      picture.thumbUrl = asset.directThumbUrl;
-    }
-
-    return picture;
   }
 
   function getPictureFileUrl(asset) {
@@ -753,18 +694,17 @@
     return (bytes / 1024 / 1024).toFixed(2) + ' MB';
   }
 
+  function getUploadLimitWarning(bytes, label) {
+    if (bytes <= ENTRY_UPLOAD_LIMIT_BYTES) return '';
+    return (
+      label + '이 ' + formatBytes(bytes) +
+      '입니다. 10MB를 넘으면 엔트리의 오브젝트 파일 업로드가 실패할 수 있습니다.'
+    );
+  }
+
   function blobToUint8Array(blob) {
     return blob.arrayBuffer().then(function (buffer) {
       return new Uint8Array(buffer);
-    });
-  }
-
-  function blobToDataURL(blob) {
-    return new Promise(function (resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function () { resolve(String(reader.result)); };
-      reader.onerror = function () { reject(new Error('data URL 변환에 실패했습니다.')); };
-      reader.readAsDataURL(blob);
     });
   }
 
