@@ -1753,6 +1753,12 @@
         });
         break;
 
+      case 'BLOCK_TEXT_COPY_TOAST':
+        if (msg.payload && msg.payload.message) {
+          showToast(msg.payload.message, msg.payload.type || 'info');
+        }
+        break;
+
       case 'SNAPSHOT':
         currentSnapshot = msg.payload;
         if (isDebuggerActive) {
