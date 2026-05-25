@@ -55,6 +55,7 @@
   let functionUsageStartTimer = null;
   let pageCoreScriptsInjected = false;
   let dropdownSearchScriptInjected = false;
+  let blockTextCopyScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
 
@@ -96,6 +97,12 @@
     injectPageCoreScripts();
     dropdownSearchScriptInjected = true;
     injectPageScript('entry-debugger-dropdown-search', 'dropdown-search.js');
+  }
+
+  function injectBlockTextCopyScript() {
+    injectPageCoreScripts();
+    blockTextCopyScriptInjected = true;
+    injectPageScript('entry-debugger-block-text-copy', 'block-text-copy.js');
   }
 
   function injectPageCoreScripts() {
@@ -424,6 +431,16 @@
                   '<span class="ed-lab-slider"></span>' +
                 '</label>' +
               '</div>' +
+              '<div class="ed-lab-setting">' +
+                '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">블록 텍스트 복사</span>' +
+                  '<span class="ed-lab-desc">블록 우클릭 메뉴에 텍스트로 복사하기 추가</span>' +
+                '</span>' +
+                '<label class="ed-lab-switch" aria-label="블록 텍스트 복사">' +
+                  '<input type="checkbox" id="ed-toggle-block-text-copy">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
+              '</div>' +
             '</div>' +
             '<div class="ed-empty" id="ed-other-empty">' +
               '<div class="ed-empty-icon">&#x23F1;</div>' +
@@ -531,6 +548,16 @@
         });
       });
     }
+
+    var blockTextCopyToggle = panelEl.querySelector('#ed-toggle-block-text-copy');
+    if (blockTextCopyToggle && blockTextCopyToggle.dataset.bound !== 'true') {
+      blockTextCopyToggle.dataset.bound = 'true';
+      blockTextCopyToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          blockTextCopyEnabled: blockTextCopyToggle.checked
+        });
+      });
+    }
   }
 
   function renderLabControls() {
@@ -549,6 +576,11 @@
     var dropdownSearchToggle = panelEl.querySelector('#ed-toggle-dropdown-search');
     if (dropdownSearchToggle) {
       dropdownSearchToggle.checked = !!extensionSettings.dropdownSearchEnabled;
+    }
+
+    var blockTextCopyToggle = panelEl.querySelector('#ed-toggle-block-text-copy');
+    if (blockTextCopyToggle) {
+      blockTextCopyToggle.checked = !!extensionSettings.blockTextCopyEnabled;
     }
   }
 
@@ -578,6 +610,15 @@
       extensionSettings.debuggerTabEnabled &&
       extensionSettings.labTabEnabled &&
       extensionSettings.dropdownSearchEnabled
+    );
+  }
+
+  function isBlockTextCopyFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.debuggerTabEnabled &&
+      extensionSettings.labTabEnabled &&
+      extensionSettings.blockTextCopyEnabled
     );
   }
 
@@ -1597,6 +1638,21 @@
     }, 150);
   }
 
+  function applyBlockTextCopyFeature() {
+    var shouldEnable = isBlockTextCopyFeatureEnabled();
+    if (shouldEnable) {
+      injectBlockTextCopyScript();
+    } else if (!blockTextCopyScriptInjected) {
+      return;
+    }
+
+    setTimeout(function () {
+      sendToInject('SET_BLOCK_TEXT_COPY_ENABLED', {
+        enabled: shouldEnable
+      });
+    }, 150);
+  }
+
   function applySettings(settings) {
     extensionSettings = normalizeSettings(settings);
     settingsLoaded = true;
@@ -1615,6 +1671,7 @@
 
     applyFunctionPrivateVariablesFeature();
     applyDropdownSearchFeature();
+    applyBlockTextCopyFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();
@@ -1686,6 +1743,13 @@
         if (!settingsLoaded) return;
         sendToInject('SET_DROPDOWN_SEARCH_ENABLED', {
           enabled: isDropdownSearchFeatureEnabled()
+        });
+        break;
+
+      case 'BLOCK_TEXT_COPY_READY':
+        if (!settingsLoaded) return;
+        sendToInject('SET_BLOCK_TEXT_COPY_ENABLED', {
+          enabled: isBlockTextCopyFeatureEnabled()
         });
         break;
 
@@ -1763,7 +1827,9 @@
           boostModeEnabled: false,
           labTabEnabled: false,
           eoUploaderEnabled: false,
-          turboModeEnabled: false
+          turboModeEnabled: false,
+          dropdownSearchEnabled: false,
+          blockTextCopyEnabled: false
         });
         sendResponse({ success: true });
         break;
@@ -1875,6 +1941,7 @@
     stopTurboModeFeature();
     sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', { enabled: false });
     sendToInject('SET_DROPDOWN_SEARCH_ENABLED', { enabled: false });
+    sendToInject('SET_BLOCK_TEXT_COPY_ENABLED', { enabled: false });
   }
 
   /* ═══════════════════════════════════════════

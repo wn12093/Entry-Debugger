@@ -16,6 +16,7 @@
     eoUploaderEnabled: false,
     turboModeEnabled: false,
     dropdownSearchEnabled: false,
+    blockTextCopyEnabled: false,
     functionPrivateVariablesEnabled: true
   };
 
@@ -60,6 +61,9 @@
     var dropdownSearchEnabled = typeof data.dropdownSearchEnabled === 'boolean'
       ? data.dropdownSearchEnabled
       : false;
+    var blockTextCopyEnabled = typeof data.blockTextCopyEnabled === 'boolean'
+      ? data.blockTextCopyEnabled
+      : false;
     var functionPrivateVariablesEnabled = typeof data.functionPrivateVariablesEnabled === 'boolean'
       ? data.functionPrivateVariablesEnabled
       : true;
@@ -74,6 +78,7 @@
       eoUploaderEnabled = false;
       turboModeEnabled = false;
       dropdownSearchEnabled = false;
+      blockTextCopyEnabled = false;
     }
 
     enabled = !!(
@@ -85,7 +90,8 @@
         boostModeEnabled ||
         functionPrivateVariablesEnabled ||
         labTabEnabled ||
-        turboModeEnabled
+        turboModeEnabled ||
+        blockTextCopyEnabled
       )
     );
 
@@ -98,6 +104,7 @@
       eoUploaderEnabled = false;
       turboModeEnabled = false;
       dropdownSearchEnabled = false;
+      blockTextCopyEnabled = false;
       functionPrivateVariablesEnabled = false;
     }
 
@@ -111,6 +118,7 @@
       eoUploaderEnabled: enabled && eoUploaderEnabled,
       turboModeEnabled: enabled && turboModeEnabled,
       dropdownSearchEnabled: enabled && dropdownSearchEnabled,
+      blockTextCopyEnabled: enabled && blockTextCopyEnabled,
       functionPrivateVariablesEnabled: enabled && functionPrivateVariablesEnabled
     };
   }

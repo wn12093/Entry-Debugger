@@ -35,6 +35,7 @@
         "console-debugging.js",
         "function-private-variables.js",
         "dropdown-search.js",
+        "block-text-copy.js",
         "boost-mode.js",
         "turbo-mode.js"
       ],
