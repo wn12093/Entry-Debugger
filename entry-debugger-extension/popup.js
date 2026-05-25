@@ -53,7 +53,8 @@ allToggle.addEventListener('change', function () {
     eoUploaderEnabled: false,
     turboModeEnabled: enabled ? currentSettings.turboModeEnabled : false,
     dropdownSearchEnabled: enabled ? currentSettings.dropdownSearchEnabled : false,
-    blockTextCopyEnabled: enabled ? currentSettings.blockTextCopyEnabled : false
+    blockTextCopyEnabled: enabled ? currentSettings.blockTextCopyEnabled : false,
+    highQualityBlockImageEnabled: enabled ? currentSettings.highQualityBlockImageEnabled : false
   });
 });
 
@@ -113,6 +114,9 @@ function saveSettingsFromControls() {
       : false,
     blockTextCopyEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.blockTextCopyEnabled
+      : false,
+    highQualityBlockImageEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.highQualityBlockImageEnabled
       : false
   });
 }

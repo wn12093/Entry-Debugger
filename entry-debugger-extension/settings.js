@@ -17,6 +17,7 @@
     turboModeEnabled: false,
     dropdownSearchEnabled: false,
     blockTextCopyEnabled: false,
+    highQualityBlockImageEnabled: false,
     functionPrivateVariablesEnabled: true
   };
 
@@ -64,6 +65,9 @@
     var blockTextCopyEnabled = typeof data.blockTextCopyEnabled === 'boolean'
       ? data.blockTextCopyEnabled
       : false;
+    var highQualityBlockImageEnabled = typeof data.highQualityBlockImageEnabled === 'boolean'
+      ? data.highQualityBlockImageEnabled
+      : false;
     var functionPrivateVariablesEnabled = typeof data.functionPrivateVariablesEnabled === 'boolean'
       ? data.functionPrivateVariablesEnabled
       : true;
@@ -72,6 +76,7 @@
       labTabEnabled = false;
       eoUploaderEnabled = false;
       dropdownSearchEnabled = false;
+      highQualityBlockImageEnabled = false;
     }
 
     if (!labTabEnabled) {
@@ -79,6 +84,7 @@
       turboModeEnabled = false;
       dropdownSearchEnabled = false;
       blockTextCopyEnabled = false;
+      highQualityBlockImageEnabled = false;
     }
 
     enabled = !!(
@@ -91,7 +97,8 @@
         functionPrivateVariablesEnabled ||
         labTabEnabled ||
         turboModeEnabled ||
-        blockTextCopyEnabled
+        blockTextCopyEnabled ||
+        highQualityBlockImageEnabled
       )
     );
 
@@ -105,6 +112,7 @@
       turboModeEnabled = false;
       dropdownSearchEnabled = false;
       blockTextCopyEnabled = false;
+      highQualityBlockImageEnabled = false;
       functionPrivateVariablesEnabled = false;
     }
 
@@ -119,6 +127,7 @@
       turboModeEnabled: enabled && turboModeEnabled,
       dropdownSearchEnabled: enabled && dropdownSearchEnabled,
       blockTextCopyEnabled: enabled && blockTextCopyEnabled,
+      highQualityBlockImageEnabled: enabled && highQualityBlockImageEnabled,
       functionPrivateVariablesEnabled: enabled && functionPrivateVariablesEnabled
     };
   }

@@ -56,6 +56,7 @@
   let pageCoreScriptsInjected = false;
   let dropdownSearchScriptInjected = false;
   let blockTextCopyScriptInjected = false;
+  let highQualityBlockImageScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
 
@@ -103,6 +104,12 @@
     injectPageCoreScripts();
     blockTextCopyScriptInjected = true;
     injectPageScript('entry-debugger-block-text-copy', 'block-text-copy.js');
+  }
+
+  function injectHighQualityBlockImageScript() {
+    injectPageCoreScripts();
+    highQualityBlockImageScriptInjected = true;
+    injectPageScript('entry-debugger-high-quality-block-image', 'high-quality-block-image.js');
   }
 
   function injectPageCoreScripts() {
@@ -441,6 +448,16 @@
                   '<span class="ed-lab-slider"></span>' +
                 '</label>' +
               '</div>' +
+              '<div class="ed-lab-setting">' +
+                '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">초고화질 이미지 저장하기</span>' +
+                  '<span class="ed-lab-desc">블록 이미지 저장 시 1000% 배율로 생성합니다. 다운로드에 오래 걸릴 수 있습니다.</span>' +
+                '</span>' +
+                '<label class="ed-lab-switch" aria-label="초고화질 이미지 저장하기">' +
+                  '<input type="checkbox" id="ed-toggle-high-quality-block-image">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
+              '</div>' +
             '</div>' +
             '<div class="ed-empty" id="ed-other-empty">' +
               '<div class="ed-empty-icon">&#x23F1;</div>' +
@@ -558,6 +575,16 @@
         });
       });
     }
+
+    var highQualityBlockImageToggle = panelEl.querySelector('#ed-toggle-high-quality-block-image');
+    if (highQualityBlockImageToggle && highQualityBlockImageToggle.dataset.bound !== 'true') {
+      highQualityBlockImageToggle.dataset.bound = 'true';
+      highQualityBlockImageToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          highQualityBlockImageEnabled: highQualityBlockImageToggle.checked
+        });
+      });
+    }
   }
 
   function renderLabControls() {
@@ -581,6 +608,11 @@
     var blockTextCopyToggle = panelEl.querySelector('#ed-toggle-block-text-copy');
     if (blockTextCopyToggle) {
       blockTextCopyToggle.checked = !!extensionSettings.blockTextCopyEnabled;
+    }
+
+    var highQualityBlockImageToggle = panelEl.querySelector('#ed-toggle-high-quality-block-image');
+    if (highQualityBlockImageToggle) {
+      highQualityBlockImageToggle.checked = !!extensionSettings.highQualityBlockImageEnabled;
     }
   }
 
@@ -619,6 +651,15 @@
       extensionSettings.debuggerTabEnabled &&
       extensionSettings.labTabEnabled &&
       extensionSettings.blockTextCopyEnabled
+    );
+  }
+
+  function isHighQualityBlockImageFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.debuggerTabEnabled &&
+      extensionSettings.labTabEnabled &&
+      extensionSettings.highQualityBlockImageEnabled
     );
   }
 
@@ -1653,6 +1694,21 @@
     }, 150);
   }
 
+  function applyHighQualityBlockImageFeature() {
+    var shouldEnable = isHighQualityBlockImageFeatureEnabled();
+    if (shouldEnable) {
+      injectHighQualityBlockImageScript();
+    } else if (!highQualityBlockImageScriptInjected) {
+      return;
+    }
+
+    setTimeout(function () {
+      sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', {
+        enabled: shouldEnable
+      });
+    }, 150);
+  }
+
   function applySettings(settings) {
     extensionSettings = normalizeSettings(settings);
     settingsLoaded = true;
@@ -1672,6 +1728,7 @@
     applyFunctionPrivateVariablesFeature();
     applyDropdownSearchFeature();
     applyBlockTextCopyFeature();
+    applyHighQualityBlockImageFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();
@@ -1750,6 +1807,13 @@
         if (!settingsLoaded) return;
         sendToInject('SET_BLOCK_TEXT_COPY_ENABLED', {
           enabled: isBlockTextCopyFeatureEnabled()
+        });
+        break;
+
+      case 'HIGH_QUALITY_BLOCK_IMAGE_READY':
+        if (!settingsLoaded) return;
+        sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', {
+          enabled: isHighQualityBlockImageFeatureEnabled()
         });
         break;
 
@@ -1948,6 +2012,7 @@
     sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', { enabled: false });
     sendToInject('SET_DROPDOWN_SEARCH_ENABLED', { enabled: false });
     sendToInject('SET_BLOCK_TEXT_COPY_ENABLED', { enabled: false });
+    sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', { enabled: false });
   }
 
   /* ═══════════════════════════════════════════
