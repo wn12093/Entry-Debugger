@@ -389,6 +389,10 @@
   function buildLabSectionHTML() {
     return (
       '<div class="ed-section ed-lab-only" id="ed-section-others">' +
+            '<div class="ed-lab-warning" role="note">' +
+              '<strong>실험실 기능 안내</strong>' +
+              '<span>아직 완성되지 않은 기능이 포함되어 있어 오류가 발생할 수 있습니다.</span>' +
+            '</div>' +
             '<div class="ed-lab-controls">' +
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +

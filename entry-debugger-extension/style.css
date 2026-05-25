@@ -505,6 +505,29 @@
   color: #8a8f98;
 }
 
+.ed-lab-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+  padding: 9px 11px;
+  border: 1px solid #f3d78c;
+  border-radius: 5px;
+  background: #fff8e6;
+  color: #72520a;
+  line-height: 1.35;
+}
+
+.ed-lab-warning strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5f4300;
+}
+
+.ed-lab-warning span {
+  font-size: 10px;
+}
+
 .ed-lab-controls {
   margin-bottom: 8px;
 }
