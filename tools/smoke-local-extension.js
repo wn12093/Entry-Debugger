@@ -321,11 +321,14 @@ async function main() {
       const values = funcs ? Object.values(funcs) : [];
       const added = values.find((func) => /테스트 함수/.test(func.description || ''));
       const status = document.querySelector('#ed-function-library-status');
+      const notice = document.querySelector('#ed-section-function-library .ed-lab-warning');
       return {
         countBefore: beforeCount,
         countAfter: values.length,
         hasAddedFunction: !!added,
         addedDescription: added ? added.description : null,
+        hasFunctionLibraryNotice: !!notice,
+        noticeText: notice ? notice.textContent.trim() : '',
         statusText: status ? status.textContent.trim() : ''
       };
     }, functionCountBeforeAdd);

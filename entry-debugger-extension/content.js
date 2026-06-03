@@ -607,6 +607,10 @@
     return (
       '<div class="ed-section ed-function-library-only" id="ed-section-function-library">' +
         '<div class="ed-function-library">' +
+          '<div class="ed-lab-warning" role="note">' +
+            '<strong>함수 보관함 안내</strong>' +
+            '<span>앞으로 다양한 함수가 추가될 예정이에요. 추가를 원하는 함수가 있다면 알려주세요. ease 함수 등...</span>' +
+          '</div>' +
           '<div class="ed-function-library-list" id="ed-function-library-list"></div>' +
           '<div class="ed-function-library-status" id="ed-function-library-status"></div>' +
         '</div>' +
