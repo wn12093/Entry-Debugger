@@ -37,6 +37,10 @@
 | `entry-debugger-extension/settings.js` | `functionLibraryEnabled` 기본값과 정규화 |
 | `tools/smoke-local-extension.js` | Chromium smoke에서 함수 추가 동작 검증 |
 
+## 템플릿 추가 문서
+
+앞으로 새 함수를 계속 추가할 때는 `function-library-template-authoring.md`의 절차를 따른다. 새 템플릿만 추가하는 경우에는 보통 `function-library-templates.js`에 템플릿 객체를 추가하고, 필요 시 템플릿 목록과 smoke 검증 대상을 갱신하면 된다.
+
 ## 메시지 흐름
 
 content script에서 Main World 주입 스크립트로 전달한다.

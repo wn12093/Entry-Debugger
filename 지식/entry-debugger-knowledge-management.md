@@ -95,6 +95,7 @@ functionLibraryEnabled: false
 - 속성 검색으로 찾기: `dropdown-search-experiment.md`
 - 초고화질 이미지 저장하기: `high-quality-block-image-experiment.md`
 - 함수 보관함: `function-library-experiment.md`
+- 함수 보관함 템플릿 추가 절차: `function-library-template-authoring.md`
 - 전체 지원 기능 요약: `entry-debugger-supported-features.md`
 - 부스트/터보 모드: `entry-boost-turbo-mode-extension.md`
 - 다량 이미지 업로더: `entry-eo-generator-extension.md`, `entry-eo-built-in-generator.md`
