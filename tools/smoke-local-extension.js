@@ -174,6 +174,21 @@ async function main() {
         hasResetSettingsButton: !!document.querySelector('#ed-reset-settings-btn')
       };
     });
+    await page.click('#ed-settings-tab-btn');
+    await page.waitForSelector('#ed-section-variables.ed-section-active', {
+      state: 'visible',
+      timeout: 60000
+    });
+    const settingsToggleBackResult = await page.evaluate(() => ({
+      settingsSectionActive: !!document.querySelector('#ed-section-settings.ed-section-active'),
+      variablesSectionActive: !!document.querySelector('#ed-section-variables.ed-section-active'),
+      activeSubtabText: (document.querySelector('#ed-debugger-panel .ed-subtab-active')?.textContent || '').trim()
+    }));
+    await page.click('#ed-settings-tab-btn');
+    await page.waitForSelector('#ed-section-settings.ed-section-active', {
+      state: 'visible',
+      timeout: 60000
+    });
     await page.waitForSelector('#ed-toggle-dropdown-search-block-menu', {
       state: 'attached',
       timeout: 60000
@@ -320,7 +335,7 @@ async function main() {
       return !!(panel && panel.offsetParent !== null);
     }, { timeout: 60000 });
 
-    const result = await page.evaluate(({ warningAt1000, settingsTabResult, boostModeResult, functionLibraryResult }) => {
+    const result = await page.evaluate(({ warningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
         .map((tab) => tab.textContent.trim());
@@ -338,6 +353,7 @@ async function main() {
         panelVisible: !!(panel && panel.offsetParent !== null),
         tabs,
         settingsTabResult,
+        settingsToggleBackResult,
         hasLabControls: !!labToggle,
         hasDropdownBlockMenuToggle: !!blockMenuToggle,
         hasDropdownPropertyPanelToggle: !!propertyPanelToggle,
@@ -356,7 +372,7 @@ async function main() {
         functionLibraryAddResult: functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, { warningAt1000: highQualityWarningAt1000, settingsTabResult, boostModeResult, functionLibraryResult });
+    }, { warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult });
 
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {

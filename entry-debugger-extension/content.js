@@ -69,6 +69,8 @@
   let eoUploader = null;
   let boostModeControlEl = null;
   let boostModeControlWaitStarted = false;
+  let currentPanelTabName = 'variables';
+  let previousPanelTabName = 'variables';
 
   /* ═══════════════════════════════════════════
      1. Main World 스크립트 주입
@@ -615,6 +617,9 @@
   function bindPanelEvents() {
     if (!panelEl) return;
 
+    currentPanelTabName = 'variables';
+    previousPanelTabName = 'variables';
+
     // ── 서브탭(변수/리스트) 전환 ──
     var subtabs = panelEl.querySelectorAll('.ed-subtab');
     subtabs.forEach(function (btn) {
@@ -627,7 +632,7 @@
     var settingsBtn = panelEl.querySelector('#ed-settings-tab-btn');
     if (settingsBtn) {
       settingsBtn.addEventListener('click', function () {
-        activatePanelTab('settings', settingsBtn);
+        toggleSettingsPanelTab(settingsBtn);
       });
     }
 
@@ -653,6 +658,9 @@
   function activatePanelTab(tabName, triggerEl) {
     if (!panelEl || !tabName) return;
 
+    var target = panelEl.querySelector('#ed-section-' + tabName);
+    if (!target) return;
+
     panelEl.querySelectorAll('.ed-subtab').forEach(function (btn) {
       btn.classList.remove('ed-subtab-active');
     });
@@ -670,10 +678,33 @@
       section.classList.remove('ed-section-active');
     });
 
-    var target = panelEl.querySelector('#ed-section-' + tabName);
-    if (target) {
-      target.classList.add('ed-section-active');
+    target.classList.add('ed-section-active');
+
+    currentPanelTabName = tabName;
+    if (tabName !== 'settings') {
+      previousPanelTabName = tabName;
     }
+  }
+
+  function toggleSettingsPanelTab(settingsBtn) {
+    if (currentPanelTabName === 'settings') {
+      var previousTabButton = getVisiblePanelTabButton(previousPanelTabName) ||
+        getVisiblePanelTabButton('variables');
+      var previousTabName = previousTabButton
+        ? previousTabButton.getAttribute('data-tab')
+        : 'variables';
+      activatePanelTab(previousTabName, previousTabButton);
+      return;
+    }
+
+    activatePanelTab('settings', settingsBtn);
+  }
+
+  function getVisiblePanelTabButton(tabName) {
+    if (!panelEl || !tabName) return null;
+    var button = panelEl.querySelector('.ed-subtab[data-tab="' + tabName + '"]');
+    if (!button || button.offsetParent === null) return null;
+    return button;
   }
 
   function bindSettingsControls() {
