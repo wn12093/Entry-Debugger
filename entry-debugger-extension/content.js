@@ -35,6 +35,8 @@
   const DEBUGGING_TAB  = 'propertyTabdebugging';
   const PANEL_ID       = 'ed-debugger-panel';
   const BOOST_MODE_STORAGE_KEY = '__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__';
+  const BOOST_MODE_TOGGLE_ID = 'ed-boost-mode-toggle';
+  const BOOST_MODE_TARGET_SELECTOR = 'button.entryEngineButtonWorkspace_w.entryEngineTopWorkspace.entryCoordinateButtonWorkspace_w';
   const PAGE_CORE_SCRIPTS = [
     ['entry-debugger-hangul-search', 'hangul-search.js'],
     ['entry-debugger-page-bridge', 'page-bridge.js'],
@@ -65,6 +67,8 @@
   let highQualityBlockImageScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
+  let boostModeControlEl = null;
+  let boostModeControlWaitStarted = false;
 
   /* ═══════════════════════════════════════════
      1. Main World 스크립트 주입
@@ -1007,9 +1011,9 @@
       (message ? ' ed-function-library-status-' + (type || 'info') : '');
   }
 
-  function saveSettingsFromPanel(partialSettings) {
+  function saveSettingsFromPanel(partialSettings, options) {
     var nextSettings = normalizeSettings(Object.assign({}, extensionSettings, partialSettings || {}));
-    applySettings(nextSettings);
+    applySettings(nextSettings, options);
 
     chrome.runtime.sendMessage({
       type: 'SET_SETTINGS',
@@ -1021,6 +1025,8 @@
         renderGeneratorFileList();
         renderFunctionLibraryList();
         renderLabControls();
+        applyBoostModeControl();
+        updateBoostModeControl();
       }
     });
   }
@@ -1882,8 +1888,16 @@
     return !!(extensionSettings.enabled && extensionSettings.consoleDebuggingEnabled);
   }
 
+  function isBoostModeControlVisible() {
+    return !!(extensionSettings.enabled && extensionSettings.boostModeControlVisible);
+  }
+
   function isBoostModeFeatureEnabled() {
-    return !!(extensionSettings.enabled && extensionSettings.boostModeEnabled);
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.boostModeControlVisible &&
+      extensionSettings.boostModeEnabled
+    );
   }
 
   function isTurboModeFeatureEnabled() {
@@ -1936,13 +1950,104 @@
     } catch (e) {}
   }
 
-  function applyBoostModeFeature() {
+  function applyBoostModeFeature(options) {
     var enabled = isBoostModeFeatureEnabled();
     mirrorBoostModeSetting(enabled);
     injectBoostModeScript();
     setTimeout(function () {
-      sendToInject('SET_BOOST_MODE_ENABLED', { enabled: enabled });
+      sendToInject('SET_BOOST_MODE_ENABLED', {
+        enabled: enabled,
+        notify: !!(options && options.notifyRefresh)
+      });
     }, 50);
+  }
+
+  function applyBoostModeControl() {
+    if (!isBoostModeControlVisible()) {
+      removeBoostModeControl();
+      return;
+    }
+
+    ensureBoostModeControl();
+  }
+
+  function ensureBoostModeControl() {
+    if (!isEntryWorkspacePage()) return;
+    if (!isBoostModeControlVisible()) {
+      removeBoostModeControl();
+      return;
+    }
+
+    var existing = document.getElementById(BOOST_MODE_TOGGLE_ID);
+    if (existing) {
+      boostModeControlEl = existing;
+      updateBoostModeControl();
+      return;
+    }
+
+    var target = document.querySelector(BOOST_MODE_TARGET_SELECTOR);
+    if (!target) {
+      if (!boostModeControlWaitStarted) {
+        boostModeControlWaitStarted = true;
+        waitForElement(BOOST_MODE_TARGET_SELECTOR, function () {
+          boostModeControlWaitStarted = false;
+          ensureBoostModeControl();
+        });
+      }
+      return;
+    }
+
+    var button = document.createElement('button');
+    button.id = BOOST_MODE_TOGGLE_ID;
+    button.type = 'button';
+    button.className = 'entryEngineButtonWorkspace_w entryEngineTopWorkspace ed-boost-mode-toggle';
+    button.setAttribute('aria-label', '부스트 모드 켜기 또는 끄기');
+    button.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      saveBoostModeFromEngineControl(!extensionSettings.boostModeEnabled);
+      if (typeof button.blur === 'function') {
+        button.blur();
+      }
+    });
+
+    if (target.nextSibling) {
+      target.parentElement.insertBefore(button, target.nextSibling);
+    } else {
+      target.parentElement.appendChild(button);
+    }
+
+    boostModeControlEl = button;
+    updateBoostModeControl();
+  }
+
+  function updateBoostModeControl() {
+    var button = boostModeControlEl || document.getElementById(BOOST_MODE_TOGGLE_ID);
+    if (!button) return;
+
+    var enabled = isBoostModeFeatureEnabled();
+    button.classList.toggle('toggleOn', enabled);
+    button.classList.toggle('ed-boost-mode-toggle-on', enabled);
+    button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    button.title = enabled
+      ? '부스트 모드 켜짐 - 새로고침 후 렌더링에 반영'
+      : '부스트 모드 꺼짐';
+  }
+
+  function removeBoostModeControl() {
+    var button = boostModeControlEl || document.getElementById(BOOST_MODE_TOGGLE_ID);
+    if (button) {
+      button.remove();
+    }
+    boostModeControlEl = null;
+  }
+
+  function saveBoostModeFromEngineControl(enabled) {
+    saveSettingsFromPanel({
+      boostModeEnabled: !!enabled
+    }, {
+      notifyBoostModeRefresh: true
+    });
   }
 
   function startTurboModeFeature() {
@@ -2007,10 +2112,13 @@
     }, 150);
   }
 
-  function applySettings(settings) {
+  function applySettings(settings, options) {
     extensionSettings = normalizeSettings(settings);
     settingsLoaded = true;
-    applyBoostModeFeature();
+    applyBoostModeFeature({
+      notifyRefresh: !!(options && options.notifyBoostModeRefresh)
+    });
+    applyBoostModeControl();
 
     if (!isEntryWorkspacePage() || !extensionSettings.enabled) {
       cleanup();
@@ -2078,6 +2186,13 @@
       case 'BOOST_MODE_READY':
         if (!settingsLoaded) return;
         sendToInject('SET_BOOST_MODE_ENABLED', { enabled: isBoostModeFeatureEnabled() });
+        break;
+
+      case 'BOOST_MODE_RESULT':
+        updateBoostModeControl();
+        if (msg.payload && msg.payload.notify && !msg.payload.notified) {
+          showToast('새로고침 해야 반영됩니다.', 'info');
+        }
         break;
 
       case 'TURBO_MODE_READY':
@@ -2206,6 +2321,7 @@
           debuggerTabEnabled: false,
           functionUsageEnabled: false,
           consoleDebuggingEnabled: false,
+          boostModeControlVisible: false,
           boostModeEnabled: false,
           labTabEnabled: false,
           eoUploaderEnabled: false,
@@ -2328,6 +2444,7 @@
 
   function cleanup() {
     cleanupDebuggerTabFeature();
+    removeBoostModeControl();
     stopFunctionUsageFeature();
     stopConsoleDebuggingFeature();
     stopTurboModeFeature();
@@ -2429,6 +2546,7 @@
     }
 
     applyBoostModeFeature();
+    applyBoostModeControl();
     if (isTurboModeFeatureEnabled()) {
       startTurboModeFeature();
     } else {

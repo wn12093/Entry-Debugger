@@ -90,6 +90,18 @@ highQualityBlockImageScale: 1000,
 functionLibraryEnabled: false
 ```
 
+Entry Debugger 기준 주요 비실험 기능 기본값:
+
+```js
+enabled: true,
+debuggerTabEnabled: true,
+functionUsageEnabled: true,
+consoleDebuggingEnabled: true,
+functionPrivateVariablesEnabled: true,
+boostModeControlVisible: false,
+boostModeEnabled: false
+```
+
 ## 현재 핵심 기능 문서
 
 - 속성 검색으로 찾기: `dropdown-search-experiment.md`

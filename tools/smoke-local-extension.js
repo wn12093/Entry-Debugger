@@ -13,6 +13,7 @@ const smokeSettings = {
   debuggerTabEnabled: true,
   functionUsageEnabled: true,
   consoleDebuggingEnabled: true,
+  boostModeControlVisible: true,
   boostModeEnabled: false,
   labTabEnabled: true,
   eoUploaderEnabled: false,
@@ -100,6 +101,10 @@ async function main() {
 
     await page.waitForSelector('.propertyTab', { timeout: 180000 });
     await page.waitForSelector('.propertyTabdebugging', { timeout: 60000 });
+    await page.waitForSelector('#ed-boost-mode-toggle', {
+      state: 'attached',
+      timeout: 60000
+    });
     await page.click('.propertyTabdebugging');
     await page.waitForSelector('#ed-debugger-panel', {
       state: 'visible',
@@ -182,6 +187,29 @@ async function main() {
       return !!(warning && warning.classList.contains('ed-lab-scale-warning-active'));
     });
 
+    await page.click('#ed-boost-mode-toggle');
+    await page.waitForFunction(() => {
+      const button = document.querySelector('#ed-boost-mode-toggle');
+      const toast = document.querySelector('#entryToastContainer .entryToastWarning');
+      return !!(
+        button &&
+        button.classList.contains('ed-boost-mode-toggle-on') &&
+        toast &&
+        /새로고침 해야 반영됩니다/.test(toast.textContent || '')
+      );
+    }, { timeout: 60000 });
+    const boostModeResult = await page.evaluate(() => {
+      const button = document.querySelector('#ed-boost-mode-toggle');
+      const toast = document.querySelector('#entryToastContainer .entryToastWarning');
+      return {
+        hasBoostModeControl: !!button,
+        boostModeControlPressed: button ? button.getAttribute('aria-pressed') : null,
+        boostModeControlOn: !!(button && button.classList.contains('ed-boost-mode-toggle-on')),
+        boostToastText: toast ? toast.textContent.trim() : '',
+        boostStorageValue: localStorage.getItem('__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__')
+      };
+    });
+
     const functionCountBeforeAdd = await page.evaluate(() => {
       const funcs = window.Entry &&
         window.Entry.variableContainer &&
@@ -230,7 +258,7 @@ async function main() {
       );
     }, { timeout: 60000 });
 
-    const result = await page.evaluate(({ warningAt1000, functionLibraryResult }) => {
+    const result = await page.evaluate(({ warningAt1000, boostModeResult, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
       const status = document.querySelector('#ed-status');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
@@ -260,13 +288,14 @@ async function main() {
           scaleWarning && scaleWarning.classList.contains('ed-lab-scale-warning-active')
         ),
         highQualityWarningAt1000: warningAt1000,
+        boostModeResult,
         hasFunctionLibraryToggle: !!functionLibraryToggle,
         functionLibraryChecked: !!(functionLibraryToggle && functionLibraryToggle.checked),
         hasFunctionLibraryTab: !!functionLibraryTab,
         functionLibraryAddResult: functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, { warningAt1000: highQualityWarningAt1000, functionLibraryResult });
+    }, { warningAt1000: highQualityWarningAt1000, boostModeResult, functionLibraryResult });
 
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {

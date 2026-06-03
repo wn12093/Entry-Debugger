@@ -17,7 +17,7 @@ Entry.options.useWebGL = '1';
 확인한 동작:
 
 - 실제 렌더링 파이프라인 전환은 `Entry.init()` 내부의 `GEHelper.INIT(useWebGL)` 시점에만 반영된다.
-- 따라서 팝업 토글 변경 후 새로고침이 필요하다.
+- 따라서 부스트 적용 토글 변경 후 새로고침이 필요하다.
 - `is_boost_mode` 블록은 `!!Entry.options.useWebGL`을 직접 읽으므로 플래그 변경 자체는 즉시 블록 결과에 영향을 줄 수 있다.
 
 구현 방식:
@@ -29,11 +29,14 @@ Entry.options.useWebGL = '1';
 - `Entry.init(container, options)` 호출 전에 `options.useWebGL = '1'`을 주입한다.
 - 부스트 설정은 `chrome.storage.local`에 저장하고, 페이지 새로고침 전에도 읽을 수 있게 `localStorage` 키 `__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__`에 미러링한다.
 
-팝업:
+팝업과 엔진 버튼:
 
-- `부스트 모드` 토글을 추가했다.
-- 기본값은 OFF다.
-- 안내 문구는 새로고침 필요를 명시한다.
+- 팝업의 `부스트 모드 버튼` 토글은 엔진 화면 상단 부스트 토글을 보여줄지 결정한다.
+- 실제 부스트 적용 여부는 엔진 상단의 `#ed-boost-mode-toggle` 버튼이 `boostModeEnabled`로 저장한다.
+- 기본값은 버튼 표시 OFF, 실제 부스트 OFF다.
+- 엔진 버튼은 `.entryCoordinateButtonWorkspace_w` 뒤에 삽입해 화면상 좌표/격자 버튼 왼쪽에 표시한다.
+- 버튼을 클릭하면 `boost-mode.js`가 Entry page world에서 `Entry.toast.warning('부스트 모드', '새로고침 해야 반영됩니다.')`를 호출한다.
+- 팝업에서 버튼 표시를 끄면 보이지 않는 부스트 활성 상태가 남지 않도록 실제 부스트도 OFF로 정규화한다.
 
 ## 2. 터보 모드
 
@@ -68,8 +71,10 @@ Entry.isTurbo = true;
 
 - `manifest.json`: 버전 `1.1.1`, `run_at: document_start`, web accessible resources에 `boost-mode.js`, `turbo-mode.js` 추가
 - `content.js`: 부스트/터보 모듈 주입과 메시지 연결, `실험실` 탭 표시 여부와 터보 모드 활성 조건 제어
-- `background.js`: `boostModeEnabled`, `labTabEnabled`, `turboModeEnabled` 설정 저장
-- `popup.html`, `popup.js`: 부스트 모드 토글과 `실험실 탭` 토글 추가
+- `background.js`: `boostModeControlVisible`, `boostModeEnabled`, `labTabEnabled`, `turboModeEnabled` 설정 저장
+- `popup.html`, `popup.js`: 부스트 버튼 표시 토글과 `실험실 탭` 토글
+- `content.js`: 엔진 상단 `#ed-boost-mode-toggle` 삽입, 클릭 시 실제 부스트 설정 저장
+- `boost-mode.js`: `Entry.init` 패치, 부스트 설정 미러링, Entry 내장 toast 안내
 
 메시지:
 
@@ -80,6 +85,9 @@ sendToInject('SET_TURBO_MODE_ENABLED', { enabled: true });
 
 설정 정책:
 
+- `boostModeControlVisible`은 엔진 상단 부스트 버튼 표시 여부다.
+- `boostModeEnabled`는 실제 부스트 적용 여부다.
+- 실제 부스트는 `enabled && boostModeControlVisible && boostModeEnabled`일 때만 적용한다.
 - `실험실 탭`은 기본값 OFF다.
 - `디버깅 탭`이 꺼지면 `실험실 탭`도 자동으로 꺼진다.
 - `터보 모드` 토글은 디버깅 패널의 `실험실` 탭 안에 둔다.
@@ -102,6 +110,7 @@ node --check "Entry Debugger/entry-debugger-extension/background.js"
 
 - 부스트 모드 ON 상태에서 `Entry.init(null, {})` 호출 시 `options.useWebGL === '1'` 확인
 - 부스트 모드 OFF 메시지 수신 시 localStorage 값과 강제 `Entry.options.useWebGL` 제거 확인
+- 엔진 상단 `#ed-boost-mode-toggle` 클릭 시 `Entry.toast.warning`으로 새로고침 안내가 표시되는지 확인
 - 터보 모드 ON 시 `engine.speeds`에 `Infinity` 추가 확인
 - `engine.setSpeedMeter(Infinity)` 호출 시 `Entry.isTurbo === true`, `Entry.FPS === 60` 확인
 - 일반 속도 선택 시 `Entry.isTurbo === false` 확인

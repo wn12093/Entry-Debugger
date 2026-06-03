@@ -204,11 +204,40 @@
     schedulePatchRetry();
   }
 
+  function showEntryToast(title, message, type) {
+    var entry = entryValue || safeGetEntry();
+    var toast = entry && entry.toast;
+    var toastType = type || 'warning';
+
+    if (!toast || typeof toast[toastType] !== 'function') {
+      return false;
+    }
+
+    try {
+      toast[toastType](title, message);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   onMessage(function (msg) {
     if (msg.type !== 'SET_BOOST_MODE_ENABLED') return;
 
-    setEnabled(!!(msg.payload && msg.payload.enabled));
-    post('BOOST_MODE_RESULT', { success: true, enabled: enabled }, msg.requestId);
+    var payload = msg.payload || {};
+    setEnabled(!!payload.enabled);
+
+    var notified = false;
+    if (payload.notify) {
+      notified = showEntryToast('부스트 모드', '새로고침 해야 반영됩니다.', 'warning');
+    }
+
+    post('BOOST_MODE_RESULT', {
+      success: true,
+      enabled: enabled,
+      notify: !!payload.notify,
+      notified: notified
+    }, msg.requestId);
   });
 
   installEntryHook();

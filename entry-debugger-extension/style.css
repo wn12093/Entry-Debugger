@@ -32,6 +32,27 @@
 
 
 /* ═══════════════════════════════════════════════════
+   0.5. 엔진 상단 부스트 모드 버튼
+   ═══════════════════════════════════════════════════ */
+
+.ed-boost-mode-toggle {
+  float: right;
+  margin-top: 4px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2018%2018%22%3E%3Cpath%20fill%3D%22%235f6f7b%22%20d%3D%22M10.7%201L3.8%209.5h4.5L7.3%2017l6.9-9.5H9.7L10.7%201z%22%2F%3E%3C%2Fsvg%3E");
+  background-size: 16px auto;
+}
+
+.ed-boost-mode-toggle:hover {
+  opacity: 0.85;
+}
+
+.ed-boost-mode-toggle.ed-boost-mode-toggle-on {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2018%2018%22%3E%3Cpath%20fill%3D%22%234f80ff%22%20d%3D%22M10.7%201L3.8%209.5h4.5L7.3%2017l6.9-9.5H9.7L10.7%201z%22%2F%3E%3C%2Fsvg%3E");
+}
+
+
+/* ═══════════════════════════════════════════════════
    1. 디버거 패널 컨테이너 (#ed-debugger-panel)
       - .propertyContent 안에 삽입됨
       - position:absolute 로 네이티브 콘텐츠 위에 오버레이

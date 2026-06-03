@@ -11,6 +11,7 @@
     debuggerTabEnabled: true,
     functionUsageEnabled: true,
     consoleDebuggingEnabled: true,
+    boostModeControlVisible: false,
     boostModeEnabled: false,
     labTabEnabled: false,
     eoUploaderEnabled: false,
@@ -29,7 +30,7 @@
     'debuggerTabEnabled',
     'functionUsageEnabled',
     'consoleDebuggingEnabled',
-    'boostModeEnabled',
+    'boostModeControlVisible',
     'functionPrivateVariablesEnabled',
     'labTabEnabled'
   ];
@@ -62,6 +63,9 @@
     var consoleDebuggingEnabled = typeof data.consoleDebuggingEnabled === 'boolean'
       ? data.consoleDebuggingEnabled
       : enabled;
+    var boostModeControlVisible = typeof data.boostModeControlVisible === 'boolean'
+      ? data.boostModeControlVisible
+      : false;
     var boostModeEnabled = typeof data.boostModeEnabled === 'boolean'
       ? data.boostModeEnabled
       : false;
@@ -117,12 +121,17 @@
       resetLabFeatureSettings();
     }
 
+    if (!boostModeControlVisible) {
+      boostModeEnabled = false;
+    }
+
     enabled = !!(
       enabled &&
       (
         debuggerTabEnabled ||
         functionUsageEnabled ||
         consoleDebuggingEnabled ||
+        boostModeControlVisible ||
         boostModeEnabled ||
         functionPrivateVariablesEnabled ||
         labTabEnabled ||
@@ -137,6 +146,7 @@
       debuggerTabEnabled = false;
       functionUsageEnabled = false;
       consoleDebuggingEnabled = false;
+      boostModeControlVisible = false;
       boostModeEnabled = false;
       labTabEnabled = false;
       resetLabFeatureSettings();
@@ -148,6 +158,7 @@
       debuggerTabEnabled: enabled && debuggerTabEnabled,
       functionUsageEnabled: enabled && functionUsageEnabled,
       consoleDebuggingEnabled: enabled && consoleDebuggingEnabled,
+      boostModeControlVisible: enabled && boostModeControlVisible,
       boostModeEnabled: enabled && boostModeEnabled,
       labTabEnabled: enabled && labTabEnabled,
       eoUploaderEnabled: enabled && eoUploaderEnabled,

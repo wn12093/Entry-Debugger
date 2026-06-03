@@ -1,7 +1,7 @@
 /**
  * popup.js - 팝업 UI 로직
  *
- * 전체 기능, 디버깅 탭, 함수 내부 사용 위치 바로가기, 콘솔 디버깅, 함수 안 개인변수, 부스트 모드, 실험실 탭을 각각 제어하고,
+ * 전체 기능, 디버깅 탭, 함수 내부 사용 위치 바로가기, 콘솔 디버깅, 함수 안 개인변수, 부스트 버튼 표시, 실험실 탭을 각각 제어하고,
  * 현재 Entry 페이지 연결 상태를 표시합니다.
  */
 'use strict';
@@ -58,7 +58,8 @@ allToggle.addEventListener('change', function () {
     functionUsageEnabled: enabled,
     consoleDebuggingEnabled: enabled,
     functionPrivateVariablesEnabled: enabled,
-    boostModeEnabled: enabled,
+    boostModeControlVisible: enabled,
+    boostModeEnabled: false,
     labTabEnabled: enabled,
     eoUploaderEnabled: false,
     turboModeEnabled: enabled ? currentSettings.turboModeEnabled : false,
@@ -115,7 +116,8 @@ function saveSettingsFromControls() {
     functionUsageEnabled: functionUsageToggle.checked,
     consoleDebuggingEnabled: consoleDebuggingToggle.checked,
     functionPrivateVariablesEnabled: functionPrivateVariablesToggle.checked,
-    boostModeEnabled: boostModeToggle.checked,
+    boostModeControlVisible: boostModeToggle.checked,
+    boostModeEnabled: boostModeToggle.checked ? currentSettings.boostModeEnabled : false,
     labTabEnabled: debuggerTabToggle.checked && labTabToggle.checked,
     eoUploaderEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.eoUploaderEnabled
@@ -173,7 +175,7 @@ function renderControls() {
   functionUsageToggle.checked = currentSettings.functionUsageEnabled;
   consoleDebuggingToggle.checked = currentSettings.consoleDebuggingEnabled;
   functionPrivateVariablesToggle.checked = currentSettings.functionPrivateVariablesEnabled;
-  boostModeToggle.checked = currentSettings.boostModeEnabled;
+  boostModeToggle.checked = currentSettings.boostModeControlVisible;
   labTabToggle.checked = currentSettings.labTabEnabled;
   labTabToggle.disabled = !currentSettings.debuggerTabEnabled;
   isRendering = false;
@@ -228,8 +230,8 @@ function getEnabledFeatureText() {
   if (currentSettings.functionPrivateVariablesEnabled) {
     enabledFeatures.push('개인변수 표시');
   }
-  if (currentSettings.boostModeEnabled) {
-    enabledFeatures.push('부스트 모드');
+  if (currentSettings.boostModeControlVisible) {
+    enabledFeatures.push('부스트 버튼');
   }
   if (currentSettings.labTabEnabled) {
     enabledFeatures.push('실험실 탭');

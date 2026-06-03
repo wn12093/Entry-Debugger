@@ -57,6 +57,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
   if (details.reason === 'update') {
     chrome.storage.local.get(DEFAULT_SETTINGS, function (data) {
       chrome.storage.local.set(normalizeSettings(Object.assign({}, data, {
+        boostModeControlVisible: false,
         boostModeEnabled: false
       })));
     });
@@ -86,7 +87,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         debuggerTabEnabled: newState,
         functionUsageEnabled: newState,
         consoleDebuggingEnabled: newState,
-        boostModeEnabled: newState,
+        boostModeControlVisible: newState,
+        boostModeEnabled: false,
         functionPrivateVariablesEnabled: newState,
         labTabEnabled: newState,
         eoUploaderEnabled: false,
