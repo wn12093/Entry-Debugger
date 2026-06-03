@@ -18,10 +18,12 @@
 ```powershell
 npm run check
 npm run build:dev
+npm run smoke:local
 ```
 
 - `npm run check`: manifest/README 버전 일치, 확장 리소스 존재 여부, JS 문법을 확인합니다.
 - `npm run build:dev`: 로컬 Entry 서버에서도 동작하는 개발용 확장을 `dist/entry-debugger-extension-dev/`에 생성합니다. Chrome match pattern 제약 때문에 개발용 manifest는 `http://127.0.0.1/*`, `http://localhost/*`를 포함하고, 실제 동작 여부는 content script 내부에서 `/ws/*`로 다시 제한합니다.
+- `npm run smoke:local`: 로컬 Entry 만들기 화면에서 Chromium 기반 확장 주입과 핵심 UI 동작을 확인합니다. PR 생성 또는 PR 브랜치 업데이트 직전에 실행합니다.
 - 실제 Chrome Web Store 제출용 폴더는 계속 `entry-debugger-extension/`입니다.
 
 ## 사용 방법
