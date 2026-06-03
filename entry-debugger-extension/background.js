@@ -92,8 +92,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         eoUploaderEnabled: false,
         turboModeEnabled: false,
         dropdownSearchEnabled: false,
+        dropdownSearchBlockMenuEnabled: true,
+        dropdownSearchPropertyPanelEnabled: true,
         blockTextCopyEnabled: false,
-        highQualityBlockImageEnabled: false
+        highQualityBlockImageEnabled: false,
+        highQualityBlockImageScale: 1000
       }, function () {
         getSettings(function (settings) {
           broadcastSettings(settings);

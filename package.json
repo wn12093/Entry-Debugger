@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "check": "node tools/check-extension.js",
+    "build:dev": "node tools/build-dev-extension.js",
+    "smoke:local": "node tools/smoke-local-extension.js"
+  },
+  "devDependencies": {}
+}

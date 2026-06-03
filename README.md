@@ -13,6 +13,17 @@
   1. Chrome → `chrome://extensions` → **개발자 모드** 활성화
   2. **압축해제된 확장 프로그램 로드** → `entry-debugger-extension/` 선택
 
+## 개발 및 검증
+
+```powershell
+npm run check
+npm run build:dev
+```
+
+- `npm run check`: manifest/README 버전 일치, 확장 리소스 존재 여부, JS 문법을 확인합니다.
+- `npm run build:dev`: 로컬 Entry 서버에서도 동작하는 개발용 확장을 `dist/entry-debugger-extension-dev/`에 생성합니다. Chrome match pattern 제약 때문에 개발용 manifest는 `http://127.0.0.1/*`, `http://localhost/*`를 포함하고, 실제 동작 여부는 content script 내부에서 `/ws/*`로 다시 제한합니다.
+- 실제 Chrome Web Store 제출용 폴더는 계속 `entry-debugger-extension/`입니다.
+
 ## 사용 방법
 
 1. 확장 아이콘을 눌러 **디버거 활성화** 토글을 켭니다.
@@ -44,8 +55,9 @@
 ## v2.0.2 변경사항
 
 - 실험실 기능으로 초고화질 블록 이미지 저장 옵션 추가
-- 블록 우클릭 이미지 저장과 배경 우클릭 전체 코드 이미지 저장에 1000% 배율 적용
-- 초고화질 저장 시 다운로드에 오래 걸릴 수 있다는 안내 추가
+- 블록 우클릭 이미지 저장과 배경 우클릭 전체 코드 이미지 저장에 200%~2000% 배율 적용
+- 1000% 이상일 때 다운로드 지연 안내를 검은색으로 표시
+- 속성 검색으로 찾기 기능에 블록꾸러미/속성 탭 하위 적용 설정 추가
 
 ## v1.0.6 변경사항
 

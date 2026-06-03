@@ -1,5 +1,5 @@
 /**
- * high-quality-block-image.js - Saves Entry block images at 1000% scale.
+ * high-quality-block-image.js - Saves Entry block images at a configurable high scale.
  *
  * This is an experimental, UI-only patch. It does not modify Entry project JSON.
  */
@@ -10,7 +10,9 @@
   window.__ENTRY_DEBUGGER_HIGH_QUALITY_BLOCK_IMAGE_INJECTED__ = true;
 
   const CHANNEL = '__ENTRY_DEBUGGER__';
-  const TARGET_SCALE = 10;
+  const DEFAULT_SCALE = 10;
+  const MIN_SCALE = 2;
+  const MAX_SCALE = 20;
   const RETRY_INTERVAL = 300;
   const RETRY_TIMEOUT = 30000;
   const Bridge = window.EntryDebuggerPageBridge || null;
@@ -18,6 +20,7 @@
   const Patches = window.EntryDebuggerPatchRegistry || null;
 
   let enabled = false;
+  let targetScale = DEFAULT_SCALE;
   let retryTimer = null;
   let retryUntil = 0;
 
@@ -93,10 +96,10 @@
       return originalGetDataUrl.apply(blockView, args);
     }
 
-    var scaleMultiplier = TARGET_SCALE / currentScale;
+    var scaleMultiplier = targetScale / currentScale;
     var originalBoardScale = board.scale;
     var restoreRect = patchBoundingRect(svgGroup, scaleMultiplier);
-    board.scale = TARGET_SCALE;
+    board.scale = targetScale;
 
     try {
       return originalGetDataUrl.apply(blockView, args);
@@ -214,17 +217,57 @@
     tick();
   }
 
+  function normalizeScale(value) {
+    var scale = Number(value);
+    if (!Number.isFinite(scale)) scale = DEFAULT_SCALE;
+    if (scale < MIN_SCALE) return MIN_SCALE;
+    if (scale > MAX_SCALE) return MAX_SCALE;
+    return scale;
+  }
+
+  function normalizeScalePercent(value) {
+    var percent = Number(value);
+    if (!Number.isFinite(percent)) percent = DEFAULT_SCALE * 100;
+    if (percent < MIN_SCALE * 100) return MIN_SCALE * 100;
+    if (percent > MAX_SCALE * 100) return MAX_SCALE * 100;
+    return Math.round(percent);
+  }
+
+  function updateTargetScale(payload) {
+    payload = payload || {};
+    if (typeof payload.scalePercent !== 'undefined') {
+      targetScale = normalizeScalePercent(payload.scalePercent) / 100;
+      return;
+    }
+    if (typeof payload.scale !== 'undefined') {
+      targetScale = normalizeScale(payload.scale);
+    }
+  }
+
+  function getScalePayload() {
+    return {
+      scale: targetScale,
+      scalePercent: Math.round(targetScale * 100)
+    };
+  }
+
   onMessage(function (msg) {
     if (msg.type !== 'SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED') return;
+    updateTargetScale(msg.payload);
     enabled = !!(msg.payload && msg.payload.enabled);
     if (enabled) {
       schedulePatchRetry();
     } else {
       clearRetry();
     }
-    post('HIGH_QUALITY_BLOCK_IMAGE_RESULT', { success: true, enabled: enabled }, msg.requestId);
+    post('HIGH_QUALITY_BLOCK_IMAGE_RESULT', Object.assign({
+      success: true,
+      enabled: enabled
+    }, getScalePayload()), msg.requestId);
   });
 
   schedulePatchRetry();
-  post('HIGH_QUALITY_BLOCK_IMAGE_READY', { enabled: enabled, scale: TARGET_SCALE });
+  post('HIGH_QUALITY_BLOCK_IMAGE_READY', Object.assign({
+    enabled: enabled
+  }, getScalePayload()));
 })();

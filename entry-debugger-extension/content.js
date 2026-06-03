@@ -36,14 +36,17 @@
   const PANEL_ID       = 'ed-debugger-panel';
   const BOOST_MODE_STORAGE_KEY = '__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__';
   const PAGE_CORE_SCRIPTS = [
+    ['entry-debugger-hangul-search', 'hangul-search.js'],
     ['entry-debugger-page-bridge', 'page-bridge.js'],
     ['entry-debugger-entry-adapter', 'entry-adapter.js'],
     ['entry-debugger-patch-registry', 'patch-registry.js']
   ];
 
   const SharedSettings = window.EntryDebuggerSettings;
+  const HangulSearch = window.EntryDebuggerHangulSearch || null;
   const DEFAULT_SETTINGS = SharedSettings.DEFAULT_SETTINGS;
   const normalizeSettings = SharedSettings.normalize;
+  const normalizeHighQualityBlockImageScale = SharedSettings.normalizeHighQualityBlockImageScale;
 
   let debuggerInjected = false;
   let currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], others: [], ready: false };
@@ -302,6 +305,7 @@
     if (!isDebuggerActive) return;
 
     isDebuggerActive = false;
+    sendToInject('STOP_POLLING');
 
     // 1. 디버깅 탭에서 selected 제거
     if (debuggingTabEl) {
@@ -431,12 +435,24 @@
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
                   '<span class="ed-lab-title">속성 검색으로 찾기</span>' +
-                  '<span class="ed-lab-desc">변수/신호/리스트 드롭다운에 검색 추가</span>' +
+                  '<span class="ed-lab-desc">블록꾸러미와 속성 탭에서 검색 기능 사용</span>' +
                 '</span>' +
                 '<label class="ed-lab-switch" aria-label="속성 검색으로 찾기">' +
                   '<input type="checkbox" id="ed-toggle-dropdown-search">' +
                   '<span class="ed-lab-slider"></span>' +
                 '</label>' +
+                '<div class="ed-lab-subcontrols" id="ed-dropdown-search-targets">' +
+                  '<label class="ed-lab-check">' +
+                    '<input type="checkbox" id="ed-toggle-dropdown-search-block-menu">' +
+                    '<span class="ed-lab-check-box" aria-hidden="true"></span>' +
+                    '<span>블록꾸러미</span>' +
+                  '</label>' +
+                  '<label class="ed-lab-check">' +
+                    '<input type="checkbox" id="ed-toggle-dropdown-search-property-panel">' +
+                    '<span class="ed-lab-check-box" aria-hidden="true"></span>' +
+                    '<span>속성 탭</span>' +
+                  '</label>' +
+                '</div>' +
               '</div>' +
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
@@ -451,12 +467,24 @@
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
                   '<span class="ed-lab-title">초고화질 이미지 저장하기</span>' +
-                  '<span class="ed-lab-desc">블록 이미지 저장 시 1000% 배율로 생성합니다. 다운로드에 오래 걸릴 수 있습니다.</span>' +
+                  '<span class="ed-lab-desc">블록 이미지 저장 배율을 200%에서 2000%까지 조정</span>' +
                 '</span>' +
                 '<label class="ed-lab-switch" aria-label="초고화질 이미지 저장하기">' +
                   '<input type="checkbox" id="ed-toggle-high-quality-block-image">' +
                   '<span class="ed-lab-slider"></span>' +
                 '</label>' +
+                '<div class="ed-lab-scale-control" id="ed-high-quality-scale-control">' +
+                  '<div class="ed-lab-scale-row">' +
+                    '<input class="ed-lab-range" id="ed-high-quality-scale-range" type="range" min="200" max="2000" step="100" value="1000" aria-label="초고화질 저장 배율">' +
+                    '<label class="ed-lab-number-label" for="ed-high-quality-scale-input">' +
+                      '<input class="ed-lab-number" id="ed-high-quality-scale-input" type="number" min="200" max="2000" step="100" value="1000">' +
+                      '<span>%</span>' +
+                    '</label>' +
+                  '</div>' +
+                  '<div class="ed-lab-scale-meta">' +
+                    '<strong id="ed-high-quality-scale-warning" class="ed-lab-scale-warning">다운로드에 오래 걸릴 수 있습니다.</strong>' +
+                  '</div>' +
+                '</div>' +
               '</div>' +
             '</div>' +
             '<div class="ed-empty" id="ed-other-empty">' +
@@ -566,6 +594,26 @@
       });
     }
 
+    var dropdownSearchBlockMenuToggle = panelEl.querySelector('#ed-toggle-dropdown-search-block-menu');
+    if (dropdownSearchBlockMenuToggle && dropdownSearchBlockMenuToggle.dataset.bound !== 'true') {
+      dropdownSearchBlockMenuToggle.dataset.bound = 'true';
+      dropdownSearchBlockMenuToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          dropdownSearchBlockMenuEnabled: dropdownSearchBlockMenuToggle.checked
+        });
+      });
+    }
+
+    var dropdownSearchPropertyPanelToggle = panelEl.querySelector('#ed-toggle-dropdown-search-property-panel');
+    if (dropdownSearchPropertyPanelToggle && dropdownSearchPropertyPanelToggle.dataset.bound !== 'true') {
+      dropdownSearchPropertyPanelToggle.dataset.bound = 'true';
+      dropdownSearchPropertyPanelToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          dropdownSearchPropertyPanelEnabled: dropdownSearchPropertyPanelToggle.checked
+        });
+      });
+    }
+
     var blockTextCopyToggle = panelEl.querySelector('#ed-toggle-block-text-copy');
     if (blockTextCopyToggle && blockTextCopyToggle.dataset.bound !== 'true') {
       blockTextCopyToggle.dataset.bound = 'true';
@@ -583,6 +631,37 @@
         saveSettingsFromPanel({
           highQualityBlockImageEnabled: highQualityBlockImageToggle.checked
         });
+      });
+    }
+
+    var highQualityScaleRange = panelEl.querySelector('#ed-high-quality-scale-range');
+    if (highQualityScaleRange && highQualityScaleRange.dataset.bound !== 'true') {
+      highQualityScaleRange.dataset.bound = 'true';
+      highQualityScaleRange.addEventListener('input', function () {
+        renderHighQualityScaleControls(highQualityScaleRange.value);
+      });
+      highQualityScaleRange.addEventListener('change', function () {
+        saveHighQualityScaleFromControl(highQualityScaleRange.value);
+      });
+    }
+
+    var highQualityScaleInput = panelEl.querySelector('#ed-high-quality-scale-input');
+    if (highQualityScaleInput && highQualityScaleInput.dataset.bound !== 'true') {
+      highQualityScaleInput.dataset.bound = 'true';
+      highQualityScaleInput.addEventListener('input', function () {
+        var scale = Number(highQualityScaleInput.value);
+        if (Number.isFinite(scale) && scale >= 200 && scale <= 2000) {
+          renderHighQualityScaleControls(scale, { keepInputValue: true });
+        }
+      });
+      highQualityScaleInput.addEventListener('change', function () {
+        saveHighQualityScaleFromControl(highQualityScaleInput.value);
+      });
+      highQualityScaleInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          saveHighQualityScaleFromControl(highQualityScaleInput.value);
+        }
       });
     }
   }
@@ -605,6 +684,8 @@
       dropdownSearchToggle.checked = !!extensionSettings.dropdownSearchEnabled;
     }
 
+    renderDropdownSearchTargetControls();
+
     var blockTextCopyToggle = panelEl.querySelector('#ed-toggle-block-text-copy');
     if (blockTextCopyToggle) {
       blockTextCopyToggle.checked = !!extensionSettings.blockTextCopyEnabled;
@@ -614,6 +695,73 @@
     if (highQualityBlockImageToggle) {
       highQualityBlockImageToggle.checked = !!extensionSettings.highQualityBlockImageEnabled;
     }
+
+    renderHighQualityScaleControls(extensionSettings.highQualityBlockImageScale);
+  }
+
+  function renderDropdownSearchTargetControls() {
+    var targets = panelEl.querySelector('#ed-dropdown-search-targets');
+    var blockMenuToggle = panelEl.querySelector('#ed-toggle-dropdown-search-block-menu');
+    var propertyPanelToggle = panelEl.querySelector('#ed-toggle-dropdown-search-property-panel');
+    var enabled = !!extensionSettings.dropdownSearchEnabled;
+
+    if (targets) {
+      targets.classList.toggle('ed-lab-subcontrols-disabled', !enabled);
+    }
+    if (blockMenuToggle) {
+      blockMenuToggle.checked = extensionSettings.dropdownSearchBlockMenuEnabled !== false;
+      blockMenuToggle.disabled = !enabled;
+    }
+    if (propertyPanelToggle) {
+      propertyPanelToggle.checked = extensionSettings.dropdownSearchPropertyPanelEnabled !== false;
+      propertyPanelToggle.disabled = !enabled;
+    }
+  }
+
+  function getHighQualityScalePercent(value) {
+    if (typeof normalizeHighQualityBlockImageScale === 'function') {
+      return normalizeHighQualityBlockImageScale(value);
+    }
+    var scale = Number(value);
+    if (!Number.isFinite(scale)) scale = 1000;
+    scale = Math.round(scale);
+    if (scale < 200) return 200;
+    if (scale > 2000) return 2000;
+    return scale;
+  }
+
+  function renderHighQualityScaleControls(value, options) {
+    var scale = getHighQualityScalePercent(value);
+    var disabled = !extensionSettings.highQualityBlockImageEnabled;
+    var control = panelEl.querySelector('#ed-high-quality-scale-control');
+    var range = panelEl.querySelector('#ed-high-quality-scale-range');
+    var input = panelEl.querySelector('#ed-high-quality-scale-input');
+    var warning = panelEl.querySelector('#ed-high-quality-scale-warning');
+
+    if (control) {
+      control.classList.toggle('ed-lab-subcontrols-disabled', disabled);
+    }
+    if (range) {
+      range.value = String(scale);
+      range.disabled = disabled;
+    }
+    if (input) {
+      if (!options || !options.keepInputValue) {
+        input.value = String(scale);
+      }
+      input.disabled = disabled;
+    }
+    if (warning) {
+      warning.classList.toggle('ed-lab-scale-warning-active', scale >= 1000);
+    }
+  }
+
+  function saveHighQualityScaleFromControl(value) {
+    var scale = getHighQualityScalePercent(value);
+    renderHighQualityScaleControls(scale);
+    saveSettingsFromPanel({
+      highQualityBlockImageScale: scale
+    });
   }
 
   function isLabTabFeatureEnabled() {
@@ -661,6 +809,23 @@
       extensionSettings.labTabEnabled &&
       extensionSettings.highQualityBlockImageEnabled
     );
+  }
+
+  function getDropdownSearchFeaturePayload(shouldEnable) {
+    return {
+      enabled: !!shouldEnable,
+      blockMenuEnabled: !!(shouldEnable && extensionSettings.dropdownSearchBlockMenuEnabled !== false),
+      propertyPanelEnabled: !!(shouldEnable && extensionSettings.dropdownSearchPropertyPanelEnabled !== false)
+    };
+  }
+
+  function getHighQualityBlockImageFeaturePayload(shouldEnable) {
+    var scalePercent = getHighQualityScalePercent(extensionSettings.highQualityBlockImageScale);
+    return {
+      enabled: !!shouldEnable,
+      scale: scalePercent / 100,
+      scalePercent: scalePercent
+    };
   }
 
   function applyLabTabVisibility() {
@@ -740,7 +905,7 @@
     if (!panelEl) return;
 
     var searchInput = panelEl.querySelector('#ed-search');
-    var searchTerm = (searchInput ? searchInput.value : '').toLowerCase();
+    var searchTerm = searchInput ? searchInput.value : '';
 
     var statusEl = panelEl.querySelector('#ed-status');
     if (statusEl) {
@@ -887,6 +1052,15 @@
     ].join(' ').toLowerCase();
   }
 
+  function matchesSearch(text, query) {
+    if (HangulSearch && typeof HangulSearch.matches === 'function') {
+      return HangulSearch.matches(text, query);
+    }
+    var normalizedQuery = String(query == null ? '' : query).trim().toLowerCase();
+    return !normalizedQuery ||
+      String(text == null ? '' : text).trim().toLowerCase().indexOf(normalizedQuery) !== -1;
+  }
+
   /* ─── 변수 렌더링 ─── */
 
   function renderVariables(variables, searchTerm) {
@@ -896,9 +1070,9 @@
 
     var filtered = variables.filter(function (v) {
       if (!searchTerm) return true;
-      return v.name.toLowerCase().indexOf(searchTerm) !== -1 ||
-             String(v.value).toLowerCase().indexOf(searchTerm) !== -1 ||
-             getScopeSearchText(v).indexOf(searchTerm) !== -1;
+      return matchesSearch(v.name, searchTerm) ||
+             matchesSearch(String(v.value), searchTerm) ||
+             matchesSearch(getScopeSearchText(v), searchTerm);
     });
 
     if (filtered.length === 0) {
@@ -1016,8 +1190,8 @@
     var filtered = others.filter(function (item) {
       var value = item.value === undefined || item.value === null ? '' : String(item.value);
       if (!searchTerm) return true;
-      return item.name.toLowerCase().indexOf(searchTerm) !== -1 ||
-             value.toLowerCase().indexOf(searchTerm) !== -1;
+      return matchesSearch(item.name, searchTerm) ||
+             matchesSearch(value, searchTerm);
     });
 
     if (filtered.length === 0) {
@@ -1176,8 +1350,8 @@
 
     var filtered = lists.filter(function (l) {
       if (!searchTerm) return true;
-      return l.name.toLowerCase().indexOf(searchTerm) !== -1 ||
-             getScopeSearchText(l).indexOf(searchTerm) !== -1;
+      return matchesSearch(l.name, searchTerm) ||
+             matchesSearch(getScopeSearchText(l), searchTerm);
     });
 
     if (filtered.length === 0) {
@@ -1433,7 +1607,7 @@
 
     var filtered = messages.filter(function (m) {
       if (!searchTerm) return true;
-      return m.name.toLowerCase().indexOf(searchTerm) !== -1;
+      return matchesSearch(m.name, searchTerm);
     });
 
     if (filtered.length === 0) {
@@ -1497,7 +1671,7 @@
 
     var filtered = scenes.filter(function (s) {
       if (!searchTerm) return true;
-      return s.name.toLowerCase().indexOf(searchTerm) !== -1;
+      return matchesSearch(s.name, searchTerm);
     });
 
     if (filtered.length === 0) {
@@ -1673,9 +1847,7 @@
     }
 
     setTimeout(function () {
-      sendToInject('SET_DROPDOWN_SEARCH_ENABLED', {
-        enabled: shouldEnable
-      });
+      sendToInject('SET_DROPDOWN_SEARCH_ENABLED', getDropdownSearchFeaturePayload(shouldEnable));
     }, 150);
   }
 
@@ -1703,9 +1875,7 @@
     }
 
     setTimeout(function () {
-      sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', {
-        enabled: shouldEnable
-      });
+      sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', getHighQualityBlockImageFeaturePayload(shouldEnable));
     }, 150);
   }
 
@@ -1798,9 +1968,10 @@
 
       case 'DROPDOWN_SEARCH_READY':
         if (!settingsLoaded) return;
-        sendToInject('SET_DROPDOWN_SEARCH_ENABLED', {
-          enabled: isDropdownSearchFeatureEnabled()
-        });
+        sendToInject(
+          'SET_DROPDOWN_SEARCH_ENABLED',
+          getDropdownSearchFeaturePayload(isDropdownSearchFeatureEnabled())
+        );
         break;
 
       case 'BLOCK_TEXT_COPY_READY':
@@ -1812,9 +1983,10 @@
 
       case 'HIGH_QUALITY_BLOCK_IMAGE_READY':
         if (!settingsLoaded) return;
-        sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', {
-          enabled: isHighQualityBlockImageFeatureEnabled()
-        });
+        sendToInject(
+          'SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED',
+          getHighQualityBlockImageFeaturePayload(isHighQualityBlockImageFeatureEnabled())
+        );
         break;
 
       case 'BLOCK_TEXT_COPY_TOAST':
@@ -1899,7 +2071,11 @@
           eoUploaderEnabled: false,
           turboModeEnabled: false,
           dropdownSearchEnabled: false,
-          blockTextCopyEnabled: false
+          dropdownSearchBlockMenuEnabled: extensionSettings.dropdownSearchBlockMenuEnabled,
+          dropdownSearchPropertyPanelEnabled: extensionSettings.dropdownSearchPropertyPanelEnabled,
+          blockTextCopyEnabled: false,
+          highQualityBlockImageEnabled: false,
+          highQualityBlockImageScale: extensionSettings.highQualityBlockImageScale
         });
         sendResponse({ success: true });
         break;
@@ -1960,9 +2136,14 @@
   function isEntryWorkspacePage() {
     try {
       var url = new URL(location.href);
-      return url.protocol === 'https:' &&
+      var isPlayEntryWorkspace = url.protocol === 'https:' &&
         url.hostname === 'playentry.org' &&
         url.pathname.indexOf('/ws/') === 0;
+      var isLocalWorkspace = url.protocol === 'http:' &&
+        (url.hostname === '127.0.0.1' || url.hostname === 'localhost') &&
+        (url.port === '' || url.port === '8080') &&
+        url.pathname.indexOf('/ws/') === 0;
+      return isPlayEntryWorkspace || isLocalWorkspace;
     } catch (e) {
       return false;
     }
@@ -2115,6 +2296,8 @@
 
     applyFunctionPrivateVariablesFeature();
     applyDropdownSearchFeature();
+    applyBlockTextCopyFeature();
+    applyHighQualityBlockImageFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();

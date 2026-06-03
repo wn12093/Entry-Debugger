@@ -20,6 +20,7 @@ var labTabToggle = document.getElementById('toggle-lab-tab');
 var statusDot = document.getElementById('status-dot');
 var statusText = document.getElementById('status-text');
 var refreshHint = document.getElementById('refresh-hint');
+var popupVersion = document.getElementById('popup-version');
 
 var currentSettings = DEFAULT_SETTINGS;
 var isRendering = false;
@@ -30,9 +31,18 @@ var isRendering = false;
 
 chrome.runtime.sendMessage({ type: 'GET_STATE' }, function (response) {
   currentSettings = normalizeSettings(response);
+  renderVersion();
   renderControls();
   updateStatusDisplay();
 });
+
+function renderVersion() {
+  if (!popupVersion || !chrome.runtime || typeof chrome.runtime.getManifest !== 'function') {
+    return;
+  }
+
+  popupVersion.textContent = 'v' + chrome.runtime.getManifest().version;
+}
 
 /* ═══════════════════════════════════════════
    2. 토글 변경 핸들러
@@ -53,8 +63,11 @@ allToggle.addEventListener('change', function () {
     eoUploaderEnabled: false,
     turboModeEnabled: enabled ? currentSettings.turboModeEnabled : false,
     dropdownSearchEnabled: enabled ? currentSettings.dropdownSearchEnabled : false,
+    dropdownSearchBlockMenuEnabled: currentSettings.dropdownSearchBlockMenuEnabled,
+    dropdownSearchPropertyPanelEnabled: currentSettings.dropdownSearchPropertyPanelEnabled,
     blockTextCopyEnabled: enabled ? currentSettings.blockTextCopyEnabled : false,
-    highQualityBlockImageEnabled: enabled ? currentSettings.highQualityBlockImageEnabled : false
+    highQualityBlockImageEnabled: enabled ? currentSettings.highQualityBlockImageEnabled : false,
+    highQualityBlockImageScale: currentSettings.highQualityBlockImageScale
   });
 });
 
@@ -112,12 +125,15 @@ function saveSettingsFromControls() {
     dropdownSearchEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.dropdownSearchEnabled
       : false,
+    dropdownSearchBlockMenuEnabled: currentSettings.dropdownSearchBlockMenuEnabled,
+    dropdownSearchPropertyPanelEnabled: currentSettings.dropdownSearchPropertyPanelEnabled,
     blockTextCopyEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.blockTextCopyEnabled
       : false,
     highQualityBlockImageEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.highQualityBlockImageEnabled
-      : false
+      : false,
+    highQualityBlockImageScale: currentSettings.highQualityBlockImageScale
   });
 }
 
