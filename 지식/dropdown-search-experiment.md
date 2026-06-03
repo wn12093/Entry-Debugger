@@ -85,6 +85,7 @@ dropdownSearchPropertyPanelEnabled: true
 
 - 블록꾸러미: 변수/신호/리스트 드롭다운 검색 UI를 사용한다.
 - 속성 탭: `#entryCode > div.entryVariablePanelWorkspace` 안의 `.entryVariableListWorkspace` 첫 부분에 검색 입력을 추가하고, 실제 `.list` 항목을 필터링한다.
+- 하위 체크박스의 표시 UI는 Entry의 `entryVariablenormalRadioButton radioButton` 스타일과 맞게 18px 원형 라디오 버튼 형태를 사용한다. 실제 입력 타입은 두 적용 위치를 독립적으로 켜고 끄기 위해 checkbox를 유지한다.
 
 ## 메시지
 
