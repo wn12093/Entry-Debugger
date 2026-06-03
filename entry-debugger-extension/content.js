@@ -2101,6 +2101,7 @@
     var existing = document.getElementById(BOOST_MODE_TOGGLE_ID);
     if (existing) {
       boostModeControlEl = existing;
+      renderBoostModeControlContent(existing);
       updateBoostModeControl();
       return;
     }
@@ -2122,6 +2123,7 @@
     button.type = 'button';
     button.className = 'entryEngineButtonWorkspace_w entryEngineTopWorkspace ed-boost-mode-toggle';
     button.setAttribute('aria-label', '부스트 모드 켜기 또는 끄기');
+    renderBoostModeControlContent(button);
     button.addEventListener('click', function (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -2141,6 +2143,16 @@
     updateBoostModeControl();
   }
 
+  function renderBoostModeControlContent(button) {
+    if (!button || button.querySelector('.ed-boost-mode-switch')) return;
+
+    button.innerHTML =
+      '<span class="ed-boost-mode-label">부스트모드</span>' +
+      '<span class="ed-boost-mode-switch" aria-hidden="true">' +
+        '<span class="ed-boost-mode-knob"></span>' +
+      '</span>';
+  }
+
   function updateBoostModeControl() {
     var button = boostModeControlEl || document.getElementById(BOOST_MODE_TOGGLE_ID);
     if (!button) return;
@@ -2149,6 +2161,7 @@
     button.classList.toggle('toggleOn', enabled);
     button.classList.toggle('ed-boost-mode-toggle-on', enabled);
     button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    button.setAttribute('aria-label', enabled ? '부스트 모드 끄기' : '부스트 모드 켜기');
     button.title = enabled
       ? '부스트 모드 켜짐 - 새로고침 후 렌더링에 반영'
       : '부스트 모드 꺼짐';

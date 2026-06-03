@@ -35,6 +35,7 @@ Entry.options.useWebGL = '1';
 - 실제 부스트 적용 여부는 엔진 상단의 `#ed-boost-mode-toggle` 버튼이 `boostModeEnabled`로 저장한다.
 - 기본값은 버튼 표시 ON, 실제 부스트 OFF다.
 - 엔진 버튼은 `.entryCoordinateButtonWorkspace_w` 뒤에 삽입해 화면상 좌표/격자 버튼 왼쪽에 표시한다.
+- 버튼 UI는 실행 페이지의 `.entryEngineMinimize` 영역처럼 흰 배경 위 텍스트형 `부스트모드` 라벨과 초록 토글 스위치를 함께 보여준다.
 - 버튼을 클릭하면 `boost-mode.js`가 Entry page world에서 `Entry.toast.warning('부스트 모드', '새로고침 해야 반영됩니다.')`를 호출한다.
 - 설정 탭에서 버튼 표시를 끄면 보이지 않는 부스트 활성 상태가 남지 않도록 실제 부스트도 OFF로 정규화한다.
 

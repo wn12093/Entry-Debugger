@@ -237,6 +237,8 @@ async function main() {
       const toast = document.querySelector('#entryToastContainer .entryToastWarning');
       return !!(
         button &&
+        button.textContent.includes('부스트모드') &&
+        button.querySelector('.ed-boost-mode-switch') &&
         button.classList.contains('ed-boost-mode-toggle-on') &&
         toast &&
         /새로고침 해야 반영됩니다/.test(toast.textContent || '')
@@ -247,6 +249,8 @@ async function main() {
       const toast = document.querySelector('#entryToastContainer .entryToastWarning');
       return {
         hasBoostModeControl: !!button,
+        boostModeControlText: button ? button.textContent.trim() : '',
+        hasBoostModeSwitch: !!(button && button.querySelector('.ed-boost-mode-switch')),
         boostModeControlPressed: button ? button.getAttribute('aria-pressed') : null,
         boostModeControlOn: !!(button && button.classList.contains('ed-boost-mode-toggle-on')),
         boostToastText: toast ? toast.textContent.trim() : '',
