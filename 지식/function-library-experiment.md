@@ -1,0 +1,86 @@
+# 함수 보관함
+
+확인 날짜: 2026-06-03
+
+## 목적
+
+자주 사용하는 Entry 함수를 확장 안에 템플릿으로 등록하고, 사용자가 버튼을 눌러 현재 Entry 작품의 함수 목록에 추가할 수 있게 한다.
+
+## 샘플 원본
+
+파일: `C:\Users\young\Downloads\260603_205님 작품 (1).ent`
+
+`.ent`는 tar 파일이며 `temp/project.json`을 포함한다. `project.functions[0]`에서 다음 함수 템플릿을 추출했다.
+
+- 이름: `테스트 함수`
+- 타입: `normal`
+- 지역변수: `지역변수`
+- 함수 인자: 문자열 파라미터 1개, 참/거짓 파라미터 1개
+- 본문: 지역변수에 문자열 인자를 저장하고, 참/거짓 인자에 따라 `말하기` 또는 `생각하기` 블록 실행
+
+## UI
+
+실험실 탭에 `함수 보관함` 토글을 추가한다.
+
+- `functionLibraryEnabled: false`가 기본값
+- `실험실 탭`이 꺼지면 `functionLibraryEnabled`도 `false`로 정규화
+- 토글이 켜지면 업로더 탭 옆에 `함수 보관함` 탭 표시
+- 함수 보관함 탭에는 등록된 템플릿 카드와 `추가` 버튼 표시
+
+## 구현 파일
+
+| 파일 | 역할 |
+|---|---|
+| `entry-debugger-extension/function-library-templates.js` | 내장 함수 템플릿 목록 |
+| `entry-debugger-extension/content.js` | 실험실 토글, 함수 보관함 탭, 추가 버튼 UI |
+| `entry-debugger-extension/inject.js` | Entry Main World에서 함수 템플릿을 현재 작품에 등록 |
+| `entry-debugger-extension/settings.js` | `functionLibraryEnabled` 기본값과 정규화 |
+| `tools/smoke-local-extension.js` | Chromium smoke에서 함수 추가 동작 검증 |
+
+## 메시지 흐름
+
+content script에서 Main World 주입 스크립트로 전달한다.
+
+```js
+sendToInject('ADD_FUNCTION_LIBRARY_TEMPLATE', {
+  templateId: 'test-function',
+  templateName: '테스트 함수',
+  func: template.function
+});
+```
+
+주입 스크립트는 처리 후 결과를 돌려준다.
+
+```js
+post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', {
+  success: true,
+  id: '새 함수 ID',
+  name: '테스트 함수'
+});
+```
+
+## ID 재생성 규칙
+
+템플릿을 그대로 추가하면 기존 작품의 함수, 블록, 지역변수, 동적 파라미터 타입과 충돌할 수 있다. 따라서 추가 직전에 다음 값을 새로 만든다.
+
+- 함수 ID
+- 모든 블록 ID
+- `stringParam_*`, `booleanParam_*` 타입
+- 지역변수 ID
+- 함수 내부에서 참조하는 지역변수 ID
+
+같은 원본 동적 파라미터 타입은 같은 새 타입으로 매핑한다. 예를 들어 함수 정의부의 `stringParam_ogzm`과 본문에서 문자열 인자를 읽는 `stringParam_ogzm`은 하나의 새 `stringParam_*`으로 같이 바뀐다.
+
+## 제한
+
+- `Entry.Func.isEdit`가 참이면 추가하지 않는다.
+- 작품이 실행 중이면 `Entry.Code.load()`가 안전하게 동작하지 않을 수 있으므로 추가하지 않는다.
+- 현재 MVP는 내장 템플릿만 지원한다. 사용자 정의 템플릿 업로드는 별도 기능으로 분리한다.
+
+## 검증
+
+- `npm run check`
+- `npm run build:dev`
+- PR 생성 또는 PR 브랜치 업데이트 직전 `npm run smoke:local`
+
+`smoke:local`은 함수 보관함을 켠 상태로 로컬 Entry 만들기 화면을 열고, `테스트 함수`의 `추가` 버튼을 누른 뒤 `Entry.variableContainer.functions_`에 함수가 추가됐는지 확인한다.

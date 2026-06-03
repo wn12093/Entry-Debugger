@@ -866,6 +866,169 @@
     }
   }
 
+  function deepClone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function generateEntryHash(entry) {
+    if (entry && typeof entry.generateHash === 'function') {
+      return entry.generateHash();
+    }
+    return Math.random().toString(36).slice(2, 10);
+  }
+
+  function mapDynamicParamType(type, typeMap, entry) {
+    if (typeof type !== 'string') return type;
+    if (type.indexOf('stringParam_') === 0) {
+      if (!typeMap[type]) typeMap[type] = 'stringParam_' + generateEntryHash(entry);
+      return typeMap[type];
+    }
+    if (type.indexOf('booleanParam_') === 0) {
+      if (!typeMap[type]) typeMap[type] = 'booleanParam_' + generateEntryHash(entry);
+      return typeMap[type];
+    }
+    return type;
+  }
+
+  function cloneFunctionLibraryModel(entry, sourceFunc) {
+    if (!sourceFunc || !sourceFunc.content) {
+      throw new Error('함수 템플릿 데이터가 비어 있습니다.');
+    }
+
+    var cloned = deepClone(sourceFunc);
+    var originalFuncId = cloned.id || '';
+    var nextFuncId = generateEntryHash(entry);
+    var localVariableIdMap = {};
+    var dynamicTypeMap = {};
+
+    cloned.id = nextFuncId;
+    cloned.localVariables = Array.isArray(cloned.localVariables)
+      ? cloned.localVariables.map(function (localVariable) {
+        var nextLocalVariable = deepClone(localVariable);
+        var oldId = nextLocalVariable.id;
+        nextLocalVariable.id = nextFuncId + '_' + generateEntryHash(entry);
+        if (oldId) {
+          localVariableIdMap[oldId] = nextLocalVariable.id;
+        }
+        return nextLocalVariable;
+      })
+      : [];
+
+    var content = typeof cloned.content === 'string'
+      ? JSON.parse(cloned.content)
+      : deepClone(cloned.content);
+
+    function mapString(value) {
+      if (localVariableIdMap[value]) return localVariableIdMap[value];
+      if (originalFuncId && value === 'func_' + originalFuncId) return 'func_' + nextFuncId;
+      return mapDynamicParamType(value, dynamicTypeMap, entry);
+    }
+
+    function remapNode(node) {
+      if (Array.isArray(node)) {
+        node.forEach(remapNode);
+        return;
+      }
+      if (!node || typeof node !== 'object') {
+        return;
+      }
+
+      if (typeof node.id === 'string') {
+        node.id = generateEntryHash(entry);
+      }
+      if (typeof node.type === 'string') {
+        if (originalFuncId && node.type === 'func_' + originalFuncId) {
+          node.type = 'func_' + nextFuncId;
+        } else {
+          node.type = mapDynamicParamType(node.type, dynamicTypeMap, entry);
+        }
+      }
+
+      Object.keys(node).forEach(function (key) {
+        if (key === 'id' || key === 'type') return;
+        var value = node[key];
+        if (typeof value === 'string') {
+          node[key] = mapString(value);
+        } else {
+          remapNode(value);
+        }
+      });
+    }
+
+    remapNode(content);
+    cloned.content = JSON.stringify(content);
+    return cloned;
+  }
+
+  function refreshFunctionLibraryViews(entry, container) {
+    if (container && typeof container.updateList === 'function') {
+      try {
+        container.updateList();
+      } catch (e) {}
+    }
+
+    if (entry && entry.playground && entry.playground.blockMenu) {
+      var blockMenu = entry.playground.blockMenu;
+      try {
+        if (typeof blockMenu.deleteRendered === 'function') {
+          blockMenu.deleteRendered('func');
+        }
+        if (typeof blockMenu.align === 'function') {
+          blockMenu.align();
+        }
+      } catch (e) {}
+    }
+
+    if (entry && entry.Func && typeof entry.Func.updateMenu === 'function') {
+      try {
+        entry.Func.updateMenu();
+      } catch (e) {}
+    }
+  }
+
+  function addFunctionLibraryTemplate(payload) {
+    var entry = safeGetEntry();
+    var container = safeGetContainer();
+
+    if (!entry || !container || !entry.Func) {
+      return { success: false, error: 'Entry 함수 API를 찾을 수 없습니다.' };
+    }
+    if (entry.Func.isEdit) {
+      return { success: false, error: '함수 편집 중에는 추가할 수 없습니다.' };
+    }
+    if (entry.engine && typeof entry.engine.isState === 'function' && entry.engine.isState('run')) {
+      return { success: false, error: '작품 실행 중에는 추가할 수 없습니다.' };
+    }
+
+    try {
+      var clonedModel = cloneFunctionLibraryModel(entry, payload && payload.func);
+      var func = new entry.Func(clonedModel);
+
+      if (typeof container.changeFunctionName === 'function') {
+        container.changeFunctionName(func);
+      }
+      if (typeof func.generateBlock === 'function') {
+        func.generateBlock();
+      }
+      if (typeof container.saveFunction === 'function') {
+        container.saveFunction(func);
+      } else {
+        container.functions_[func.id] = func;
+      }
+
+      refreshFunctionLibraryViews(entry, container);
+
+      return {
+        success: true,
+        id: func.id,
+        name: (payload && payload.templateName) || func.description || '함수',
+        description: func.description || ''
+      };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   /* ───────── 메시지 수신 핸들러 ───────── */
 
   onMessage(function (msg) {
@@ -997,6 +1160,13 @@
       case 'RAISE_MESSAGE':
         result = raiseMessage(msg.payload.id);
         post('RAISE_RESULT', result, msg.requestId);
+        break;
+
+      case 'ADD_FUNCTION_LIBRARY_TEMPLATE':
+        result = addFunctionLibraryTemplate(msg.payload || {});
+        post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', result, msg.requestId);
+        prevSnapshotJSON = '';
+        pollAndBroadcast();
         break;
 
       case 'PING':

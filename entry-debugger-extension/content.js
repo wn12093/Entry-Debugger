@@ -44,6 +44,9 @@
 
   const SharedSettings = window.EntryDebuggerSettings;
   const HangulSearch = window.EntryDebuggerHangulSearch || null;
+  const FunctionLibraryTemplates = Array.isArray(window.EntryDebuggerFunctionLibraryTemplates)
+    ? window.EntryDebuggerFunctionLibraryTemplates
+    : [];
   const DEFAULT_SETTINGS = SharedSettings.DEFAULT_SETTINGS;
   const normalizeSettings = SharedSettings.normalize;
   const normalizeHighQualityBlockImageScale = SharedSettings.normalizeHighQualityBlockImageScale;
@@ -359,6 +362,7 @@
           }) +
           buildLabSectionHTML() +
           buildUploaderSectionHTML() +
+          buildFunctionLibrarySectionHTML() +
         '</div>' +
       '</div>'
     );
@@ -375,6 +379,7 @@
             '<span class="ed-subtab-separator ed-optional-only" aria-hidden="true"></span>' +
             '<button class="ed-subtab ed-lab-only" data-tab="others">실험실</button>' +
             '<button class="ed-subtab ed-eo-uploader-only" data-tab="generator">업로더</button>' +
+            '<button class="ed-subtab ed-function-library-only" data-tab="function-library">함수 보관함</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
             '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
@@ -486,6 +491,16 @@
                   '</div>' +
                 '</div>' +
               '</div>' +
+              '<div class="ed-lab-setting">' +
+                '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">함수 보관함</span>' +
+                  '<span class="ed-lab-desc">자주 쓰는 함수를 현재 작품에 추가</span>' +
+                '</span>' +
+                '<label class="ed-lab-switch" aria-label="함수 보관함 탭 표시">' +
+                  '<input type="checkbox" id="ed-toggle-function-library">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
+              '</div>' +
             '</div>' +
             '<div class="ed-empty" id="ed-other-empty">' +
               '<div class="ed-empty-icon">&#x23F1;</div>' +
@@ -514,6 +529,17 @@
               '</div>' +
               '<div class="ed-generator-status ed-generator-status-info" id="ed-generator-status">이미지를 추가해 .eo로 저장한 뒤, 엔트리의 오브젝트 추가하기 &gt; 파일 업로드에서 업로드하세요.</div>' +
             '</div>' +
+      '</div>'
+    );
+  }
+
+  function buildFunctionLibrarySectionHTML() {
+    return (
+      '<div class="ed-section ed-function-library-only" id="ed-section-function-library">' +
+        '<div class="ed-function-library">' +
+          '<div class="ed-function-library-list" id="ed-function-library-list"></div>' +
+          '<div class="ed-function-library-status" id="ed-function-library-status"></div>' +
+        '</div>' +
       '</div>'
     );
   }
@@ -556,8 +582,10 @@
 
     bindLabControls();
     bindGeneratorEvents();
+    bindFunctionLibraryEvents();
     applyLabTabVisibility();
     renderGeneratorFileList();
+    renderFunctionLibraryList();
     renderLabControls();
   }
 
@@ -664,6 +692,16 @@
         }
       });
     }
+
+    var functionLibraryToggle = panelEl.querySelector('#ed-toggle-function-library');
+    if (functionLibraryToggle && functionLibraryToggle.dataset.bound !== 'true') {
+      functionLibraryToggle.dataset.bound = 'true';
+      functionLibraryToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          functionLibraryEnabled: functionLibraryToggle.checked
+        });
+      });
+    }
   }
 
   function renderLabControls() {
@@ -697,6 +735,11 @@
     }
 
     renderHighQualityScaleControls(extensionSettings.highQualityBlockImageScale);
+
+    var functionLibraryToggle = panelEl.querySelector('#ed-toggle-function-library');
+    if (functionLibraryToggle) {
+      functionLibraryToggle.checked = !!extensionSettings.functionLibraryEnabled;
+    }
   }
 
   function renderDropdownSearchTargetControls() {
@@ -811,6 +854,15 @@
     );
   }
 
+  function isFunctionLibraryFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.debuggerTabEnabled &&
+      extensionSettings.labTabEnabled &&
+      extensionSettings.functionLibraryEnabled
+    );
+  }
+
   function getDropdownSearchFeaturePayload(shouldEnable) {
     return {
       enabled: !!shouldEnable,
@@ -833,21 +885,27 @@
 
     var visible = isLabTabFeatureEnabled();
     var uploaderVisible = isEoUploaderFeatureEnabled();
+    var functionLibraryVisible = isFunctionLibraryFeatureEnabled();
     panelEl.querySelectorAll('.ed-lab-only').forEach(function (el) {
       el.style.display = visible ? '' : 'none';
     });
     panelEl.querySelectorAll('.ed-eo-uploader-only').forEach(function (el) {
       el.style.display = uploaderVisible ? '' : 'none';
     });
+    panelEl.querySelectorAll('.ed-function-library-only').forEach(function (el) {
+      el.style.display = functionLibraryVisible ? '' : 'none';
+    });
     panelEl.querySelectorAll('.ed-optional-only').forEach(function (el) {
-      el.style.display = (visible || uploaderVisible) ? '' : 'none';
+      el.style.display = (visible || uploaderVisible || functionLibraryVisible) ? '' : 'none';
     });
 
     var labSection = panelEl.querySelector('#ed-section-others');
     var uploaderSection = panelEl.querySelector('#ed-section-generator');
+    var functionLibrarySection = panelEl.querySelector('#ed-section-function-library');
     var activeHidden =
       (!visible && labSection && labSection.classList.contains('ed-section-active')) ||
-      (!uploaderVisible && uploaderSection && uploaderSection.classList.contains('ed-section-active'));
+      (!uploaderVisible && uploaderSection && uploaderSection.classList.contains('ed-section-active')) ||
+      (!functionLibraryVisible && functionLibrarySection && functionLibrarySection.classList.contains('ed-section-active'));
 
     if (activeHidden) {
       var variableTab = panelEl.querySelector('.ed-subtab[data-tab="variables"]');
@@ -880,6 +938,75 @@
     if (uploader) uploader.renderFileList();
   }
 
+  function bindFunctionLibraryEvents() {
+    if (!panelEl) return;
+
+    var list = panelEl.querySelector('#ed-function-library-list');
+    if (!list || list.dataset.bound === 'true') return;
+    list.dataset.bound = 'true';
+    list.addEventListener('click', function (event) {
+      if (!event.target || typeof event.target.closest !== 'function') return;
+      var button = event.target.closest('.ed-function-add-btn');
+      if (!button) return;
+
+      var templateId = button.getAttribute('data-template-id');
+      var template = getFunctionLibraryTemplate(templateId);
+      if (!template) {
+        setFunctionLibraryStatus('함수 템플릿을 찾을 수 없습니다.', 'error');
+        return;
+      }
+
+      button.disabled = true;
+      setFunctionLibraryStatus(template.name + ' 추가 중...', 'info');
+      sendToInject('ADD_FUNCTION_LIBRARY_TEMPLATE', {
+        templateId: template.id,
+        templateName: template.name,
+        func: template.function
+      });
+    });
+  }
+
+  function getFunctionLibraryTemplate(templateId) {
+    return FunctionLibraryTemplates.find(function (template) {
+      return template && template.id === templateId;
+    }) || null;
+  }
+
+  function renderFunctionLibraryList() {
+    if (!panelEl) return;
+
+    var list = panelEl.querySelector('#ed-function-library-list');
+    if (!list) return;
+
+    if (!FunctionLibraryTemplates.length) {
+      list.innerHTML =
+        '<div class="ed-function-library-empty">' +
+          '등록된 함수가 없습니다.' +
+        '</div>';
+      return;
+    }
+
+    list.innerHTML = FunctionLibraryTemplates.map(function (template) {
+      return (
+        '<div class="ed-function-card">' +
+          '<div class="ed-function-card-main">' +
+            '<div class="ed-function-card-title">' + escapeHTML(template.name || '이름 없는 함수') + '</div>' +
+            '<div class="ed-function-card-desc">' + escapeHTML(template.description || '') + '</div>' +
+          '</div>' +
+          '<button class="ed-function-add-btn" type="button" data-template-id="' + escapeAttr(template.id || '') + '">추가</button>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  function setFunctionLibraryStatus(message, type) {
+    var status = panelEl && panelEl.querySelector('#ed-function-library-status');
+    if (!status) return;
+    status.textContent = message || '';
+    status.className = 'ed-function-library-status' +
+      (message ? ' ed-function-library-status-' + (type || 'info') : '');
+  }
+
   function saveSettingsFromPanel(partialSettings) {
     var nextSettings = normalizeSettings(Object.assign({}, extensionSettings, partialSettings || {}));
     applySettings(nextSettings);
@@ -892,6 +1019,7 @@
         extensionSettings = normalizeSettings(response.settings);
         applyLabTabVisibility();
         renderGeneratorFileList();
+        renderFunctionLibraryList();
         renderLabControls();
       }
     });
@@ -2024,6 +2152,18 @@
         }
         break;
 
+      case 'ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT':
+        renderFunctionLibraryList();
+        if (msg.payload && msg.payload.success) {
+          var addedName = msg.payload.name || '함수';
+          setFunctionLibraryStatus(addedName + ' 추가 완료', 'info');
+          showToast(addedName + ' 추가 완료', 'info');
+        } else if (msg.payload) {
+          setFunctionLibraryStatus('함수 추가 오류: ' + msg.payload.error, 'error');
+          showToast('함수 추가 오류: ' + msg.payload.error, 'error');
+        }
+        break;
+
       case 'FUNCTION_USAGE_OPEN_RESULT':
         if (!isDebuggerActive) {
           return;
@@ -2075,7 +2215,8 @@
           dropdownSearchPropertyPanelEnabled: extensionSettings.dropdownSearchPropertyPanelEnabled,
           blockTextCopyEnabled: false,
           highQualityBlockImageEnabled: false,
-          highQualityBlockImageScale: extensionSettings.highQualityBlockImageScale
+          highQualityBlockImageScale: extensionSettings.highQualityBlockImageScale,
+          functionLibraryEnabled: false
         });
         sendResponse({ success: true });
         break;

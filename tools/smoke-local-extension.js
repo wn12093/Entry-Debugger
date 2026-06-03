@@ -23,6 +23,7 @@ const smokeSettings = {
   blockTextCopyEnabled: false,
   highQualityBlockImageEnabled: true,
   highQualityBlockImageScale: 1000,
+  functionLibraryEnabled: true,
   functionPrivateVariablesEnabled: true
 };
 
@@ -120,6 +121,14 @@ async function main() {
       state: 'attached',
       timeout: 60000
     });
+    await page.waitForSelector('#ed-toggle-function-library', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('.ed-subtab[data-tab="function-library"]', {
+      state: 'attached',
+      timeout: 60000
+    });
     await page.waitForFunction(() => {
       const range = document.querySelector('#ed-high-quality-scale-range');
       const input = document.querySelector('#ed-high-quality-scale-input');
@@ -173,6 +182,43 @@ async function main() {
       return !!(warning && warning.classList.contains('ed-lab-scale-warning-active'));
     });
 
+    const functionCountBeforeAdd = await page.evaluate(() => {
+      const funcs = window.Entry &&
+        window.Entry.variableContainer &&
+        window.Entry.variableContainer.functions_;
+      return funcs ? Object.keys(funcs).length : 0;
+    });
+    await page.click('.ed-subtab[data-tab="function-library"]');
+    await page.waitForSelector('.ed-function-add-btn[data-template-id="test-function"]', {
+      state: 'visible',
+      timeout: 60000
+    });
+    await page.click('.ed-function-add-btn[data-template-id="test-function"]');
+    await page.waitForFunction((beforeCount) => {
+      const funcs = window.Entry &&
+        window.Entry.variableContainer &&
+        window.Entry.variableContainer.functions_;
+      if (!funcs) return false;
+      const values = Object.values(funcs);
+      return values.length > beforeCount &&
+        values.some((func) => /테스트 함수/.test(func.description || ''));
+    }, functionCountBeforeAdd, { timeout: 60000 });
+    const functionLibraryResult = await page.evaluate((beforeCount) => {
+      const funcs = window.Entry &&
+        window.Entry.variableContainer &&
+        window.Entry.variableContainer.functions_;
+      const values = funcs ? Object.values(funcs) : [];
+      const added = values.find((func) => /테스트 함수/.test(func.description || ''));
+      const status = document.querySelector('#ed-function-library-status');
+      return {
+        countBefore: beforeCount,
+        countAfter: values.length,
+        hasAddedFunction: !!added,
+        addedDescription: added ? added.description : null,
+        statusText: status ? status.textContent.trim() : ''
+      };
+    }, functionCountBeforeAdd);
+
     await page.waitForFunction(() => {
       const panel = document.querySelector('#ed-debugger-panel');
       const status = document.querySelector('#ed-status');
@@ -184,7 +230,7 @@ async function main() {
       );
     }, { timeout: 60000 });
 
-    const result = await page.evaluate((warningAt1000) => {
+    const result = await page.evaluate(({ warningAt1000, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
       const status = document.querySelector('#ed-status');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
@@ -195,6 +241,8 @@ async function main() {
       const scaleRange = document.querySelector('#ed-high-quality-scale-range');
       const scaleInput = document.querySelector('#ed-high-quality-scale-input');
       const scaleWarning = document.querySelector('#ed-high-quality-scale-warning');
+      const functionLibraryToggle = document.querySelector('#ed-toggle-function-library');
+      const functionLibraryTab = document.querySelector('.ed-subtab[data-tab="function-library"]');
       return {
         url: location.href,
         hasDebuggingTab: !!document.querySelector('.propertyTabdebugging'),
@@ -212,9 +260,13 @@ async function main() {
           scaleWarning && scaleWarning.classList.contains('ed-lab-scale-warning-active')
         ),
         highQualityWarningAt1000: warningAt1000,
+        hasFunctionLibraryToggle: !!functionLibraryToggle,
+        functionLibraryChecked: !!(functionLibraryToggle && functionLibraryToggle.checked),
+        hasFunctionLibraryTab: !!functionLibraryTab,
+        functionLibraryAddResult: functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, highQualityWarningAt1000);
+    }, { warningAt1000: highQualityWarningAt1000, functionLibraryResult });
 
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {

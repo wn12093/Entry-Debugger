@@ -67,7 +67,8 @@ allToggle.addEventListener('change', function () {
     dropdownSearchPropertyPanelEnabled: currentSettings.dropdownSearchPropertyPanelEnabled,
     blockTextCopyEnabled: enabled ? currentSettings.blockTextCopyEnabled : false,
     highQualityBlockImageEnabled: enabled ? currentSettings.highQualityBlockImageEnabled : false,
-    highQualityBlockImageScale: currentSettings.highQualityBlockImageScale
+    highQualityBlockImageScale: currentSettings.highQualityBlockImageScale,
+    functionLibraryEnabled: enabled ? currentSettings.functionLibraryEnabled : false
   });
 });
 
@@ -133,7 +134,10 @@ function saveSettingsFromControls() {
     highQualityBlockImageEnabled: debuggerTabToggle.checked && labTabToggle.checked
       ? currentSettings.highQualityBlockImageEnabled
       : false,
-    highQualityBlockImageScale: currentSettings.highQualityBlockImageScale
+    highQualityBlockImageScale: currentSettings.highQualityBlockImageScale,
+    functionLibraryEnabled: debuggerTabToggle.checked && labTabToggle.checked
+      ? currentSettings.functionLibraryEnabled
+      : false
   });
 }
 

@@ -14,6 +14,7 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [함수 안에서 개인변수 보기](./function-private-variables-in-function-edit.md)
 - [속성 검색으로 찾기](./dropdown-search-experiment.md)
 - [초고화질 이미지 저장하기](./high-quality-block-image-experiment.md)
+- [함수 보관함](./function-library-experiment.md)
 - [Entry Debugger 리팩토링 구조](./entry-debugger-refactor-architecture.md)
 - [Entry Debugger 지원 기능 정리](./entry-debugger-supported-features.md)
 - [Entry Debugger 소개 페이지 디자이너 프롬프트](./entry-debugger-designer-prompt.md)

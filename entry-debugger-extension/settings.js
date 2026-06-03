@@ -21,6 +21,7 @@
     blockTextCopyEnabled: false,
     highQualityBlockImageEnabled: false,
     highQualityBlockImageScale: 1000,
+    functionLibraryEnabled: false,
     functionPrivateVariablesEnabled: true
   };
 
@@ -89,6 +90,9 @@
       ? data.highQualityBlockImageEnabled
       : false;
     var highQualityBlockImageScale = normalizeHighQualityBlockImageScale(data.highQualityBlockImageScale);
+    var functionLibraryEnabled = typeof data.functionLibraryEnabled === 'boolean'
+      ? data.functionLibraryEnabled
+      : false;
     var functionPrivateVariablesEnabled = typeof data.functionPrivateVariablesEnabled === 'boolean'
       ? data.functionPrivateVariablesEnabled
       : true;
@@ -102,6 +106,7 @@
       blockTextCopyEnabled = DEFAULT_SETTINGS.blockTextCopyEnabled;
       highQualityBlockImageEnabled = DEFAULT_SETTINGS.highQualityBlockImageEnabled;
       highQualityBlockImageScale = DEFAULT_SETTINGS.highQualityBlockImageScale;
+      functionLibraryEnabled = DEFAULT_SETTINGS.functionLibraryEnabled;
     }
 
     if (!debuggerTabEnabled) {
@@ -123,7 +128,8 @@
         labTabEnabled ||
         turboModeEnabled ||
         blockTextCopyEnabled ||
-        highQualityBlockImageEnabled
+        highQualityBlockImageEnabled ||
+        functionLibraryEnabled
       )
     );
 
@@ -152,6 +158,7 @@
       blockTextCopyEnabled: enabled && blockTextCopyEnabled,
       highQualityBlockImageEnabled: enabled && highQualityBlockImageEnabled,
       highQualityBlockImageScale: highQualityBlockImageScale,
+      functionLibraryEnabled: enabled && functionLibraryEnabled,
       functionPrivateVariablesEnabled: enabled && functionPrivateVariablesEnabled
     };
   }

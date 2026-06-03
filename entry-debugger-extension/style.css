@@ -1459,6 +1459,101 @@
   color: #e74c3c;
 }
 
+/* 함수 보관함 */
+
+.ed-function-library {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ed-function-library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ed-function-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid #e5e5e5;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.ed-function-card-main {
+  min-width: 0;
+}
+
+.ed-function-card-title {
+  overflow: hidden;
+  color: #333;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-function-card-desc {
+  margin-top: 3px;
+  color: #8a8f98;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.ed-function-add-btn {
+  flex: 0 0 auto;
+  min-width: 48px;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid #4f80ff;
+  border-radius: 4px;
+  background: #4f80ff;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.ed-function-add-btn:hover {
+  background: #3d6ef0;
+}
+
+.ed-function-add-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ed-function-library-empty,
+.ed-function-library-status {
+  padding: 7px 8px;
+  border-radius: 4px;
+  background: #fff;
+  color: #8a8f98;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.ed-function-library-status:empty {
+  display: none;
+}
+
+.ed-function-library-status-info {
+  background: #eef3ff;
+  color: #335fdd;
+}
+
+.ed-function-library-status-error {
+  background: #fff0f0;
+  color: #d84343;
+}
+
 
 /* ═══════════════════════════════════════════════════
    13. 네이티브 속성 패널: 함수 내부 사용 위치
