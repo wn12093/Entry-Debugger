@@ -90,10 +90,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         labTabEnabled: false,
         eoUploaderEnabled: false,
         turboModeEnabled: false,
-        dropdownSearchEnabled: false,
+        dropdownSearchEnabled: newState,
         dropdownSearchBlockMenuEnabled: true,
         dropdownSearchPropertyPanelEnabled: true,
-        blockTextCopyEnabled: false,
+        blockTextCopyEnabled: newState,
         highQualityBlockImageEnabled: false,
         highQualityBlockImageScale: 1000,
         functionLibraryEnabled: false

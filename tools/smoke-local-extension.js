@@ -21,7 +21,7 @@ const smokeSettings = {
   dropdownSearchEnabled: true,
   dropdownSearchBlockMenuEnabled: true,
   dropdownSearchPropertyPanelEnabled: true,
-  blockTextCopyEnabled: false,
+  blockTextCopyEnabled: true,
   highQualityBlockImageEnabled: true,
   highQualityBlockImageScale: 1000,
   functionLibraryEnabled: true,
@@ -135,7 +135,23 @@ async function main() {
       state: 'attached',
       timeout: 60000
     });
+    await page.waitForSelector('#ed-toggle-dropdown-search', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-block-text-copy', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-high-quality-block-image', {
+      state: 'attached',
+      timeout: 60000
+    });
     await page.waitForSelector('#ed-toggle-setting-lab-tab', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-reset-settings-btn', {
       state: 'attached',
       timeout: 60000
     });
@@ -151,7 +167,11 @@ async function main() {
         consoleDebuggingChecked: getChecked('#ed-toggle-setting-console-debugging'),
         functionPrivateVariablesChecked: getChecked('#ed-toggle-setting-function-private-variables'),
         boostModeButtonChecked: getChecked('#ed-toggle-setting-boost-mode-button'),
-        labTabChecked: getChecked('#ed-toggle-setting-lab-tab')
+        dropdownSearchChecked: getChecked('#ed-toggle-dropdown-search'),
+        blockTextCopyChecked: getChecked('#ed-toggle-block-text-copy'),
+        highQualityBlockImageChecked: getChecked('#ed-toggle-high-quality-block-image'),
+        labTabChecked: getChecked('#ed-toggle-setting-lab-tab'),
+        hasResetSettingsButton: !!document.querySelector('#ed-reset-settings-btn')
       };
     });
     await page.waitForSelector('#ed-toggle-dropdown-search-block-menu', {

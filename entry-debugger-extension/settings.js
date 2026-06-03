@@ -16,10 +16,10 @@
     labTabEnabled: false,
     eoUploaderEnabled: false,
     turboModeEnabled: false,
-    dropdownSearchEnabled: false,
+    dropdownSearchEnabled: true,
     dropdownSearchBlockMenuEnabled: true,
     dropdownSearchPropertyPanelEnabled: true,
-    blockTextCopyEnabled: false,
+    blockTextCopyEnabled: true,
     highQualityBlockImageEnabled: false,
     highQualityBlockImageScale: 1000,
     functionLibraryEnabled: false,
@@ -80,7 +80,7 @@
       : false;
     var dropdownSearchEnabled = typeof data.dropdownSearchEnabled === 'boolean'
       ? data.dropdownSearchEnabled
-      : false;
+      : DEFAULT_SETTINGS.dropdownSearchEnabled;
     var dropdownSearchBlockMenuEnabled = typeof data.dropdownSearchBlockMenuEnabled === 'boolean'
       ? data.dropdownSearchBlockMenuEnabled
       : true;
@@ -89,10 +89,10 @@
       : true;
     var blockTextCopyEnabled = typeof data.blockTextCopyEnabled === 'boolean'
       ? data.blockTextCopyEnabled
-      : false;
+      : DEFAULT_SETTINGS.blockTextCopyEnabled;
     var highQualityBlockImageEnabled = typeof data.highQualityBlockImageEnabled === 'boolean'
       ? data.highQualityBlockImageEnabled
-      : false;
+      : DEFAULT_SETTINGS.highQualityBlockImageEnabled;
     var highQualityBlockImageScale = normalizeHighQualityBlockImageScale(data.highQualityBlockImageScale);
     var functionLibraryEnabled = typeof data.functionLibraryEnabled === 'boolean'
       ? data.functionLibraryEnabled
@@ -104,12 +104,6 @@
     function resetLabFeatureSettings() {
       eoUploaderEnabled = DEFAULT_SETTINGS.eoUploaderEnabled;
       turboModeEnabled = DEFAULT_SETTINGS.turboModeEnabled;
-      dropdownSearchEnabled = DEFAULT_SETTINGS.dropdownSearchEnabled;
-      dropdownSearchBlockMenuEnabled = DEFAULT_SETTINGS.dropdownSearchBlockMenuEnabled;
-      dropdownSearchPropertyPanelEnabled = DEFAULT_SETTINGS.dropdownSearchPropertyPanelEnabled;
-      blockTextCopyEnabled = DEFAULT_SETTINGS.blockTextCopyEnabled;
-      highQualityBlockImageEnabled = DEFAULT_SETTINGS.highQualityBlockImageEnabled;
-      highQualityBlockImageScale = DEFAULT_SETTINGS.highQualityBlockImageScale;
       functionLibraryEnabled = DEFAULT_SETTINGS.functionLibraryEnabled;
     }
 
@@ -134,6 +128,7 @@
         boostModeControlVisible ||
         boostModeEnabled ||
         functionPrivateVariablesEnabled ||
+        dropdownSearchEnabled ||
         labTabEnabled ||
         turboModeEnabled ||
         blockTextCopyEnabled ||

@@ -460,6 +460,60 @@
             '</div>' +
             '<div class="ed-lab-setting">' +
               '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">속성 검색으로 찾기</span>' +
+                '<span class="ed-lab-desc">블록꾸러미와 속성 탭에서 검색 기능 사용</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="속성 검색으로 찾기">' +
+                '<input type="checkbox" id="ed-toggle-dropdown-search">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+              '<div class="ed-lab-subcontrols" id="ed-dropdown-search-targets">' +
+                '<label class="ed-lab-check">' +
+                  '<input type="checkbox" id="ed-toggle-dropdown-search-block-menu">' +
+                  '<span class="ed-lab-check-box" aria-hidden="true"></span>' +
+                  '<span>블록꾸러미</span>' +
+                '</label>' +
+                '<label class="ed-lab-check">' +
+                  '<input type="checkbox" id="ed-toggle-dropdown-search-property-panel">' +
+                  '<span class="ed-lab-check-box" aria-hidden="true"></span>' +
+                  '<span>속성 탭</span>' +
+                '</label>' +
+              '</div>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">블록 텍스트 복사</span>' +
+                '<span class="ed-lab-desc">블록 우클릭 메뉴에 텍스트로 복사하기 추가</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="블록 텍스트 복사">' +
+                '<input type="checkbox" id="ed-toggle-block-text-copy">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">초고화질 이미지 저장하기</span>' +
+                '<span class="ed-lab-desc">블록 이미지 저장 배율을 200%에서 2000%까지 조정</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="초고화질 이미지 저장하기">' +
+                '<input type="checkbox" id="ed-toggle-high-quality-block-image">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+              '<div class="ed-lab-scale-control" id="ed-high-quality-scale-control">' +
+                '<div class="ed-lab-scale-row">' +
+                  '<input class="ed-lab-range" id="ed-high-quality-scale-range" type="range" min="200" max="2000" step="100" value="1000" aria-label="초고화질 저장 배율">' +
+                  '<label class="ed-lab-number-label" for="ed-high-quality-scale-input">' +
+                    '<input class="ed-lab-number" id="ed-high-quality-scale-input" type="number" min="200" max="2000" step="100" value="1000">' +
+                    '<span>%</span>' +
+                  '</label>' +
+                '</div>' +
+                '<div class="ed-lab-scale-meta">' +
+                  '<strong id="ed-high-quality-scale-warning" class="ed-lab-scale-warning">다운로드에 오래 걸릴 수 있습니다.</strong>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
                 '<span class="ed-lab-title">실험실 탭</span>' +
                 '<span class="ed-lab-desc">실험 기능과 기본 변수 디버깅 표시</span>' +
               '</span>' +
@@ -468,6 +522,9 @@
                 '<span class="ed-lab-slider"></span>' +
               '</label>' +
             '</div>' +
+          '</div>' +
+          '<div class="ed-settings-actions">' +
+            '<button class="ed-settings-reset-btn" id="ed-reset-settings-btn" type="button">모든 항목 기본값으로 초기화</button>' +
           '</div>' +
         '</div>' +
       '</div>'
@@ -501,60 +558,6 @@
                   '<input type="checkbox" id="ed-toggle-eo-uploader">' +
                   '<span class="ed-lab-slider"></span>' +
                 '</label>' +
-              '</div>' +
-              '<div class="ed-lab-setting">' +
-                '<span class="ed-lab-text">' +
-                  '<span class="ed-lab-title">속성 검색으로 찾기</span>' +
-                  '<span class="ed-lab-desc">블록꾸러미와 속성 탭에서 검색 기능 사용</span>' +
-                '</span>' +
-                '<label class="ed-lab-switch" aria-label="속성 검색으로 찾기">' +
-                  '<input type="checkbox" id="ed-toggle-dropdown-search">' +
-                  '<span class="ed-lab-slider"></span>' +
-                '</label>' +
-                '<div class="ed-lab-subcontrols" id="ed-dropdown-search-targets">' +
-                  '<label class="ed-lab-check">' +
-                    '<input type="checkbox" id="ed-toggle-dropdown-search-block-menu">' +
-                    '<span class="ed-lab-check-box" aria-hidden="true"></span>' +
-                    '<span>블록꾸러미</span>' +
-                  '</label>' +
-                  '<label class="ed-lab-check">' +
-                    '<input type="checkbox" id="ed-toggle-dropdown-search-property-panel">' +
-                    '<span class="ed-lab-check-box" aria-hidden="true"></span>' +
-                    '<span>속성 탭</span>' +
-                  '</label>' +
-                '</div>' +
-              '</div>' +
-              '<div class="ed-lab-setting">' +
-                '<span class="ed-lab-text">' +
-                  '<span class="ed-lab-title">블록 텍스트 복사</span>' +
-                  '<span class="ed-lab-desc">블록 우클릭 메뉴에 텍스트로 복사하기 추가</span>' +
-                '</span>' +
-                '<label class="ed-lab-switch" aria-label="블록 텍스트 복사">' +
-                  '<input type="checkbox" id="ed-toggle-block-text-copy">' +
-                  '<span class="ed-lab-slider"></span>' +
-                '</label>' +
-              '</div>' +
-              '<div class="ed-lab-setting">' +
-                '<span class="ed-lab-text">' +
-                  '<span class="ed-lab-title">초고화질 이미지 저장하기</span>' +
-                  '<span class="ed-lab-desc">블록 이미지 저장 배율을 200%에서 2000%까지 조정</span>' +
-                '</span>' +
-                '<label class="ed-lab-switch" aria-label="초고화질 이미지 저장하기">' +
-                  '<input type="checkbox" id="ed-toggle-high-quality-block-image">' +
-                  '<span class="ed-lab-slider"></span>' +
-                '</label>' +
-                '<div class="ed-lab-scale-control" id="ed-high-quality-scale-control">' +
-                  '<div class="ed-lab-scale-row">' +
-                    '<input class="ed-lab-range" id="ed-high-quality-scale-range" type="range" min="200" max="2000" step="100" value="1000" aria-label="초고화질 저장 배율">' +
-                    '<label class="ed-lab-number-label" for="ed-high-quality-scale-input">' +
-                      '<input class="ed-lab-number" id="ed-high-quality-scale-input" type="number" min="200" max="2000" step="100" value="1000">' +
-                      '<span>%</span>' +
-                    '</label>' +
-                  '</div>' +
-                  '<div class="ed-lab-scale-meta">' +
-                    '<strong id="ed-high-quality-scale-warning" class="ed-lab-scale-warning">다운로드에 오래 걸릴 수 있습니다.</strong>' +
-                  '</div>' +
-                '</div>' +
               '</div>' +
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
@@ -691,111 +694,21 @@
         boostModeEnabled: checked ? extensionSettings.boostModeEnabled : false
       });
     });
-    bindSettingsToggle('#ed-toggle-setting-lab-tab', function (checked) {
-      saveSettingsFromPanel({ labTabEnabled: checked });
+    bindSettingsToggle('#ed-toggle-dropdown-search', function (checked) {
+      saveSettingsFromPanel({ dropdownSearchEnabled: checked });
     });
-  }
-
-  function bindSettingsToggle(selector, onChange) {
-    var toggle = panelEl.querySelector(selector);
-    if (!toggle || toggle.dataset.bound === 'true') return;
-
-    toggle.dataset.bound = 'true';
-    toggle.addEventListener('change', function () {
-      onChange(!!toggle.checked);
+    bindSettingsToggle('#ed-toggle-dropdown-search-block-menu', function (checked) {
+      saveSettingsFromPanel({ dropdownSearchBlockMenuEnabled: checked });
     });
-  }
-
-  function renderSettingsControls() {
-    if (!panelEl) return;
-
-    setSettingToggleChecked('#ed-toggle-setting-function-usage', extensionSettings.functionUsageEnabled);
-    setSettingToggleChecked('#ed-toggle-setting-console-debugging', extensionSettings.consoleDebuggingEnabled);
-    setSettingToggleChecked('#ed-toggle-setting-function-private-variables', extensionSettings.functionPrivateVariablesEnabled);
-    setSettingToggleChecked('#ed-toggle-setting-boost-mode-button', extensionSettings.boostModeControlVisible);
-    setSettingToggleChecked('#ed-toggle-setting-lab-tab', extensionSettings.labTabEnabled);
-  }
-
-  function setSettingToggleChecked(selector, checked) {
-    var toggle = panelEl.querySelector(selector);
-    if (toggle) {
-      toggle.checked = !!checked;
-    }
-  }
-
-  function bindLabControls() {
-    if (!panelEl) return;
-
-    var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
-    if (turboToggle && turboToggle.dataset.bound !== 'true') {
-      turboToggle.dataset.bound = 'true';
-      turboToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          turboModeEnabled: turboToggle.checked
-        });
-      });
-    }
-
-    var eoUploaderToggle = panelEl.querySelector('#ed-toggle-eo-uploader');
-    if (eoUploaderToggle && eoUploaderToggle.dataset.bound !== 'true') {
-      eoUploaderToggle.dataset.bound = 'true';
-      eoUploaderToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          eoUploaderEnabled: eoUploaderToggle.checked
-        });
-      });
-    }
-
-    var dropdownSearchToggle = panelEl.querySelector('#ed-toggle-dropdown-search');
-    if (dropdownSearchToggle && dropdownSearchToggle.dataset.bound !== 'true') {
-      dropdownSearchToggle.dataset.bound = 'true';
-      dropdownSearchToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          dropdownSearchEnabled: dropdownSearchToggle.checked
-        });
-      });
-    }
-
-    var dropdownSearchBlockMenuToggle = panelEl.querySelector('#ed-toggle-dropdown-search-block-menu');
-    if (dropdownSearchBlockMenuToggle && dropdownSearchBlockMenuToggle.dataset.bound !== 'true') {
-      dropdownSearchBlockMenuToggle.dataset.bound = 'true';
-      dropdownSearchBlockMenuToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          dropdownSearchBlockMenuEnabled: dropdownSearchBlockMenuToggle.checked
-        });
-      });
-    }
-
-    var dropdownSearchPropertyPanelToggle = panelEl.querySelector('#ed-toggle-dropdown-search-property-panel');
-    if (dropdownSearchPropertyPanelToggle && dropdownSearchPropertyPanelToggle.dataset.bound !== 'true') {
-      dropdownSearchPropertyPanelToggle.dataset.bound = 'true';
-      dropdownSearchPropertyPanelToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          dropdownSearchPropertyPanelEnabled: dropdownSearchPropertyPanelToggle.checked
-        });
-      });
-    }
-
-    var blockTextCopyToggle = panelEl.querySelector('#ed-toggle-block-text-copy');
-    if (blockTextCopyToggle && blockTextCopyToggle.dataset.bound !== 'true') {
-      blockTextCopyToggle.dataset.bound = 'true';
-      blockTextCopyToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          blockTextCopyEnabled: blockTextCopyToggle.checked
-        });
-      });
-    }
-
-    var highQualityBlockImageToggle = panelEl.querySelector('#ed-toggle-high-quality-block-image');
-    if (highQualityBlockImageToggle && highQualityBlockImageToggle.dataset.bound !== 'true') {
-      highQualityBlockImageToggle.dataset.bound = 'true';
-      highQualityBlockImageToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          highQualityBlockImageEnabled: highQualityBlockImageToggle.checked
-        });
-      });
-    }
-
+    bindSettingsToggle('#ed-toggle-dropdown-search-property-panel', function (checked) {
+      saveSettingsFromPanel({ dropdownSearchPropertyPanelEnabled: checked });
+    });
+    bindSettingsToggle('#ed-toggle-block-text-copy', function (checked) {
+      saveSettingsFromPanel({ blockTextCopyEnabled: checked });
+    });
+    bindSettingsToggle('#ed-toggle-high-quality-block-image', function (checked) {
+      saveSettingsFromPanel({ highQualityBlockImageEnabled: checked });
+    });
     var highQualityScaleRange = panelEl.querySelector('#ed-high-quality-scale-range');
     if (highQualityScaleRange && highQualityScaleRange.dataset.bound !== 'true') {
       highQualityScaleRange.dataset.bound = 'true';
@@ -826,6 +739,78 @@
         }
       });
     }
+    bindSettingsToggle('#ed-toggle-setting-lab-tab', function (checked) {
+      saveSettingsFromPanel({ labTabEnabled: checked });
+    });
+
+    var resetButton = panelEl.querySelector('#ed-reset-settings-btn');
+    if (resetButton && resetButton.dataset.bound !== 'true') {
+      resetButton.dataset.bound = 'true';
+      resetButton.addEventListener('click', function () {
+        resetSettingsToDefaults();
+      });
+    }
+  }
+
+  function bindSettingsToggle(selector, onChange) {
+    var toggle = panelEl.querySelector(selector);
+    if (!toggle || toggle.dataset.bound === 'true') return;
+
+    toggle.dataset.bound = 'true';
+    toggle.addEventListener('change', function () {
+      onChange(!!toggle.checked);
+    });
+  }
+
+  function renderSettingsControls() {
+    if (!panelEl) return;
+
+    setSettingToggleChecked('#ed-toggle-setting-function-usage', extensionSettings.functionUsageEnabled);
+    setSettingToggleChecked('#ed-toggle-setting-console-debugging', extensionSettings.consoleDebuggingEnabled);
+    setSettingToggleChecked('#ed-toggle-setting-function-private-variables', extensionSettings.functionPrivateVariablesEnabled);
+    setSettingToggleChecked('#ed-toggle-setting-boost-mode-button', extensionSettings.boostModeControlVisible);
+    setSettingToggleChecked('#ed-toggle-dropdown-search', extensionSettings.dropdownSearchEnabled);
+    setSettingToggleChecked('#ed-toggle-block-text-copy', extensionSettings.blockTextCopyEnabled);
+    setSettingToggleChecked('#ed-toggle-high-quality-block-image', extensionSettings.highQualityBlockImageEnabled);
+    setSettingToggleChecked('#ed-toggle-setting-lab-tab', extensionSettings.labTabEnabled);
+    renderDropdownSearchTargetControls();
+    renderHighQualityScaleControls(extensionSettings.highQualityBlockImageScale);
+  }
+
+  function setSettingToggleChecked(selector, checked) {
+    var toggle = panelEl.querySelector(selector);
+    if (toggle) {
+      toggle.checked = !!checked;
+    }
+  }
+
+  function resetSettingsToDefaults() {
+    saveSettingsFromPanel(DEFAULT_SETTINGS);
+    showToast('설정을 기본값으로 초기화했습니다.', 'info');
+  }
+
+  function bindLabControls() {
+    if (!panelEl) return;
+
+    var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
+    if (turboToggle && turboToggle.dataset.bound !== 'true') {
+      turboToggle.dataset.bound = 'true';
+      turboToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          turboModeEnabled: turboToggle.checked
+        });
+      });
+    }
+
+    var eoUploaderToggle = panelEl.querySelector('#ed-toggle-eo-uploader');
+    if (eoUploaderToggle && eoUploaderToggle.dataset.bound !== 'true') {
+      eoUploaderToggle.dataset.bound = 'true';
+      eoUploaderToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          eoUploaderEnabled: eoUploaderToggle.checked
+        });
+      });
+    }
 
     var functionLibraryToggle = panelEl.querySelector('#ed-toggle-function-library');
     if (functionLibraryToggle && functionLibraryToggle.dataset.bound !== 'true') {
@@ -850,25 +835,6 @@
     if (eoUploaderToggle) {
       eoUploaderToggle.checked = !!extensionSettings.eoUploaderEnabled;
     }
-
-    var dropdownSearchToggle = panelEl.querySelector('#ed-toggle-dropdown-search');
-    if (dropdownSearchToggle) {
-      dropdownSearchToggle.checked = !!extensionSettings.dropdownSearchEnabled;
-    }
-
-    renderDropdownSearchTargetControls();
-
-    var blockTextCopyToggle = panelEl.querySelector('#ed-toggle-block-text-copy');
-    if (blockTextCopyToggle) {
-      blockTextCopyToggle.checked = !!extensionSettings.blockTextCopyEnabled;
-    }
-
-    var highQualityBlockImageToggle = panelEl.querySelector('#ed-toggle-high-quality-block-image');
-    if (highQualityBlockImageToggle) {
-      highQualityBlockImageToggle.checked = !!extensionSettings.highQualityBlockImageEnabled;
-    }
-
-    renderHighQualityScaleControls(extensionSettings.highQualityBlockImageScale);
 
     var functionLibraryToggle = panelEl.querySelector('#ed-toggle-function-library');
     if (functionLibraryToggle) {
@@ -929,7 +895,7 @@
       input.disabled = disabled;
     }
     if (warning) {
-      warning.classList.toggle('ed-lab-scale-warning-active', scale >= 1000);
+      warning.classList.toggle('ed-lab-scale-warning-active', !disabled && scale >= 1000);
     }
   }
 
@@ -964,8 +930,6 @@
   function isDropdownSearchFeatureEnabled() {
     return !!(
       extensionSettings.enabled &&
-      extensionSettings.debuggerTabEnabled &&
-      extensionSettings.labTabEnabled &&
       extensionSettings.dropdownSearchEnabled
     );
   }
@@ -973,8 +937,6 @@
   function isBlockTextCopyFeatureEnabled() {
     return !!(
       extensionSettings.enabled &&
-      extensionSettings.debuggerTabEnabled &&
-      extensionSettings.labTabEnabled &&
       extensionSettings.blockTextCopyEnabled
     );
   }
@@ -982,8 +944,6 @@
   function isHighQualityBlockImageFeatureEnabled() {
     return !!(
       extensionSettings.enabled &&
-      extensionSettings.debuggerTabEnabled &&
-      extensionSettings.labTabEnabled &&
       extensionSettings.highQualityBlockImageEnabled
     );
   }

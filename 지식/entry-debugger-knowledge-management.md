@@ -81,12 +81,6 @@ Entry Debugger 기준 실험실 기본값:
 ```js
 eoUploaderEnabled: false,
 turboModeEnabled: false,
-dropdownSearchEnabled: false,
-dropdownSearchBlockMenuEnabled: true,
-dropdownSearchPropertyPanelEnabled: true,
-blockTextCopyEnabled: false,
-highQualityBlockImageEnabled: false,
-highQualityBlockImageScale: 1000,
 functionLibraryEnabled: false
 ```
 
@@ -99,7 +93,13 @@ functionUsageEnabled: true,
 consoleDebuggingEnabled: true,
 functionPrivateVariablesEnabled: true,
 boostModeControlVisible: true,
-boostModeEnabled: false
+boostModeEnabled: false,
+dropdownSearchEnabled: true,
+dropdownSearchBlockMenuEnabled: true,
+dropdownSearchPropertyPanelEnabled: true,
+blockTextCopyEnabled: true,
+highQualityBlockImageEnabled: false,
+highQualityBlockImageScale: 1000
 ```
 
 ## 현재 핵심 기능 문서

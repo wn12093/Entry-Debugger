@@ -7,7 +7,7 @@
 
 Entry 기본 `이미지로 저장하기` 흐름은 유지하면서, 블록 이미지가 생성되는 순간에만 저장 배율을 높여 더 선명한 이미지를 저장한다.
 
-이 기능은 실험실 기능이며 프로젝트 JSON을 수정하지 않는다.
+이 기능은 설정 탭 기능이며 프로젝트 JSON을 수정하지 않는다.
 
 ## 관련 파일
 
@@ -35,16 +35,14 @@ highQualityBlockImageScale: 1000
 
 ```js
 enabled &&
-debuggerTabEnabled &&
-labTabEnabled &&
 highQualityBlockImageEnabled
 ```
 
-`실험실 탭`이 꺼지면 `highQualityBlockImageEnabled`는 `false`, `highQualityBlockImageScale`은 `1000`으로 정규화된다.
+설정 탭의 `모든 항목 기본값으로 초기화` 버튼을 누르면 `highQualityBlockImageEnabled`는 `false`, `highQualityBlockImageScale`은 `1000`으로 정규화된다.
 
 ## UI
 
-실험실 탭의 `초고화질 이미지 저장하기` 항목에서 설정한다.
+설정 탭의 `초고화질 이미지 저장하기` 항목에서 설정한다.
 
 - 메인 체크박스: 기능 사용 여부
 - range input: 200%~2000% 배율 조정, Entry 기본 슬라이더와 맞게 얇은 회색 트랙과 파란 세로 핸들 스타일 사용
@@ -94,7 +92,7 @@ HIGH_QUALITY_BLOCK_IMAGE_RESULT
 ## 검증 포인트
 
 - 기본값은 꺼짐이다.
-- 실험실 탭이 꺼지면 기능과 배율이 기본값으로 돌아간다.
+- 설정 탭의 초기화 버튼을 누르면 기능과 배율이 기본값으로 돌아간다.
 - 슬라이더와 숫자 입력이 같은 값을 표시한다.
 - 200%보다 낮은 값은 200%로 정규화된다.
 - 2000%보다 높은 값은 2000%로 정규화된다.
@@ -106,5 +104,5 @@ HIGH_QUALITY_BLOCK_IMAGE_RESULT
 ## 주의사항
 
 - 큰 코드 묶음은 이미지 크기와 저장 시간이 크게 증가할 수 있다.
-- 실험실 기능이므로 안정성 문제가 발견되면 기능만 끌 수 있어야 한다.
+- 안정성 문제가 발견되면 설정 탭에서 기능만 끌 수 있어야 한다.
 - `getDataUrl()` 패치는 UI-only 보조 기능이어야 하며 데이터 변환 기능으로 확장하지 않는다.

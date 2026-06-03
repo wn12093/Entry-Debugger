@@ -58,22 +58,22 @@ QWERTY 오입력 매칭은 영문 2자 이상일 때만 적용한다. 한 글자
 설정 키:
 
 ```js
-dropdownSearchEnabled: false,
+dropdownSearchEnabled: true,
 dropdownSearchBlockMenuEnabled: true,
 dropdownSearchPropertyPanelEnabled: true
 ```
 
-기본값은 꺼짐이다. `debuggerTabEnabled` 또는 `labTabEnabled`가 꺼지면 false로 정규화한다.
+기본값은 켜짐이다. `실험실 탭`과는 독립적으로 동작한다.
 
-하위 설정은 메인 토글과 별개로 저장한다. 따라서 실험실 탭이 켜진 상태에서 `속성 검색으로 찾기`만 껐다 켜면 블록꾸러미와 속성 탭 적용 여부는 사용자가 마지막으로 선택한 값을 유지한다.
+하위 설정은 메인 토글과 별개로 저장한다. 따라서 `속성 검색으로 찾기`만 껐다 켜면 블록꾸러미와 속성 탭 적용 여부는 사용자가 마지막으로 선택한 값을 유지한다.
 
-단, `실험실 탭` 자체가 꺼지면 모든 실험실 기능 설정은 기본값으로 돌아간다. 이 기능은 `dropdownSearchEnabled: false`, `dropdownSearchBlockMenuEnabled: true`, `dropdownSearchPropertyPanelEnabled: true` 상태가 된다.
+설정 탭의 `모든 항목 기본값으로 초기화` 버튼을 누르면 `dropdownSearchEnabled: true`, `dropdownSearchBlockMenuEnabled: true`, `dropdownSearchPropertyPanelEnabled: true` 상태가 된다.
 
 ## UI
 
 파일: `entry-debugger-extension/content.js`
 
-실험실 탭에 `속성 검색으로 찾기` 토글을 추가했다. 메인 토글이 켜져 있을 때 하위 체크박스로 적용 위치를 나눠 설정한다.
+설정 탭에 `속성 검색으로 찾기` 토글을 추가했다. 메인 토글이 켜져 있을 때 하위 체크박스로 적용 위치를 나눠 설정한다.
 
 설명:
 
@@ -113,8 +113,8 @@ DROPDOWN_SEARCH_READY
 
 ## 검증 포인트
 
-- 기본값은 꺼짐이다.
-- 실험실 탭이 꺼져 있으면 기능도 꺼진다.
+- 기본값은 켜짐이다.
+- 실험실 탭이 꺼져 있어도 설정 탭 토글이 켜져 있으면 기능이 유지된다.
 - 변수 드롭다운에서 검색 입력이 표시된다.
 - 리스트 드롭다운에서 검색 입력이 표시된다.
 - 신호 드롭다운에서 검색 입력이 표시된다.
