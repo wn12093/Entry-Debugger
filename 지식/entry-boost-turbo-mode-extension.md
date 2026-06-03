@@ -29,14 +29,14 @@ Entry.options.useWebGL = '1';
 - `Entry.init(container, options)` 호출 전에 `options.useWebGL = '1'`을 주입한다.
 - 부스트 설정은 `chrome.storage.local`에 저장하고, 페이지 새로고침 전에도 읽을 수 있게 `localStorage` 키 `__ENTRY_DEBUGGER_BOOST_MODE_ENABLED__`에 미러링한다.
 
-팝업과 엔진 버튼:
+설정 탭과 엔진 버튼:
 
-- 팝업의 `부스트 모드 버튼` 토글은 엔진 화면 상단 부스트 토글을 보여줄지 결정한다.
+- 디버깅 탭 안의 `설정` 탭에서 `부스트 모드 버튼` 토글은 엔진 화면 상단 부스트 토글을 보여줄지 결정한다.
 - 실제 부스트 적용 여부는 엔진 상단의 `#ed-boost-mode-toggle` 버튼이 `boostModeEnabled`로 저장한다.
-- 기본값은 버튼 표시 OFF, 실제 부스트 OFF다.
+- 기본값은 버튼 표시 ON, 실제 부스트 OFF다.
 - 엔진 버튼은 `.entryCoordinateButtonWorkspace_w` 뒤에 삽입해 화면상 좌표/격자 버튼 왼쪽에 표시한다.
 - 버튼을 클릭하면 `boost-mode.js`가 Entry page world에서 `Entry.toast.warning('부스트 모드', '새로고침 해야 반영됩니다.')`를 호출한다.
-- 팝업에서 버튼 표시를 끄면 보이지 않는 부스트 활성 상태가 남지 않도록 실제 부스트도 OFF로 정규화한다.
+- 설정 탭에서 버튼 표시를 끄면 보이지 않는 부스트 활성 상태가 남지 않도록 실제 부스트도 OFF로 정규화한다.
 
 ## 2. 터보 모드
 
@@ -72,8 +72,8 @@ Entry.isTurbo = true;
 - `manifest.json`: 버전 `1.1.1`, `run_at: document_start`, web accessible resources에 `boost-mode.js`, `turbo-mode.js` 추가
 - `content.js`: 부스트/터보 모듈 주입과 메시지 연결, `실험실` 탭 표시 여부와 터보 모드 활성 조건 제어
 - `background.js`: `boostModeControlVisible`, `boostModeEnabled`, `labTabEnabled`, `turboModeEnabled` 설정 저장
-- `popup.html`, `popup.js`: 부스트 버튼 표시 토글과 `실험실 탭` 토글
-- `content.js`: 엔진 상단 `#ed-boost-mode-toggle` 삽입, 클릭 시 실제 부스트 설정 저장
+- `popup.html`, `popup.js`: 디버깅 탭 표시 토글만 관리
+- `content.js`: 설정 탭, 엔진 상단 `#ed-boost-mode-toggle` 삽입, 클릭 시 실제 부스트 설정 저장
 - `boost-mode.js`: `Entry.init` 패치, 부스트 설정 미러링, Entry 내장 toast 안내
 
 메시지:

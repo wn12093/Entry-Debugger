@@ -11,7 +11,7 @@
     debuggerTabEnabled: true,
     functionUsageEnabled: true,
     consoleDebuggingEnabled: true,
-    boostModeControlVisible: false,
+    boostModeControlVisible: true,
     boostModeEnabled: false,
     labTabEnabled: false,
     eoUploaderEnabled: false,
@@ -65,7 +65,7 @@
       : enabled;
     var boostModeControlVisible = typeof data.boostModeControlVisible === 'boolean'
       ? data.boostModeControlVisible
-      : false;
+      : DEFAULT_SETTINGS.boostModeControlVisible;
     var boostModeEnabled = typeof data.boostModeEnabled === 'boolean'
       ? data.boostModeEnabled
       : false;

@@ -63,11 +63,6 @@
       padding: 9px 0;
     }
 
-    .toggle-row-master {
-      padding-bottom: 12px;
-      border-bottom: 1px solid #eee;
-    }
-
     .toggle-text {
       min-width: 0;
     }
@@ -85,18 +80,6 @@
       color: #9aa5ad;
       font-size: 10px;
       line-height: 1.3;
-    }
-
-    .toggle-credit {
-      display: block;
-      margin-top: 3px;
-      color: #b0b8bf;
-      font-size: 10px;
-      line-height: 1.3;
-    }
-
-    .toggle-subgroup {
-      padding-top: 5px;
     }
 
     /* ── Toggle Switch ── */
@@ -184,19 +167,6 @@
       background: #e74c3c;
     }
 
-    /* ── Hint (새로고침 안내) ── */
-    .popup-hint {
-      display: none;
-      padding: 0 16px 14px;
-      font-size: 10px;
-      color: #e67e22;
-      line-height: 1.5;
-    }
-
-    .popup-hint.visible {
-      display: block;
-    }
-
     /* ── Footer (도구 패밀리 링크) ──
        원본: ent2/components/ToolsFamilyLink.tsx
        Tailwind 클래스를 plain CSS 로 포팅 — 수정이 필요하면 ent2 쪽에서
@@ -277,85 +247,15 @@
 
   <!-- 기능 토글 -->
   <div class="popup-controls">
-    <div class="toggle-row toggle-row-master">
+    <div class="toggle-row">
       <span class="toggle-text">
-        <span class="toggle-title">모든 기능</span>
-        <span class="toggle-desc">여섯 기능을 함께 제어</span>
+        <span class="toggle-title">디버깅 탭</span>
+        <span class="toggle-desc">엔트리 화면 안에 디버깅 탭 표시</span>
       </span>
-      <label class="toggle-switch" aria-label="모든 기능 켜기 또는 끄기">
-        <input type="checkbox" id="toggle-all">
+      <label class="toggle-switch" aria-label="디버깅 탭 켜기 또는 끄기">
+        <input type="checkbox" id="toggle-debugger-tab">
         <span class="toggle-slider"></span>
       </label>
-    </div>
-
-    <div class="toggle-subgroup">
-      <div class="toggle-row">
-        <span class="toggle-text">
-          <span class="toggle-title">디버깅 탭</span>
-          <span class="toggle-desc">패널에 디버깅 탭 표시</span>
-        </span>
-        <label class="toggle-switch" aria-label="디버깅 탭 켜기 또는 끄기">
-          <input type="checkbox" id="toggle-debugger-tab">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <span class="toggle-text">
-          <span class="toggle-title">함수 사용 바로가기</span>
-          <span class="toggle-desc">속성 탭에 함수 내부 사용 위치 표시</span>
-          <span class="toggle-credit">아이디어 제공: kkomaweb.com</span>
-        </span>
-        <label class="toggle-switch" aria-label="함수 사용 바로가기 켜기 또는 끄기">
-          <input type="checkbox" id="toggle-function-usage">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <span class="toggle-text">
-          <span class="toggle-title">콘솔 디버깅</span>
-          <span class="toggle-desc">말하기 블록에 외치기/로그 모드 표시</span>
-          <span class="toggle-credit">아이디어 제공: aqu3180.co.kr</span>
-        </span>
-        <label class="toggle-switch" aria-label="콘솔 디버깅 켜기 또는 끄기">
-          <input type="checkbox" id="toggle-console-debugging">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <span class="toggle-text">
-          <span class="toggle-title">함수 안에서 개인변수 보기</span>
-          <span class="toggle-desc">함수 편집 중 개인 변수/리스트 표시</span>
-        </span>
-        <label class="toggle-switch" aria-label="함수 안에서 개인변수 보기 켜기 또는 끄기">
-          <input type="checkbox" id="toggle-function-private-variables">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <span class="toggle-text">
-          <span class="toggle-title">부스트 모드 버튼</span>
-          <span class="toggle-desc">엔진 화면에 부스트 토글 표시</span>
-        </span>
-        <label class="toggle-switch" aria-label="엔진 화면 부스트 모드 버튼 표시">
-          <input type="checkbox" id="toggle-boost-mode">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <span class="toggle-text">
-          <span class="toggle-title">실험실 탭</span>
-          <span class="toggle-desc">디버깅 패널에 실험 기능 표시</span>
-        </span>
-        <label class="toggle-switch" aria-label="실험실 탭 켜기 또는 끄기">
-          <input type="checkbox" id="toggle-lab-tab">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
     </div>
   </div>
 
@@ -365,11 +265,6 @@
       <span class="popup-status-dot" id="status-dot"></span>
       <span id="status-text">상태 확인 중...</span>
     </div>
-  </div>
-
-  <!-- 새로고침 안내 -->
-  <div class="popup-hint" id="refresh-hint">
-    * 새로고침 해야 반영됩니다.
   </div>
 
   <!-- 도구 패밀리 링크 (원본: ent2/components/ToolsFamilyLink.tsx) -->

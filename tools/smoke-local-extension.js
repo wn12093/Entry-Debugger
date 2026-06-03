@@ -110,6 +110,50 @@ async function main() {
       state: 'visible',
       timeout: 60000
     });
+    await page.waitForSelector('#ed-settings-tab-btn', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.click('#ed-settings-tab-btn');
+    await page.waitForSelector('#ed-section-settings.ed-section-active', {
+      state: 'visible',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-setting-function-usage', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-setting-console-debugging', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-setting-function-private-variables', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-setting-boost-mode-button', {
+      state: 'attached',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-setting-lab-tab', {
+      state: 'attached',
+      timeout: 60000
+    });
+    const settingsTabResult = await page.evaluate(() => {
+      const getChecked = (selector) => {
+        const input = document.querySelector(selector);
+        return !!(input && input.checked);
+      };
+      return {
+        hasSettingsButton: !!document.querySelector('#ed-settings-tab-btn'),
+        settingsSectionActive: !!document.querySelector('#ed-section-settings.ed-section-active'),
+        functionUsageChecked: getChecked('#ed-toggle-setting-function-usage'),
+        consoleDebuggingChecked: getChecked('#ed-toggle-setting-console-debugging'),
+        functionPrivateVariablesChecked: getChecked('#ed-toggle-setting-function-private-variables'),
+        boostModeButtonChecked: getChecked('#ed-toggle-setting-boost-mode-button'),
+        labTabChecked: getChecked('#ed-toggle-setting-lab-tab')
+      };
+    });
     await page.waitForSelector('#ed-toggle-dropdown-search-block-menu', {
       state: 'attached',
       timeout: 60000
@@ -249,18 +293,11 @@ async function main() {
 
     await page.waitForFunction(() => {
       const panel = document.querySelector('#ed-debugger-panel');
-      const status = document.querySelector('#ed-status');
-      return !!(
-        panel &&
-        panel.offsetParent !== null &&
-        status &&
-        /연결|주입|대기/.test(status.textContent || '')
-      );
+      return !!(panel && panel.offsetParent !== null);
     }, { timeout: 60000 });
 
-    const result = await page.evaluate(({ warningAt1000, boostModeResult, functionLibraryResult }) => {
+    const result = await page.evaluate(({ warningAt1000, settingsTabResult, boostModeResult, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
-      const status = document.querySelector('#ed-status');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
         .map((tab) => tab.textContent.trim());
       const labToggle = document.querySelector('#ed-toggle-turbo-mode');
@@ -275,8 +312,8 @@ async function main() {
         url: location.href,
         hasDebuggingTab: !!document.querySelector('.propertyTabdebugging'),
         panelVisible: !!(panel && panel.offsetParent !== null),
-        statusText: status ? status.textContent.trim() : '',
         tabs,
+        settingsTabResult,
         hasLabControls: !!labToggle,
         hasDropdownBlockMenuToggle: !!blockMenuToggle,
         hasDropdownPropertyPanelToggle: !!propertyPanelToggle,
@@ -295,7 +332,7 @@ async function main() {
         functionLibraryAddResult: functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, { warningAt1000: highQualityWarningAt1000, boostModeResult, functionLibraryResult });
+    }, { warningAt1000: highQualityWarningAt1000, settingsTabResult, boostModeResult, functionLibraryResult });
 
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {

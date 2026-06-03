@@ -56,10 +56,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 
   if (details.reason === 'update') {
     chrome.storage.local.get(DEFAULT_SETTINGS, function (data) {
-      chrome.storage.local.set(normalizeSettings(Object.assign({}, data, {
-        boostModeControlVisible: false,
-        boostModeEnabled: false
-      })));
+      chrome.storage.local.set(normalizeSettings(data));
     });
   }
 });
@@ -90,7 +87,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         boostModeControlVisible: newState,
         boostModeEnabled: false,
         functionPrivateVariablesEnabled: newState,
-        labTabEnabled: newState,
+        labTabEnabled: false,
         eoUploaderEnabled: false,
         turboModeEnabled: false,
         dropdownSearchEnabled: false,

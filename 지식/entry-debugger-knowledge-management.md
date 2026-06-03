@@ -98,7 +98,7 @@ debuggerTabEnabled: true,
 functionUsageEnabled: true,
 consoleDebuggingEnabled: true,
 functionPrivateVariablesEnabled: true,
-boostModeControlVisible: false,
+boostModeControlVisible: true,
 boostModeEnabled: false
 ```
 

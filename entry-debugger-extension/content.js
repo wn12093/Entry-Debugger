@@ -364,6 +364,7 @@
             icon: '&#x1F3AC;',
             message: '장면이 없거나 Entry가 로드되지 않았습니다.'
           }) +
+          buildSettingsSectionHTML() +
           buildLabSectionHTML() +
           buildUploaderSectionHTML() +
           buildFunctionLibrarySectionHTML() +
@@ -386,8 +387,7 @@
             '<button class="ed-subtab ed-function-library-only" data-tab="function-library">함수 보관함</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
-            '<button class="ed-icon-btn ed-btn-refresh" id="ed-refresh-btn" title="새로고침">&#x21BB;</button>' +
-            '<span class="ed-status" id="ed-status">대기 중</span>' +
+            '<button class="ed-icon-btn ed-btn-settings" id="ed-settings-tab-btn" type="button" title="설정" aria-label="설정"></button>' +
           '</div>' +
         '</div>'
     );
@@ -409,6 +409,67 @@
           '<p>' + options.message + '</p>' +
         '</div>' +
         '<div class="ed-items" id="' + options.listId + '"></div>' +
+      '</div>'
+    );
+  }
+
+  function buildSettingsSectionHTML() {
+    return (
+      '<div class="ed-section" id="ed-section-settings">' +
+        '<div class="ed-settings">' +
+          '<div class="ed-lab-controls">' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">함수 사용 바로가기</span>' +
+                '<span class="ed-lab-desc">속성 탭에 함수 내부 사용 위치 표시</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="함수 사용 바로가기">' +
+                '<input type="checkbox" id="ed-toggle-setting-function-usage">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">콘솔 디버깅</span>' +
+                '<span class="ed-lab-desc">말하기 블록에 외치기/로그 모드 표시</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="콘솔 디버깅">' +
+                '<input type="checkbox" id="ed-toggle-setting-console-debugging">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">함수 안에서 개인변수 보기</span>' +
+                '<span class="ed-lab-desc">함수 편집 중 개인 변수와 리스트 표시</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="함수 안에서 개인변수 보기">' +
+                '<input type="checkbox" id="ed-toggle-setting-function-private-variables">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">부스트 모드 버튼</span>' +
+                '<span class="ed-lab-desc">엔진 화면 상단에 부스트 토글 표시</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="부스트 모드 버튼">' +
+                '<input type="checkbox" id="ed-toggle-setting-boost-mode-button">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">실험실 탭</span>' +
+                '<span class="ed-lab-desc">실험 기능과 기본 변수 디버깅 표시</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="실험실 탭">' +
+                '<input type="checkbox" id="ed-toggle-setting-lab-tab">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
       '</div>'
     );
   }
@@ -556,23 +617,14 @@
     subtabs.forEach(function (btn) {
       btn.addEventListener('click', function () {
         var tabName = btn.getAttribute('data-tab');
-
-        subtabs.forEach(function (b) { b.classList.remove('ed-subtab-active'); });
-        btn.classList.add('ed-subtab-active');
-
-        panelEl.querySelectorAll('.ed-section').forEach(function (s) {
-          s.classList.remove('ed-section-active');
-        });
-        var target = panelEl.querySelector('#ed-section-' + tabName);
-        if (target) target.classList.add('ed-section-active');
+        activatePanelTab(tabName, btn);
       });
     });
 
-    // ── 새로고침 ──
-    var refreshBtn = panelEl.querySelector('#ed-refresh-btn');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', function () {
-        sendToInject('REQUEST_SNAPSHOT');
+    var settingsBtn = panelEl.querySelector('#ed-settings-tab-btn');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', function () {
+        activatePanelTab('settings', settingsBtn);
       });
     }
 
@@ -584,13 +636,91 @@
       });
     }
 
+    bindSettingsControls();
     bindLabControls();
     bindGeneratorEvents();
     bindFunctionLibraryEvents();
     applyLabTabVisibility();
     renderGeneratorFileList();
     renderFunctionLibraryList();
+    renderSettingsControls();
     renderLabControls();
+  }
+
+  function activatePanelTab(tabName, triggerEl) {
+    if (!panelEl || !tabName) return;
+
+    panelEl.querySelectorAll('.ed-subtab').forEach(function (btn) {
+      btn.classList.remove('ed-subtab-active');
+    });
+
+    var settingsBtn = panelEl.querySelector('#ed-settings-tab-btn');
+    if (settingsBtn) {
+      settingsBtn.classList.toggle('ed-icon-btn-active', tabName === 'settings');
+    }
+
+    if (triggerEl && triggerEl.classList.contains('ed-subtab')) {
+      triggerEl.classList.add('ed-subtab-active');
+    }
+
+    panelEl.querySelectorAll('.ed-section').forEach(function (section) {
+      section.classList.remove('ed-section-active');
+    });
+
+    var target = panelEl.querySelector('#ed-section-' + tabName);
+    if (target) {
+      target.classList.add('ed-section-active');
+    }
+  }
+
+  function bindSettingsControls() {
+    if (!panelEl) return;
+
+    bindSettingsToggle('#ed-toggle-setting-function-usage', function (checked) {
+      saveSettingsFromPanel({ functionUsageEnabled: checked });
+    });
+    bindSettingsToggle('#ed-toggle-setting-console-debugging', function (checked) {
+      saveSettingsFromPanel({ consoleDebuggingEnabled: checked });
+    });
+    bindSettingsToggle('#ed-toggle-setting-function-private-variables', function (checked) {
+      saveSettingsFromPanel({ functionPrivateVariablesEnabled: checked });
+    });
+    bindSettingsToggle('#ed-toggle-setting-boost-mode-button', function (checked) {
+      saveSettingsFromPanel({
+        boostModeControlVisible: checked,
+        boostModeEnabled: checked ? extensionSettings.boostModeEnabled : false
+      });
+    });
+    bindSettingsToggle('#ed-toggle-setting-lab-tab', function (checked) {
+      saveSettingsFromPanel({ labTabEnabled: checked });
+    });
+  }
+
+  function bindSettingsToggle(selector, onChange) {
+    var toggle = panelEl.querySelector(selector);
+    if (!toggle || toggle.dataset.bound === 'true') return;
+
+    toggle.dataset.bound = 'true';
+    toggle.addEventListener('change', function () {
+      onChange(!!toggle.checked);
+    });
+  }
+
+  function renderSettingsControls() {
+    if (!panelEl) return;
+
+    setSettingToggleChecked('#ed-toggle-setting-function-usage', extensionSettings.functionUsageEnabled);
+    setSettingToggleChecked('#ed-toggle-setting-console-debugging', extensionSettings.consoleDebuggingEnabled);
+    setSettingToggleChecked('#ed-toggle-setting-function-private-variables', extensionSettings.functionPrivateVariablesEnabled);
+    setSettingToggleChecked('#ed-toggle-setting-boost-mode-button', extensionSettings.boostModeControlVisible);
+    setSettingToggleChecked('#ed-toggle-setting-lab-tab', extensionSettings.labTabEnabled);
+  }
+
+  function setSettingToggleChecked(selector, checked) {
+    var toggle = panelEl.querySelector(selector);
+    if (toggle) {
+      toggle.checked = !!checked;
+    }
   }
 
   function bindLabControls() {
@@ -1024,6 +1154,7 @@
         applyLabTabVisibility();
         renderGeneratorFileList();
         renderFunctionLibraryList();
+        renderSettingsControls();
         renderLabControls();
         applyBoostModeControl();
         updateBoostModeControl();
@@ -1040,17 +1171,6 @@
 
     var searchInput = panelEl.querySelector('#ed-search');
     var searchTerm = searchInput ? searchInput.value : '';
-
-    var statusEl = panelEl.querySelector('#ed-status');
-    if (statusEl) {
-      if (snapshot.ready) {
-        statusEl.textContent = '연결됨';
-        statusEl.className = 'ed-status ed-status-connected';
-      } else {
-        statusEl.textContent = 'Entry 대기 중...';
-        statusEl.className = 'ed-status ed-status-waiting';
-      }
-    }
 
     renderVariables(snapshot.variables, searchTerm);
     renderLists(snapshot.lists, searchTerm);
@@ -2151,6 +2271,7 @@
     }
 
     applyLabTabVisibility();
+    renderSettingsControls();
     renderLabControls();
   }
 
@@ -2162,7 +2283,6 @@
 
     switch (msg.type) {
       case 'INJECT_READY':
-        updateStatus('스크립트 주입 완료');
         if (isDebuggerActive) {
           sendToInject('START_POLLING');
         }
@@ -2292,9 +2412,6 @@
         break;
 
       case 'PONG':
-        if (msg.payload && msg.payload.entryReady) {
-          updateStatus('연결됨');
-        }
         break;
     }
   });
@@ -2488,12 +2605,6 @@
     setTimeout(function () {
       el.classList.remove(className);
     }, 600);
-  }
-
-  function updateStatus(text) {
-    if (!panelEl) return;
-    var statusEl = panelEl.querySelector('#ed-status');
-    if (statusEl) statusEl.textContent = text;
   }
 
   function showToast(message, type) {
