@@ -1,7 +1,7 @@
 # Entry Debugger 지원 기능 정리
 
 확인일: 2026-05-24  
-대상 버전: Entry Debugger `2.1.0`
+대상 버전: Entry Debugger `2.1.1`
 대상 확장 폴더: `entry-debugger-extension`
 
 이 문서는 현재 확장 프로그램이 지원하는 기능을 제품 소개 웹페이지로 옮기기 쉽도록 정리한 기능 카탈로그입니다.
