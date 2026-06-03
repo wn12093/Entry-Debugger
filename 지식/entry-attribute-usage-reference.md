@@ -1,7 +1,7 @@
 # Entry 속성 사용 위치 추적 분석
 
 확인 날짜: 2026-05-23  
-분석 대상: `C:\Users\young\prg\html\엔트리확프\entryjs-develop`
+분석 대상: `C:\Users\young\prg\ENTRY\upstream\entryjs-develop`
 
 ## 요약
 
