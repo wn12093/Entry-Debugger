@@ -16,8 +16,11 @@
     eoUploaderEnabled: false,
     turboModeEnabled: false,
     dropdownSearchEnabled: false,
+    dropdownSearchBlockMenuEnabled: true,
+    dropdownSearchPropertyPanelEnabled: true,
     blockTextCopyEnabled: false,
     highQualityBlockImageEnabled: false,
+    highQualityBlockImageScale: 1000,
     functionPrivateVariablesEnabled: true
   };
 
@@ -32,6 +35,17 @@
 
   function getDefaultSettings() {
     return Object.assign({}, DEFAULT_SETTINGS);
+  }
+
+  function normalizeHighQualityBlockImageScale(value) {
+    var scale = Number(value);
+    if (!Number.isFinite(scale)) {
+      scale = DEFAULT_SETTINGS.highQualityBlockImageScale;
+    }
+    scale = Math.round(scale);
+    if (scale < 200) return 200;
+    if (scale > 2000) return 2000;
+    return scale;
   }
 
   function normalizeSettings(data) {
@@ -62,29 +76,40 @@
     var dropdownSearchEnabled = typeof data.dropdownSearchEnabled === 'boolean'
       ? data.dropdownSearchEnabled
       : false;
+    var dropdownSearchBlockMenuEnabled = typeof data.dropdownSearchBlockMenuEnabled === 'boolean'
+      ? data.dropdownSearchBlockMenuEnabled
+      : true;
+    var dropdownSearchPropertyPanelEnabled = typeof data.dropdownSearchPropertyPanelEnabled === 'boolean'
+      ? data.dropdownSearchPropertyPanelEnabled
+      : true;
     var blockTextCopyEnabled = typeof data.blockTextCopyEnabled === 'boolean'
       ? data.blockTextCopyEnabled
       : false;
     var highQualityBlockImageEnabled = typeof data.highQualityBlockImageEnabled === 'boolean'
       ? data.highQualityBlockImageEnabled
       : false;
+    var highQualityBlockImageScale = normalizeHighQualityBlockImageScale(data.highQualityBlockImageScale);
     var functionPrivateVariablesEnabled = typeof data.functionPrivateVariablesEnabled === 'boolean'
       ? data.functionPrivateVariablesEnabled
       : true;
 
+    function resetLabFeatureSettings() {
+      eoUploaderEnabled = DEFAULT_SETTINGS.eoUploaderEnabled;
+      turboModeEnabled = DEFAULT_SETTINGS.turboModeEnabled;
+      dropdownSearchEnabled = DEFAULT_SETTINGS.dropdownSearchEnabled;
+      dropdownSearchBlockMenuEnabled = DEFAULT_SETTINGS.dropdownSearchBlockMenuEnabled;
+      dropdownSearchPropertyPanelEnabled = DEFAULT_SETTINGS.dropdownSearchPropertyPanelEnabled;
+      blockTextCopyEnabled = DEFAULT_SETTINGS.blockTextCopyEnabled;
+      highQualityBlockImageEnabled = DEFAULT_SETTINGS.highQualityBlockImageEnabled;
+      highQualityBlockImageScale = DEFAULT_SETTINGS.highQualityBlockImageScale;
+    }
+
     if (!debuggerTabEnabled) {
       labTabEnabled = false;
-      eoUploaderEnabled = false;
-      dropdownSearchEnabled = false;
-      highQualityBlockImageEnabled = false;
     }
 
     if (!labTabEnabled) {
-      eoUploaderEnabled = false;
-      turboModeEnabled = false;
-      dropdownSearchEnabled = false;
-      blockTextCopyEnabled = false;
-      highQualityBlockImageEnabled = false;
+      resetLabFeatureSettings();
     }
 
     enabled = !!(
@@ -108,11 +133,7 @@
       consoleDebuggingEnabled = false;
       boostModeEnabled = false;
       labTabEnabled = false;
-      eoUploaderEnabled = false;
-      turboModeEnabled = false;
-      dropdownSearchEnabled = false;
-      blockTextCopyEnabled = false;
-      highQualityBlockImageEnabled = false;
+      resetLabFeatureSettings();
       functionPrivateVariablesEnabled = false;
     }
 
@@ -126,8 +147,11 @@
       eoUploaderEnabled: enabled && eoUploaderEnabled,
       turboModeEnabled: enabled && turboModeEnabled,
       dropdownSearchEnabled: enabled && dropdownSearchEnabled,
+      dropdownSearchBlockMenuEnabled: dropdownSearchBlockMenuEnabled,
+      dropdownSearchPropertyPanelEnabled: dropdownSearchPropertyPanelEnabled,
       blockTextCopyEnabled: enabled && blockTextCopyEnabled,
       highQualityBlockImageEnabled: enabled && highQualityBlockImageEnabled,
+      highQualityBlockImageScale: highQualityBlockImageScale,
       functionPrivateVariablesEnabled: enabled && functionPrivateVariablesEnabled
     };
   }
@@ -144,6 +168,7 @@
     MAIN_FEATURE_KEYS: MAIN_FEATURE_KEYS.slice(),
     getDefaultSettings: getDefaultSettings,
     normalize: normalizeSettings,
+    normalizeHighQualityBlockImageScale: normalizeHighQualityBlockImageScale,
     getEnabledMainFeatureCount: getEnabledMainFeatureCount
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

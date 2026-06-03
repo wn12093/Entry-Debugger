@@ -13,11 +13,16 @@
   const CHANNEL = '__ENTRY_DEBUGGER__';
   const STYLE_ID = 'entry-debugger-dropdown-search-style';
   const PATCH_MARK = '__entryDebuggerDropdownSearchPatched';
+  const PROPERTY_PANEL_SELECTOR = '#entryCode > div.entryVariablePanelWorkspace';
+  const PROPERTY_SEARCH_CLASS = 'entry-debugger-property-search';
+  const PROPERTY_SEARCH_INPUT_CLASS = 'entry-debugger-property-search-input';
+  const PROPERTY_HIDDEN_ATTR = 'data-entry-debugger-property-search-hidden';
   const RETRY_INTERVAL = 300;
   const RETRY_TIMEOUT = 30000;
   const Bridge = window.EntryDebuggerPageBridge || null;
   const Adapter = window.EntryDebuggerEntryAdapter || null;
   const Patches = window.EntryDebuggerPatchRegistry || null;
+  const HangulSearch = window.EntryDebuggerHangulSearch || null;
   const TARGET_MENUS = {
     variables: true,
     lists: true,
@@ -25,8 +30,14 @@
   };
 
   let enabled = false;
+  let blockMenuEnabled = true;
+  let propertyPanelEnabled = true;
   let retryTimer = null;
   let retryUntil = 0;
+  let propertyPanelRetryTimer = null;
+  let propertyPanelRetryUntil = 0;
+  let propertyPanelObserver = null;
+  let propertyPanelEl = null;
 
   function safeGetEntry() {
     if (Adapter && typeof Adapter.getEntry === 'function') {
@@ -161,6 +172,38 @@
       '}',
       '.entry-debugger-search-host {',
       '  z-index: 100000 !important;',
+      '}',
+      '.entry-debugger-property-search {',
+      '  position: sticky;',
+      '  top: 0;',
+      '  z-index: 5;',
+      '  box-sizing: border-box;',
+      '  width: 100%;',
+      '  padding: 8px 12px;',
+      '  background: #ecf8ff;',
+      '  border-bottom: 1px solid #d6e9f4;',
+      '}',
+      '.entry-debugger-property-search-input {',
+      '  display: block;',
+      '  width: 100%;',
+      '  height: 30px;',
+      '  box-sizing: border-box;',
+      '  margin: 0;',
+      '  padding: 0 9px;',
+      '  border: 1px solid #d5dde7;',
+      '  border-radius: 5px;',
+      '  outline: none;',
+      '  background: #fff;',
+      '  color: #2f3740;',
+      '  font-family: NanumGothic, "Nanum Gothic", "Malgun Gothic", sans-serif;',
+      '  font-size: 13px;',
+      '}',
+      '.entry-debugger-property-search-input:focus {',
+      '  border-color: #4f80ff;',
+      '  box-shadow: 0 0 0 2px rgba(79, 128, 255, 0.16);',
+      '}',
+      '.entry-debugger-property-search-input::placeholder {',
+      '  color: #9aa4ae;',
       '}'
     ].join('\n');
     document.head.appendChild(style);
@@ -170,8 +213,24 @@
     return !!(field && TARGET_MENUS[field._menuName]);
   }
 
+  function canUseBlockMenuSearch() {
+    return !!(enabled && blockMenuEnabled);
+  }
+
+  function canUsePropertyPanelSearch() {
+    return !!(enabled && propertyPanelEnabled);
+  }
+
   function normalizeText(value) {
     return String(value == null ? '' : value).trim().toLowerCase();
+  }
+
+  function matchesSearch(text, query) {
+    if (HangulSearch && typeof HangulSearch.matches === 'function') {
+      return HangulSearch.matches(text, query);
+    }
+    const normalizedQuery = normalizeText(query);
+    return !normalizedQuery || normalizeText(text).indexOf(normalizedQuery) !== -1;
   }
 
   function getOptionLabel(field, option) {
@@ -275,7 +334,7 @@
   }
 
   function buildSearchDropdown(field, container) {
-    if (!enabled || !isTargetField(field) || !container) return;
+    if (!canUseBlockMenuSearch() || !isTargetField(field) || !container) return;
 
     const options = Array.isArray(field._contents && field._contents.options)
       ? field._contents.options
@@ -314,9 +373,9 @@
     let activeIndex = 0;
 
     function renderRows() {
-      const query = normalizeText(input.value);
+      const query = input.value;
       visibleRows = rows.filter(function (row) {
-        return !query || normalizeText(row.label).indexOf(query) !== -1;
+        return matchesSearch(row.label, query);
       });
       if (activeIndex >= visibleRows.length) activeIndex = visibleRows.length - 1;
       if (activeIndex < 0) activeIndex = 0;
@@ -405,6 +464,201 @@
     field.optionDomCreated();
   }
 
+  function getPropertyPanel() {
+    return document.querySelector(PROPERTY_PANEL_SELECTOR);
+  }
+
+  function getPropertySearchInput(panel) {
+    const wrapper = panel && panel.querySelector('.' + PROPERTY_SEARCH_CLASS);
+    return wrapper ? wrapper.querySelector('.' + PROPERTY_SEARCH_INPUT_CLASS) : null;
+  }
+
+  function getPropertySearchHost(panel) {
+    return panel ? panel.querySelector('.entryVariableListWorkspace') : null;
+  }
+
+  function createPropertySearch(panel) {
+    const host = getPropertySearchHost(panel);
+    if (!host) return null;
+
+    let wrapper = panel.querySelector('.' + PROPERTY_SEARCH_CLASS);
+    if (wrapper) {
+      if (wrapper.parentNode !== host) {
+        host.insertBefore(wrapper, host.firstChild);
+      }
+      return wrapper.querySelector('.' + PROPERTY_SEARCH_INPUT_CLASS);
+    }
+
+    ensureStyle();
+
+    wrapper = document.createElement('div');
+    wrapper.className = PROPERTY_SEARCH_CLASS;
+
+    const input = document.createElement('input');
+    input.className = PROPERTY_SEARCH_INPUT_CLASS;
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = '속성 검색';
+    input.addEventListener('input', function () {
+      filterPropertyPanel(panel);
+    });
+
+    wrapper.appendChild(input);
+    host.insertBefore(wrapper, host.firstChild);
+    return input;
+  }
+
+  function isPropertyListItem(node) {
+    return !!(
+      node &&
+      node.classList &&
+      node.classList.contains('list') &&
+      node.querySelector &&
+      node.querySelector('.inpt_box')
+    );
+  }
+
+  function getPropertyListItems(root) {
+    return Array.from(root.querySelectorAll('.list')).filter(isPropertyListItem);
+  }
+
+  function getPropertyItemText(item) {
+    const parts = [item.textContent || ''];
+    const nameField = item.nameField;
+    if (nameField) {
+      if (typeof nameField.value === 'string') parts.push(nameField.value);
+      if (typeof nameField.textContent === 'string') parts.push(nameField.textContent);
+    }
+    Array.from(item.querySelectorAll('input, textarea')).forEach(function (input) {
+      parts.push(input.value || '');
+    });
+    return normalizeText(parts.join(' '));
+  }
+
+  function setPropertyHidden(node, hidden) {
+    if (!node) return;
+    if (hidden) {
+      node.setAttribute(PROPERTY_HIDDEN_ATTR, 'true');
+      node.style.display = 'none';
+      return;
+    }
+
+    if (node.hasAttribute(PROPERTY_HIDDEN_ATTR)) {
+      node.removeAttribute(PROPERTY_HIDDEN_ATTR);
+      node.style.display = '';
+    }
+  }
+
+  function updatePropertyGroups(panel, query) {
+    Array.from(panel.querySelectorAll('.entryVariableSplitterWorkspace')).forEach(function (group) {
+      if (!query) {
+        setPropertyHidden(group, false);
+        return;
+      }
+
+      const items = getPropertyListItems(group);
+      const hasVisibleItem = items.some(function (item) {
+        return !item.hasAttribute(PROPERTY_HIDDEN_ATTR);
+      });
+      setPropertyHidden(group, items.length > 0 && !hasVisibleItem);
+    });
+  }
+
+  function filterPropertyPanel(panel) {
+    if (!panel) return;
+    const input = getPropertySearchInput(panel);
+    const query = input ? input.value : '';
+    const items = getPropertyListItems(panel);
+
+    items.forEach(function (item) {
+      const matches = matchesSearch(getPropertyItemText(item), query);
+      setPropertyHidden(item, !matches);
+    });
+    updatePropertyGroups(panel, normalizeText(query));
+  }
+
+  function resetPropertyPanel(panel) {
+    if (!panel) return;
+    Array.from(panel.querySelectorAll('[' + PROPERTY_HIDDEN_ATTR + ']')).forEach(function (node) {
+      setPropertyHidden(node, false);
+    });
+  }
+
+  function clearPropertyPanelRetry() {
+    if (propertyPanelRetryTimer) {
+      clearTimeout(propertyPanelRetryTimer);
+      propertyPanelRetryTimer = null;
+    }
+  }
+
+  function observePropertyPanel(panel) {
+    if (propertyPanelObserver && propertyPanelEl === panel) return;
+    if (propertyPanelObserver) {
+      propertyPanelObserver.disconnect();
+      propertyPanelObserver = null;
+    }
+
+    propertyPanelEl = panel;
+    propertyPanelObserver = new MutationObserver(function () {
+      if (!canUsePropertyPanelSearch()) return;
+      if (!propertyPanelEl || !document.body.contains(propertyPanelEl)) {
+        propertyPanelEl = null;
+        schedulePropertyPanelSearch();
+        return;
+      }
+      createPropertySearch(propertyPanelEl);
+      filterPropertyPanel(propertyPanelEl);
+    });
+    propertyPanelObserver.observe(panel, { childList: true, subtree: true });
+  }
+
+  function applyPropertyPanelSearchNow() {
+    if (!canUsePropertyPanelSearch()) return false;
+
+    const panel = getPropertyPanel();
+    if (!panel) return false;
+
+    createPropertySearch(panel);
+    observePropertyPanel(panel);
+    filterPropertyPanel(panel);
+    return true;
+  }
+
+  function schedulePropertyPanelSearch() {
+    clearPropertyPanelRetry();
+    if (!canUsePropertyPanelSearch()) return;
+
+    propertyPanelRetryUntil = Date.now() + RETRY_TIMEOUT;
+
+    function tick() {
+      propertyPanelRetryTimer = null;
+      const ready = applyPropertyPanelSearchNow();
+      if (!ready && Date.now() < propertyPanelRetryUntil) {
+        propertyPanelRetryTimer = setTimeout(tick, RETRY_INTERVAL);
+      }
+    }
+
+    tick();
+  }
+
+  function cleanupPropertyPanelSearch() {
+    clearPropertyPanelRetry();
+    if (propertyPanelObserver) {
+      propertyPanelObserver.disconnect();
+      propertyPanelObserver = null;
+    }
+
+    const panel = propertyPanelEl || getPropertyPanel();
+    if (panel) {
+      resetPropertyPanel(panel);
+      Array.from(panel.querySelectorAll('.' + PROPERTY_SEARCH_CLASS)).forEach(function (wrapper) {
+        wrapper.remove();
+      });
+    }
+    propertyPanelEl = null;
+  }
+
   function patchDropdownDynamic(entry) {
     const proto = entry && entry.FieldDropdownDynamic && entry.FieldDropdownDynamic.prototype;
     if (!proto || typeof proto.renderOptions !== 'function') {
@@ -417,7 +671,7 @@
     const patched = Patches && typeof Patches.patchMethod === 'function'
       ? Patches.patchMethod(proto, 'renderOptions', 'dropdown-search', function (nativeRenderOptions) {
         return function () {
-          if (enabled && isTargetField(this)) {
+          if (canUseBlockMenuSearch() && isTargetField(this)) {
             try {
               renderSearchOptions(this);
               return;
@@ -458,17 +712,40 @@
     tick();
   }
 
-  function setEnabled(nextEnabled) {
-    enabled = !!nextEnabled;
-    scheduleApply();
+  function setEnabled(payload) {
+    payload = payload || {};
+    enabled = !!payload.enabled;
+    blockMenuEnabled = payload.blockMenuEnabled !== false;
+    propertyPanelEnabled = payload.propertyPanelEnabled !== false;
+
+    if (canUseBlockMenuSearch()) {
+      scheduleApply();
+    } else {
+      clearRetry();
+    }
+
+    if (canUsePropertyPanelSearch()) {
+      schedulePropertyPanelSearch();
+    } else {
+      cleanupPropertyPanelSearch();
+    }
   }
 
   onMessage(function (msg) {
     if (msg.type === 'SET_DROPDOWN_SEARCH_ENABLED') {
-      setEnabled(!!(msg.payload && msg.payload.enabled));
-      post('DROPDOWN_SEARCH_RESULT', { success: true, enabled: enabled }, msg.requestId);
+      setEnabled(msg.payload);
+      post('DROPDOWN_SEARCH_RESULT', {
+        success: true,
+        enabled: enabled,
+        blockMenuEnabled: canUseBlockMenuSearch(),
+        propertyPanelEnabled: canUsePropertyPanelSearch()
+      }, msg.requestId);
     }
   });
 
-  post('DROPDOWN_SEARCH_READY');
+  post('DROPDOWN_SEARCH_READY', {
+    enabled: enabled,
+    blockMenuEnabled: canUseBlockMenuSearch(),
+    propertyPanelEnabled: canUsePropertyPanelSearch()
+  });
 })();

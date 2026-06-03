@@ -19,7 +19,7 @@
       "matches": [
         "https://playentry.org/ws/*"
       ],
-      "js": ["settings.js", "eo-uploader.js", "content.js"],
+      "js": ["settings.js", "hangul-search.js", "eo-uploader.js", "content.js"],
       "css": ["style.css"],
       "run_at": "document_start"
     }
@@ -28,6 +28,7 @@
     {
       "resources": [
         "inject.js",
+        "hangul-search.js",
         "page-bridge.js",
         "entry-adapter.js",
         "patch-registry.js",
