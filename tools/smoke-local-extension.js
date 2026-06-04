@@ -22,6 +22,7 @@ const smokeSettings = {
   dropdownSearchBlockMenuEnabled: true,
   dropdownSearchPropertyPanelEnabled: true,
   blockTextCopyEnabled: true,
+  singleBlockDragEnabled: false,
   highQualityBlockImageEnabled: true,
   highQualityBlockImageScale: 1000,
   functionLibraryEnabled: true,
@@ -143,6 +144,10 @@ async function main() {
       state: 'attached',
       timeout: 60000
     });
+    await page.waitForSelector('#ed-toggle-single-block-drag', {
+      state: 'attached',
+      timeout: 60000
+    });
     await page.waitForSelector('#ed-toggle-high-quality-block-image', {
       state: 'attached',
       timeout: 60000
@@ -169,6 +174,7 @@ async function main() {
         boostModeButtonChecked: getChecked('#ed-toggle-setting-boost-mode-button'),
         dropdownSearchChecked: getChecked('#ed-toggle-dropdown-search'),
         blockTextCopyChecked: getChecked('#ed-toggle-block-text-copy'),
+        singleBlockDragChecked: getChecked('#ed-toggle-single-block-drag'),
         highQualityBlockImageChecked: getChecked('#ed-toggle-high-quality-block-image'),
         labTabChecked: getChecked('#ed-toggle-setting-lab-tab'),
         hasResetSettingsButton: !!document.querySelector('#ed-reset-settings-btn')

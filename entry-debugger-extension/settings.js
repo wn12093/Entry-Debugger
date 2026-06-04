@@ -20,6 +20,7 @@
     dropdownSearchBlockMenuEnabled: true,
     dropdownSearchPropertyPanelEnabled: true,
     blockTextCopyEnabled: true,
+    singleBlockDragEnabled: false,
     highQualityBlockImageEnabled: false,
     highQualityBlockImageScale: 1000,
     functionLibraryEnabled: false,
@@ -31,6 +32,7 @@
     'functionUsageEnabled',
     'consoleDebuggingEnabled',
     'boostModeControlVisible',
+    'singleBlockDragEnabled',
     'functionPrivateVariablesEnabled',
     'labTabEnabled'
   ];
@@ -90,6 +92,9 @@
     var blockTextCopyEnabled = typeof data.blockTextCopyEnabled === 'boolean'
       ? data.blockTextCopyEnabled
       : DEFAULT_SETTINGS.blockTextCopyEnabled;
+    var singleBlockDragEnabled = typeof data.singleBlockDragEnabled === 'boolean'
+      ? data.singleBlockDragEnabled
+      : DEFAULT_SETTINGS.singleBlockDragEnabled;
     var highQualityBlockImageEnabled = typeof data.highQualityBlockImageEnabled === 'boolean'
       ? data.highQualityBlockImageEnabled
       : DEFAULT_SETTINGS.highQualityBlockImageEnabled;
@@ -132,6 +137,7 @@
         labTabEnabled ||
         turboModeEnabled ||
         blockTextCopyEnabled ||
+        singleBlockDragEnabled ||
         highQualityBlockImageEnabled ||
         functionLibraryEnabled
       )
@@ -146,6 +152,7 @@
       labTabEnabled = false;
       resetLabFeatureSettings();
       functionPrivateVariablesEnabled = false;
+      singleBlockDragEnabled = false;
     }
 
     return {
@@ -162,6 +169,7 @@
       dropdownSearchBlockMenuEnabled: dropdownSearchBlockMenuEnabled,
       dropdownSearchPropertyPanelEnabled: dropdownSearchPropertyPanelEnabled,
       blockTextCopyEnabled: enabled && blockTextCopyEnabled,
+      singleBlockDragEnabled: enabled && singleBlockDragEnabled,
       highQualityBlockImageEnabled: enabled && highQualityBlockImageEnabled,
       highQualityBlockImageScale: highQualityBlockImageScale,
       functionLibraryEnabled: enabled && functionLibraryEnabled,

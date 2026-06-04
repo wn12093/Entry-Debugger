@@ -13,6 +13,7 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [콘솔 디버깅 말하기 블록 옵션 확장 기록](./entry-dialog-yell-console-debugging.md)
 - [함수 안에서 개인변수 보기](./function-private-variables-in-function-edit.md)
 - [속성 검색으로 찾기](./dropdown-search-experiment.md)
+- [Alt 단일 블록 드래그](./single-block-drag.md)
 - [초고화질 이미지 저장하기](./high-quality-block-image-experiment.md)
 - [함수 보관함](./function-library-experiment.md)
 - [함수 보관함 템플릿 추가 절차](./function-library-template-authoring.md)

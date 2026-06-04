@@ -64,6 +64,7 @@
   let pageCoreScriptsInjected = false;
   let dropdownSearchScriptInjected = false;
   let blockTextCopyScriptInjected = false;
+  let singleBlockDragScriptInjected = false;
   let highQualityBlockImageScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
@@ -116,6 +117,12 @@
     injectPageCoreScripts();
     blockTextCopyScriptInjected = true;
     injectPageScript('entry-debugger-block-text-copy', 'block-text-copy.js');
+  }
+
+  function injectSingleBlockDragScript() {
+    injectPageCoreScripts();
+    singleBlockDragScriptInjected = true;
+    injectPageScript('entry-debugger-single-block-drag', 'single-block-drag.js');
   }
 
   function injectHighQualityBlockImageScript() {
@@ -494,6 +501,16 @@
             '</div>' +
             '<div class="ed-lab-setting">' +
               '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">Alt 단일 블록 드래그</span>' +
+                '<span class="ed-lab-desc">Alt 키를 누른 채 드래그하면 선택한 블록만 분리</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="Alt 단일 블록 드래그">' +
+                '<input type="checkbox" id="ed-toggle-single-block-drag">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
                 '<span class="ed-lab-title">초고화질 이미지 저장하기</span>' +
                 '<span class="ed-lab-desc">블록 이미지 저장 배율을 200%에서 2000%까지 조정</span>' +
               '</span>' +
@@ -741,6 +758,9 @@
     bindSettingsToggle('#ed-toggle-block-text-copy', function (checked) {
       saveSettingsFromPanel({ blockTextCopyEnabled: checked });
     });
+    bindSettingsToggle('#ed-toggle-single-block-drag', function (checked) {
+      saveSettingsFromPanel({ singleBlockDragEnabled: checked });
+    });
     bindSettingsToggle('#ed-toggle-high-quality-block-image', function (checked) {
       saveSettingsFromPanel({ highQualityBlockImageEnabled: checked });
     });
@@ -806,6 +826,7 @@
     setSettingToggleChecked('#ed-toggle-setting-boost-mode-button', extensionSettings.boostModeControlVisible);
     setSettingToggleChecked('#ed-toggle-dropdown-search', extensionSettings.dropdownSearchEnabled);
     setSettingToggleChecked('#ed-toggle-block-text-copy', extensionSettings.blockTextCopyEnabled);
+    setSettingToggleChecked('#ed-toggle-single-block-drag', extensionSettings.singleBlockDragEnabled);
     setSettingToggleChecked('#ed-toggle-high-quality-block-image', extensionSettings.highQualityBlockImageEnabled);
     setSettingToggleChecked('#ed-toggle-setting-lab-tab', extensionSettings.labTabEnabled);
     renderDropdownSearchTargetControls();
@@ -973,6 +994,13 @@
     return !!(
       extensionSettings.enabled &&
       extensionSettings.blockTextCopyEnabled
+    );
+  }
+
+  function isSingleBlockDragFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.singleBlockDragEnabled
     );
   }
 
@@ -2227,6 +2255,21 @@
     }, 150);
   }
 
+  function applySingleBlockDragFeature() {
+    var shouldEnable = isSingleBlockDragFeatureEnabled();
+    if (shouldEnable) {
+      injectSingleBlockDragScript();
+    } else if (!singleBlockDragScriptInjected) {
+      return;
+    }
+
+    setTimeout(function () {
+      sendToInject('SET_SINGLE_BLOCK_DRAG_ENABLED', {
+        enabled: shouldEnable
+      });
+    }, 150);
+  }
+
   function applyHighQualityBlockImageFeature() {
     var shouldEnable = isHighQualityBlockImageFeatureEnabled();
     if (shouldEnable) {
@@ -2249,6 +2292,9 @@
     applyBoostModeControl();
 
     if (!isEntryWorkspacePage() || !extensionSettings.enabled) {
+      if (isEntryWorkspacePage()) {
+        applySingleBlockDragFeature();
+      }
       cleanup();
       return;
     }
@@ -2262,6 +2308,7 @@
     applyFunctionPrivateVariablesFeature();
     applyDropdownSearchFeature();
     applyBlockTextCopyFeature();
+    applySingleBlockDragFeature();
     applyHighQualityBlockImageFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
@@ -2455,6 +2502,7 @@
           dropdownSearchBlockMenuEnabled: extensionSettings.dropdownSearchBlockMenuEnabled,
           dropdownSearchPropertyPanelEnabled: extensionSettings.dropdownSearchPropertyPanelEnabled,
           blockTextCopyEnabled: false,
+          singleBlockDragEnabled: false,
           highQualityBlockImageEnabled: false,
           highQualityBlockImageScale: extensionSettings.highQualityBlockImageScale,
           functionLibraryEnabled: false
