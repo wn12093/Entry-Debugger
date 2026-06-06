@@ -1,6 +1,6 @@
 # 함수 보관함
 
-확인 날짜: 2026-06-03
+확인 날짜: 2026-06-06
 
 ## 목적
 
@@ -17,6 +17,8 @@
 - 지역변수: `지역변수`
 - 함수 인자: 문자열 파라미터 1개, 참/거짓 파라미터 1개
 - 본문: 지역변수에 문자열 인자를 저장하고, 참/거짓 인자에 따라 `말하기` 또는 `생각하기` 블록 실행
+
+이 샘플은 함수 등록 구조를 검증하는 개발용 자료다. Chrome Web Store `2.4.0` 제출본에서는 사용자용 함수로 보기 어려운 `테스트 함수` 템플릿과 원본 파일명 정보를 `function-library-templates.js`에서 제거했다. 현재 배포본의 내장 템플릿 목록은 비어 있다.
 
 ## UI
 
@@ -36,7 +38,7 @@
 | `entry-debugger-extension/content.js` | 실험실 토글, 함수 보관함 탭, 추가 버튼 UI |
 | `entry-debugger-extension/inject.js` | Entry Main World에서 함수 템플릿을 현재 작품에 등록 |
 | `entry-debugger-extension/settings.js` | `functionLibraryEnabled` 기본값과 정규화 |
-| `tools/smoke-local-extension.js` | Chromium smoke에서 함수 추가 동작 검증 |
+| `tools/smoke-local-extension.js` | Chromium smoke에서 함수 보관함 빈 상태 검증 |
 
 ## 템플릿 추가 문서
 
@@ -48,8 +50,8 @@ content script에서 Main World 주입 스크립트로 전달한다.
 
 ```js
 sendToInject('ADD_FUNCTION_LIBRARY_TEMPLATE', {
-  templateId: 'test-function',
-  templateName: '테스트 함수',
+  templateId: template.id,
+  templateName: template.name,
   func: template.function
 });
 ```
@@ -60,7 +62,7 @@ sendToInject('ADD_FUNCTION_LIBRARY_TEMPLATE', {
 post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', {
   success: true,
   id: '새 함수 ID',
-  name: '테스트 함수'
+  name: template.name
 });
 ```
 
@@ -88,4 +90,4 @@ post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', {
 - `npm run build:dev`
 - PR 생성 또는 PR 브랜치 업데이트 직전 `npm run smoke:local`
 
-`smoke:local`은 함수 보관함을 켠 상태로 로컬 Entry 만들기 화면을 열고, `테스트 함수`의 `추가` 버튼을 누른 뒤 `Entry.variableContainer.functions_`에 함수가 추가됐는지 확인한다.
+현재 `smoke:local`은 함수 보관함을 켠 상태로 로컬 Entry 만들기 화면을 열고, 빈 상태 안내가 표시되며 테스트용 추가 버튼이 존재하지 않는지 확인한다. 실제 사용자용 템플릿을 추가할 때 해당 함수 등록 검증을 다시 확장한다.

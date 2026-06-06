@@ -6,6 +6,7 @@ const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 const extensionDir = path.join(rootDir, 'dist', 'entry-debugger-extension-dev');
+let extensionManifest = null;
 const localEntryUrl = process.env.ENTRY_DEBUGGER_SMOKE_URL ||
   'http://127.0.0.1:8080/ws/abcdef0123456789abcdef01';
 const smokeSettings = {
@@ -61,12 +62,42 @@ async function seedExtensionSettings(context) {
       resolve();
     });
   }), smokeSettings);
+
+  return worker;
+}
+
+function assertSmokeResult(result) {
+  const checks = [
+    ['popup version', result.popupResult.versionText === 'v' + extensionManifest.version],
+    ['popup debugger toggle', result.popupResult.hasDebuggerToggle],
+    ['debugging tab', result.hasDebuggingTab],
+    ['debugger panel', result.panelVisible],
+    ['settings section', result.settingsTabResult.settingsSectionActive],
+    ['Alt single-block drag default off', result.settingsTabResult.singleBlockDragChecked === false],
+    ['settings button returns to variables', result.settingsToggleBackResult.variablesSectionActive],
+    ['function library tab', result.hasFunctionLibraryTab],
+    ['function library empty state', result.functionLibraryResult.hasEmptyState],
+    ['function library has no test add button', result.functionLibraryResult.hasAddButton === false],
+    ['function library did not mutate functions',
+      result.functionLibraryResult.countBefore === result.functionLibraryResult.countAfter],
+    ['property search input', result.hasPropertySearchInput],
+    ['high quality warning at 1000%', result.highQualityWarningAt1000],
+    ['boost mode control', result.boostModeResult.hasBoostModeControl]
+  ];
+  const failed = checks.filter((check) => !check[1]).map((check) => check[0]);
+
+  if (failed.length) {
+    throw new Error('Smoke assertions failed: ' + failed.join(', '));
+  }
 }
 
 async function main() {
   if (!fs.existsSync(path.join(extensionDir, 'manifest.json'))) {
     throw new Error('개발용 확장 manifest가 없습니다. 먼저 npm run build:dev 를 실행하세요.');
   }
+  extensionManifest = JSON.parse(
+    fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8')
+  );
 
   const { chromium } = resolvePlaywright();
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE &&
@@ -88,7 +119,19 @@ async function main() {
       ]
     });
 
-    await seedExtensionSettings(context);
+    const worker = await seedExtensionSettings(context);
+    const extensionId = new URL(worker.url()).hostname;
+    const popupPage = await context.newPage();
+    await popupPage.goto('chrome-extension://' + extensionId + '/popup.html', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+    await popupPage.waitForSelector('#popup-version', { timeout: 30000 });
+    const popupResult = await popupPage.evaluate(() => ({
+      versionText: (document.querySelector('#popup-version')?.textContent || '').trim(),
+      hasDebuggerToggle: !!document.querySelector('#toggle-debugger-tab')
+    }));
+    await popupPage.close();
 
     const page = context.pages()[0] || await context.newPage();
     page.on('console', (message) => {
@@ -299,52 +342,43 @@ async function main() {
       };
     });
 
-    const functionCountBeforeAdd = await page.evaluate(() => {
+    const functionCountBeforeOpen = await page.evaluate(() => {
       const funcs = window.Entry &&
         window.Entry.variableContainer &&
         window.Entry.variableContainer.functions_;
       return funcs ? Object.keys(funcs).length : 0;
     });
     await page.click('.ed-subtab[data-tab="function-library"]');
-    await page.waitForSelector('.ed-function-add-btn[data-template-id="test-function"]', {
+    await page.waitForSelector('.ed-function-library-empty', {
       state: 'visible',
       timeout: 60000
     });
-    await page.click('.ed-function-add-btn[data-template-id="test-function"]');
-    await page.waitForFunction((beforeCount) => {
-      const funcs = window.Entry &&
-        window.Entry.variableContainer &&
-        window.Entry.variableContainer.functions_;
-      if (!funcs) return false;
-      const values = Object.values(funcs);
-      return values.length > beforeCount &&
-        values.some((func) => /테스트 함수/.test(func.description || ''));
-    }, functionCountBeforeAdd, { timeout: 60000 });
     const functionLibraryResult = await page.evaluate((beforeCount) => {
       const funcs = window.Entry &&
         window.Entry.variableContainer &&
         window.Entry.variableContainer.functions_;
       const values = funcs ? Object.values(funcs) : [];
-      const added = values.find((func) => /테스트 함수/.test(func.description || ''));
       const status = document.querySelector('#ed-function-library-status');
       const notice = document.querySelector('#ed-section-function-library .ed-lab-warning');
+      const empty = document.querySelector('#ed-function-library-list .ed-function-library-empty');
       return {
         countBefore: beforeCount,
         countAfter: values.length,
-        hasAddedFunction: !!added,
-        addedDescription: added ? added.description : null,
+        hasAddButton: !!document.querySelector('#ed-function-library-list .ed-function-add-btn'),
+        hasEmptyState: !!empty,
+        emptyStateText: empty ? empty.textContent.trim() : '',
         hasFunctionLibraryNotice: !!notice,
         noticeText: notice ? notice.textContent.trim() : '',
         statusText: status ? status.textContent.trim() : ''
       };
-    }, functionCountBeforeAdd);
+    }, functionCountBeforeOpen);
 
     await page.waitForFunction(() => {
       const panel = document.querySelector('#ed-debugger-panel');
       return !!(panel && panel.offsetParent !== null);
     }, { timeout: 60000 });
 
-    const result = await page.evaluate(({ warningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult }) => {
+    const result = await page.evaluate(({ popupResult, warningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
         .map((tab) => tab.textContent.trim());
@@ -358,6 +392,7 @@ async function main() {
       const functionLibraryTab = document.querySelector('.ed-subtab[data-tab="function-library"]');
       return {
         url: location.href,
+        popupResult,
         hasDebuggingTab: !!document.querySelector('.propertyTabdebugging'),
         panelVisible: !!(panel && panel.offsetParent !== null),
         tabs,
@@ -378,11 +413,12 @@ async function main() {
         hasFunctionLibraryToggle: !!functionLibraryToggle,
         functionLibraryChecked: !!(functionLibraryToggle && functionLibraryToggle.checked),
         hasFunctionLibraryTab: !!functionLibraryTab,
-        functionLibraryAddResult: functionLibraryResult,
+        functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, { warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult });
+    }, { popupResult, warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult });
 
+    assertSmokeResult(result);
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
     if (browserLogs.length) {

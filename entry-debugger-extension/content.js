@@ -2566,14 +2566,9 @@
   function isEntryWorkspacePage() {
     try {
       var url = new URL(location.href);
-      var isPlayEntryWorkspace = url.protocol === 'https:' &&
+      return url.protocol === 'https:' &&
         url.hostname === 'playentry.org' &&
         url.pathname.indexOf('/ws/') === 0;
-      var isLocalWorkspace = url.protocol === 'http:' &&
-        (url.hostname === '127.0.0.1' || url.hostname === 'localhost') &&
-        (url.port === '' || url.port === '8080') &&
-        url.pathname.indexOf('/ws/') === 0;
-      return isPlayEntryWorkspace || isLocalWorkspace;
     } catch (e) {
       return false;
     }
@@ -2699,8 +2694,6 @@
         createDebuggingTab(propertyTab);
         injectDebuggerPanel(propertyContent);
         setupTabDelegation(propertyTab);
-
-        console.log('[Entry Debugger] 준비 완료');
       });
     });
   }

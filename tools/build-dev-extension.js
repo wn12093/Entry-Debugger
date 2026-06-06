@@ -8,6 +8,7 @@ const sourceDir = path.join(rootDir, 'entry-debugger-extension');
 const distDir = path.join(rootDir, 'dist');
 const targetDir = path.join(distDir, 'entry-debugger-extension-dev');
 const manifestPath = path.join(targetDir, 'manifest.json');
+const contentScriptPath = path.join(targetDir, 'content.js');
 
 const LOCAL_WORKSPACE_MATCHES = [
   'http://127.0.0.1/*',
@@ -45,8 +46,37 @@ function writeDevManifest() {
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 }
 
+function enableLocalWorkspaceInContentScript() {
+  const productionCheck = [
+    "      return url.protocol === 'https:' &&",
+    "        url.hostname === 'playentry.org' &&",
+    "        url.pathname.indexOf('/ws/') === 0;"
+  ].join('\n');
+  const localDevCheck = [
+    "      var isPlayEntryWorkspace = url.protocol === 'https:' &&",
+    "        url.hostname === 'playentry.org' &&",
+    "        url.pathname.indexOf('/ws/') === 0;",
+    "      var isLocalWorkspace = url.protocol === 'http:' &&",
+    "        (url.hostname === '127.0.0.1' || url.hostname === 'localhost') &&",
+    "        (url.port === '' || url.port === '8080') &&",
+    "        url.pathname.indexOf('/ws/') === 0;",
+    "      return isPlayEntryWorkspace || isLocalWorkspace;"
+  ].join('\n');
+  const contentScript = fs.readFileSync(contentScriptPath, 'utf8');
+
+  if (!contentScript.includes(productionCheck)) {
+    throw new Error('Local workspace content-script patch target was not found.');
+  }
+
+  fs.writeFileSync(
+    contentScriptPath,
+    contentScript.replace(productionCheck, localDevCheck)
+  );
+}
+
 copyExtension();
 writeDevManifest();
+enableLocalWorkspaceInContentScript();
 
 console.log('[build-dev-extension] Wrote ' + targetDir);
 console.log('[build-dev-extension] Load this folder in chrome://extensions for local Entry testing.');

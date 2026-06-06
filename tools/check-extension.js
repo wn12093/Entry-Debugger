@@ -36,6 +36,9 @@ function walk(dir, result = []) {
 const manifest = JSON.parse(readUtf8(manifestPath));
 const readme = readUtf8(path.join(rootDir, 'README.md'));
 const readmeVersionMatch = readme.match(/\*\*버전\*\*:\s*([0-9]+\.[0-9]+\.[0-9]+)/);
+const contentScript = readUtf8(path.join(extensionDir, 'content.js'));
+const functionTemplates = readUtf8(path.join(extensionDir, 'function-library-templates.js'));
+const popupHtml = readUtf8(path.join(extensionDir, 'popup.html'));
 
 if (!readmeVersionMatch) {
   fail('README version line was not found.');
@@ -63,10 +66,29 @@ if (!readUtf8(path.join(extensionDir, 'popup.html')).includes('id="popup-version
   fail('popup.html must render the manifest version dynamically.');
 }
 
+if (/127\.0\.0\.1|localhost/.test(contentScript)) {
+  fail('Production content.js must not include local workspace hosts.');
+}
+
+if (/test-function|테스트 함수|260603_205/.test(functionTemplates)) {
+  fail('Production function templates contain a test-only template.');
+}
+
+if (/<script[^>]+src=["']https?:\/\//i.test(popupHtml)) {
+  fail('Remote script tags are not allowed in the production popup.');
+}
+
 walk(extensionDir)
   .concat(walk(path.join(rootDir, 'tools')))
   .filter((filePath) => filePath.endsWith('.js'))
   .forEach((filePath) => {
+    if (filePath.startsWith(extensionDir)) {
+      const source = readUtf8(filePath);
+      if (/\beval\s*\(|\bnew\s+Function\s*\(/.test(source)) {
+        fail('Remote-code-like execution pattern found in ' + path.relative(rootDir, filePath));
+      }
+    }
+
     const result = spawnSync(process.execPath, ['--check', filePath], {
       cwd: extensionDir,
       encoding: 'utf8'
