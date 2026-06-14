@@ -436,6 +436,16 @@
           '<div class="ed-lab-controls">' +
             '<div class="ed-lab-setting">' +
               '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title"><span class="ed-lab-badge">추천</span>모양 탭 편의 기능</span>' +
+                '<span class="ed-lab-desc">이미지·GIF 다량 업로드, 모양 묶음 일괄 작업, 모양 탭 최적화</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="모양 탭 편의 기능">' +
+                '<input type="checkbox" id="ed-toggle-picture-tools">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
                 '<span class="ed-lab-title">함수 사용 바로가기</span>' +
                 '<span class="ed-lab-desc">속성 탭에 함수 내부 사용 위치 표시</span>' +
               '</span>' +
@@ -540,16 +550,6 @@
             '</div>' +
             '<div class="ed-lab-setting">' +
               '<span class="ed-lab-text">' +
-                '<span class="ed-lab-title">모양 탭 편의 기능</span>' +
-                '<span class="ed-lab-desc">이미지·GIF 다량 업로드, 모양 묶음 일괄 작업, 모양 탭 최적화</span>' +
-              '</span>' +
-              '<label class="ed-lab-switch" aria-label="모양 탭 편의 기능">' +
-                '<input type="checkbox" id="ed-toggle-picture-tools">' +
-                '<span class="ed-lab-slider"></span>' +
-              '</label>' +
-            '</div>' +
-            '<div class="ed-lab-setting">' +
-              '<span class="ed-lab-text">' +
                 '<span class="ed-lab-title">실험실 탭</span>' +
                 '<span class="ed-lab-desc">실험 기능과 기본 변수 디버깅 표시</span>' +
               '</span>' +
@@ -561,6 +561,15 @@
           '</div>' +
           '<div class="ed-settings-actions">' +
             '<button class="ed-settings-reset-btn" id="ed-reset-settings-btn" type="button">모든 항목 기본값으로 초기화</button>' +
+          '</div>' +
+          '<div class="ed-settings-info" aria-label="확장 프로그램 정보">' +
+            '<a class="ed-settings-privacy-link" href="https://entry-debugger.205.kr/privacy.html" target="_blank" rel="noopener noreferrer">개인정보 처리방침</a>' +
+            '<div class="ed-settings-credits">' +
+              '<strong>크레딧</strong>' +
+              '<span>콘솔 디버깅 아이디어 제공: aqu3180.co.kr</span>' +
+              '<span>함수 사용 바로가기 아이디어 제공: kkomaweb.com</span>' +
+              '<span>모양 탭 편의 기능 제작: Mingu Lee (github.com/wn12093)</span>' +
+            '</div>' +
           '</div>' +
         '</div>' +
       '</div>'
