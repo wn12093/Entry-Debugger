@@ -37,6 +37,57 @@
     return entry && entry.engine ? entry.engine : null;
   }
 
+  function getAllObjects() {
+    var container = getContainer();
+    if (!container) return [];
+    if (typeof container.getAllObjects === 'function') {
+      try {
+        return container.getAllObjects() || [];
+      } catch (e) {}
+    }
+    return container.objects_ || container.objects || [];
+  }
+
+  function getPictureListWidget() {
+    var playground = getPlayground();
+    return playground && playground.pictureSortableListWidget
+      ? playground.pictureSortableListWidget
+      : null;
+  }
+
+  function getPictureListItems(widget) {
+    widget = widget || getPictureListWidget();
+    return widget && widget._data && Array.isArray(widget._data.items)
+      ? widget._data.items
+      : null;
+  }
+
+  function setPictureListItems(widget, items, render) {
+    if (!widget || !widget._data || !Array.isArray(items)) return false;
+    if (render !== false && typeof widget.setData === 'function') {
+      widget.setData(Object.assign({}, widget._data, { items: items }));
+    } else {
+      widget._data.items = items;
+    }
+    return true;
+  }
+
+  function doCommand() {
+    var entry = getEntry();
+    if (!entry || typeof entry.do !== 'function') {
+      throw new Error('Entry command API is unavailable.');
+    }
+    return entry.do.apply(entry, arguments);
+  }
+
+  function getOrderedName(name, items) {
+    var entry = getEntry();
+    if (entry && typeof entry.getOrderedName === 'function') {
+      return entry.getOrderedName(name, items || []);
+    }
+    return name;
+  }
+
   function getObjectById(objectId) {
     var entry = getEntry();
     if (!entry || !objectId) return null;
@@ -142,6 +193,12 @@
     getContainer: getContainer,
     getPlayground: getPlayground,
     getEngine: getEngine,
+    getAllObjects: getAllObjects,
+    getPictureListWidget: getPictureListWidget,
+    getPictureListItems: getPictureListItems,
+    setPictureListItems: setPictureListItems,
+    doCommand: doCommand,
+    getOrderedName: getOrderedName,
     getObjectById: getObjectById,
     getCurrentObject: getCurrentObject,
     readObjectName: readObjectName,

@@ -20,6 +20,9 @@
   var RETRY_TIMEOUT = 30000;
   var PATCH_ID = 'picture-tools';
   var BATCH = 10;
+  var MAX_GIF_FRAMES = 2000;
+  var MAX_GIF_FRAME_PIXELS = 16777216;
+  var MAX_EXPORT_BYTES = 512 * 1024 * 1024;
   var Bridge = window.EntryDebuggerPageBridge || null;
   var Adapter = window.EntryDebuggerEntryAdapter || null;
   var Patches = window.EntryDebuggerPatchRegistry || null;
@@ -45,6 +48,9 @@
   }
 
   function getAllObjects() {
+    if (Adapter && typeof Adapter.getAllObjects === 'function') {
+      return Adapter.getAllObjects();
+    }
     var entry = safeGetEntry();
     if (entry && entry.container && typeof entry.container.getAllObjects === 'function') {
       try { return entry.container.getAllObjects() || []; } catch (e) {}
@@ -108,6 +114,7 @@
       name: p.name,
       imageType: p.imageType,
       dimension: p.dimension ? { width: p.dimension.width, height: p.dimension.height } : { width: 100, height: 100 },
+      scale: (p.scale != null ? p.scale : 100),
       objectId: targetId
     };
     if (p.filename) c.filename = p.filename;
@@ -127,14 +134,115 @@
     };
   }
 
-  function visibleByText(text) {
+  var renderSuppression = null;
+
+  function getPictureListWidget() {
+    if (Adapter && typeof Adapter.getPictureListWidget === 'function') {
+      return Adapter.getPictureListWidget();
+    }
+    var pg = getPlayground();
+    return pg && pg.pictureSortableListWidget ? pg.pictureSortableListWidget : null;
+  }
+
+  function getPictureListItems(widget) {
+    if (Adapter && typeof Adapter.getPictureListItems === 'function') {
+      return Adapter.getPictureListItems(widget);
+    }
+    return widget && widget._data && Array.isArray(widget._data.items)
+      ? widget._data.items
+      : null;
+  }
+
+  function setPictureListItems(widget, items, render) {
+    if (Adapter && typeof Adapter.setPictureListItems === 'function') {
+      return Adapter.setPictureListItems(widget, items, render);
+    }
+    if (!widget || !widget._data || !Array.isArray(items)) return false;
+    if (render !== false && typeof widget.setData === 'function') {
+      widget.setData(Object.assign({}, widget._data, { items: items }));
+    } else {
+      widget._data.items = items;
+    }
+    return true;
+  }
+
+  function withSuppressedPictureRender(pg, suppressReload, callback) {
+    if (!pg) return callback();
+    if (renderSuppression && renderSuppression.pg !== pg) {
+      throw new Error('다른 작업공간의 모양 렌더링이 이미 처리 중입니다.');
+    }
+    if (!renderSuppression) {
+      renderSuppression = {
+        pg: pg,
+        depth: 0,
+        injectPicture: pg.injectPicture,
+        reloadPlayground: pg.reloadPlayground,
+        reloadSuppressed: false
+      };
+      pg.injectPicture = function () {};
+    }
+    renderSuppression.depth++;
+    if (suppressReload && !renderSuppression.reloadSuppressed) {
+      pg.reloadPlayground = function () {};
+      renderSuppression.reloadSuppressed = true;
+    }
+    try {
+      return callback();
+    } finally {
+      renderSuppression.depth--;
+      if (renderSuppression.depth === 0) {
+        pg.injectPicture = renderSuppression.injectPicture;
+        pg.reloadPlayground = renderSuppression.reloadPlayground;
+        renderSuppression = null;
+      }
+    }
+  }
+
+  function doEntryCommand() {
+    if (Adapter && typeof Adapter.doCommand === 'function') {
+      return Adapter.doCommand.apply(Adapter, arguments);
+    }
+    var entry = safeGetEntry();
+    if (!entry || typeof entry.do !== 'function') {
+      throw new Error('Entry 명령 API를 사용할 수 없습니다.');
+    }
+    return entry.do.apply(entry, arguments);
+  }
+
+  function getOrderedPictureName(name, pictures) {
+    if (Adapter && typeof Adapter.getOrderedName === 'function') {
+      return Adapter.getOrderedName(name, pictures);
+    }
+    var entry = safeGetEntry();
+    return entry && typeof entry.getOrderedName === 'function'
+      ? entry.getOrderedName(name, pictures)
+      : name;
+  }
+
+  function addPicturesWithCommands(targetObj, pictures) {
+    var pg = getPlayground();
+    var added = [];
+    if (!targetObj || !pg) return added;
+    withSuppressedPictureRender(pg, false, function () {
+      pictures.forEach(function (source) {
+        var picture = clonePic(source, targetObj.id);
+        picture.name = getOrderedPictureName(picture.name, targetObj.pictures);
+        doEntryCommand('objectAddPicture', targetObj.id, picture, false);
+        added.push(picture);
+      });
+    });
+    return added;
+  }
+
+  function visibleByText(text, root) {
     var i, el;
-    var ab = document.querySelectorAll('a, button');
+    root = root || document;
+    var ab = root.querySelectorAll('a, button');
     for (i = 0; i < ab.length; i++) {
       el = ab[i];
       if (el.offsetParent !== null && el.textContent.trim() === text) return el;
     }
-    var others = document.querySelectorAll('div, span, li');
+    var others = root.querySelectorAll('div, span, li');
     for (i = 0; i < others.length; i++) {
       el = others[i];
       if (el.offsetParent !== null && el.textContent.trim() === text) return el.closest('a, button') || el;
@@ -142,12 +250,16 @@
     return null;
   }
 
-  function waitFor(fn, timeout, interval) {
+  function waitFor(fn, timeout, interval, isCancelled) {
     timeout = timeout || 10000;
     interval = interval || 120;
     return new Promise(function (resolve, reject) {
       var t0 = Date.now();
       (function tick() {
+        if (isCancelled && isCancelled()) {
+          reject(new Error('작업이 취소되었습니다.'));
+          return;
+        }
         var v = fn();
         if (v) { resolve(v); return; }
         if (Date.now() - t0 >= timeout) { reject(new Error('시간 초과')); return; }
@@ -201,6 +313,15 @@
       progEl.style.opacity = '0';
       setTimeout(function () { if (progEl) { progEl.remove(); progEl = null; } }, 320);
     }, keepMs || 2500);
+  }
+
+  function progClear() {
+    clearTimeout(progTimer);
+    progTimer = null;
+    if (progEl) {
+      progEl.remove();
+      progEl = null;
+    }
   }
 
   /* ─────────────────────────────────────────────
@@ -265,44 +386,61 @@
      GIF -> PNG frames (WebCodecs ImageDecoder)
      ───────────────────────────────────────────── */
 
-  function gifToPngFrames(file, onProgress) {
+  function gifToPngFrames(file, onProgress, isCancelled) {
     return (async function () {
       if (typeof ImageDecoder === 'undefined' || !(await ImageDecoder.isTypeSupported('image/gif'))) {
         throw new Error('이 브라우저는 GIF 디코딩을 지원하지 않습니다(ImageDecoder 없음)');
       }
-      var dec = new ImageDecoder({ data: await file.arrayBuffer(), type: 'image/gif' });
-      await dec.tracks.ready;
-      var n = (dec.tracks.selectedTrack && dec.tracks.selectedTrack.frameCount) || 1;
-      var base = file.name.replace(/\.gif$/i, '');
-      var pad = String(n).length;
-      var frames = [];
-      for (var i = 0; i < n; i++) {
-        var decoded = await dec.decode({ frameIndex: i });
-        var image = decoded.image;
-        var cv = document.createElement('canvas');
-        cv.width = image.displayWidth; cv.height = image.displayHeight;
-        cv.getContext('2d').drawImage(image, 0, 0);
-        image.close();
-        var blob = await new Promise(function (r) { cv.toBlob(r, 'image/png'); });
-        frames.push(new File([blob], base + '_' + String(i + 1).padStart(pad, '0') + '.png', { type: 'image/png' }));
-        if (onProgress) onProgress(i + 1, n);
+      var dec = null;
+      try {
+        if (isCancelled && isCancelled()) return [];
+        dec = new ImageDecoder({ data: await file.arrayBuffer(), type: 'image/gif' });
+        await dec.tracks.ready;
+        var n = (dec.tracks.selectedTrack && dec.tracks.selectedTrack.frameCount) || 1;
+        if (n > MAX_GIF_FRAMES) {
+          throw new Error('GIF 프레임은 최대 ' + MAX_GIF_FRAMES + '개까지 처리할 수 있습니다.');
+        }
+        var base = file.name.replace(/\.gif$/i, '');
+        var pad = String(n).length;
+        var frames = [];
+        for (var i = 0; i < n; i++) {
+          if (isCancelled && isCancelled()) return [];
+          var decoded = await dec.decode({ frameIndex: i });
+          var image = decoded.image;
+          try {
+            if (image.displayWidth * image.displayHeight > MAX_GIF_FRAME_PIXELS) {
+              throw new Error('GIF 한 프레임의 해상도가 너무 큽니다.');
+            }
+            var cv = document.createElement('canvas');
+            cv.width = image.displayWidth; cv.height = image.displayHeight;
+            cv.getContext('2d').drawImage(image, 0, 0);
+            var blob = await new Promise(function (r) { cv.toBlob(r, 'image/png'); });
+            if (!blob) throw new Error('GIF 프레임을 PNG로 변환하지 못했습니다.');
+            frames.push(new File([blob], base + '_' + String(i + 1).padStart(pad, '0') + '.png', { type: 'image/png' }));
+          } finally {
+            image.close();
+          }
+          if (onProgress) onProgress(i + 1, n);
+        }
+        return frames;
+      } finally {
+        if (dec && dec.close) dec.close();
       }
-      if (dec.close) dec.close();
-      return frames;
     })();
   }
 
-  function expandFiles(files) {
+  function expandFiles(files, isCancelled) {
     return (async function () {
       var out = [];
       for (var i = 0; i < files.length; i++) {
+        if (isCancelled && isCancelled()) return [];
         var f = files[i];
         if (/\.gif$/i.test(f.name) || f.type === 'image/gif') {
           prog('GIF 분해 중', f.name);
           /* eslint-disable no-loop-func */
           var frames = await gifToPngFrames(f, (function (name) {
             return function (idx, nn) { prog('GIF 분해 중', name + ' (' + idx + '/' + nn + ' 프레임)'); };
-          })(f.name));
+          })(f.name), isCancelled);
           /* eslint-enable no-loop-func */
           out.push.apply(out, frames);
         } else {
@@ -318,6 +456,9 @@
      ───────────────────────────────────────────── */
 
   var fileInput = null;
+  var uploadRoot = null;
+  var uploadSessionId = 0;
+  var filePickerSessionId = 0;
 
   function stage(input, files) {
     var dt = new DataTransfer();
@@ -328,43 +469,129 @@
 
   function closeAlertIfAny() {
     return (async function () {
-      var ok = visibleByText('확인');
-      if (ok) { ok.click(); await sleep(150); }
+      var roots = document.querySelectorAll('#entry_global_modal, #entry_global_dialog, #entry_ws_modal');
+      for (var i = 0; i < roots.length; i++) {
+        var ok = visibleByText('확인', roots[i]);
+        if (ok) {
+          ok.click();
+          await sleep(150);
+          return;
+        }
+      }
     })();
   }
 
   var staging = false;
   var stageQueue = [];
   var stageTotal = 0; // running grand total (grows when more files are queued mid-staging)
-  function stageFiles(files) {
+  var activeStageSessionId = 0;
+
+  function findUploadRoot(element) {
+    return element && (
+      element.closest('#EntryPopupContainer') ||
+      element.closest('.modal') ||
+      element.closest('[class*="popup_wrap"]')
+    );
+  }
+
+  function hasNativeUploadInput(root) {
+    return !!(root && document.body.contains(root) && root.querySelector('#inpt_file'));
+  }
+
+  function isUploadSessionActive(sessionId) {
+    return !!(
+      enabled &&
+      sessionId === uploadSessionId &&
+      hasNativeUploadInput(uploadRoot)
+    );
+  }
+
+  function cancelUploadWork() {
+    uploadSessionId++;
+    filePickerSessionId = uploadSessionId;
+    activeStageSessionId = 0;
+    staging = false;
+    stageQueue.length = 0;
+    stageTotal = 0;
+    uploadRoot = null;
+    if (fileInput) fileInput.value = '';
+    progClear();
+  }
+
+  function activateUploadSession(box) {
+    var nextRoot = findUploadRoot(box);
+    if (!nextRoot) return 0;
+    if (uploadRoot !== nextRoot || !hasNativeUploadInput(uploadRoot)) {
+      cancelUploadWork();
+      uploadRoot = nextRoot;
+    }
+    filePickerSessionId = uploadSessionId;
+    return filePickerSessionId;
+  }
+
+  function isUploadCloseAction(target) {
+    if (!uploadRoot || !target || !uploadRoot.contains(target)) return false;
+    if (target.closest('[class*="imbtn_pop_close"], [class*="btn_back"]')) return true;
+    var action = target.closest('a, button');
+    return !!(action && action.textContent.trim() === '추가하기');
+  }
+
+  function onUploadModalAction(e) {
+    if (isUploadCloseAction(e.target)) cancelUploadWork();
+  }
+
+  function stageFiles(files, sessionId) {
+    if (!files.length || !isUploadSessionActive(sessionId)) return Promise.resolve();
+    var input = uploadRoot.querySelector('#inpt_file');
+    if (!input) return Promise.resolve();
+
+    // Entry already supports up to ten files in a single native change event. Keep that
+    // path unchanged and do not show the extension staging progress UI.
+    if (!staging && files.length <= BATCH) {
+      progClear();
+      stage(input, files);
+      return Promise.resolve();
+    }
+
     // Already staging: queue the new files instead of dropping them; the running loop
     // drains the queue when the current batch finishes (so re-uploading mid-upload works).
     // stageTotal also grows so the "현재/총량" progress stays accurate.
     if (staging) {
+      if (sessionId !== activeStageSessionId) return Promise.resolve();
       stageQueue.push.apply(stageQueue, files);
       stageTotal += files.length;
       return Promise.resolve();
     }
     staging = true;
+    activeStageSessionId = sessionId;
     stageTotal = files.length;
     return (async function () {
       try {
-        var input = document.getElementById('inpt_file');
-        if (!input) { prog('업로드', '"파일 올리기" 화면에서 다시 시도해 주세요.', true); progEnd(4000); return; }
         var staged = 0;
         var batch = files.slice();
         while (batch.length) {
           var chunks = [];
           for (var i = 0; i < batch.length; i += BATCH) chunks.push(batch.slice(i, i + BATCH));
           for (var c = 0; c < chunks.length; c++) {
+            if (!isUploadSessionActive(sessionId)) return;
             var chunk = chunks[c];
             stage(input, chunk); // re-set input.files -> Entry stages cumulatively
             staged += chunk.length;
             prog('이미지 추가 중', staged + '/' + stageTotal + '장 준비 중…');
             var lastName = chunk[chunk.length - 1].name;
-            try { await waitFor((function (name) { return function () { return visibleByText(name); }; })(lastName), 3000); } catch (e) {}
+            try {
+              await waitFor(
+                (function (name) { return function () { return visibleByText(name, uploadRoot); }; })(lastName),
+                3000,
+                120,
+                function () { return !isUploadSessionActive(sessionId); }
+              );
+            } catch (e) {
+              if (!isUploadSessionActive(sessionId)) return;
+            }
             await closeAlertIfAny();
             await sleep(350);
+            if (!isUploadSessionActive(sessionId)) return;
           }
           // drain files queued (via stageFiles) while we were staging
           batch = stageQueue.length ? stageQueue.splice(0, stageQueue.length) : [];
@@ -372,22 +599,36 @@
         prog('스테이징 완료', stageTotal + '장 준비됨 — "추가하기"를 누르면 적용돼요.');
         progEnd(5000);
       } catch (e) { prog('오류', e.message, true); progEnd(4000); }
-      finally { staging = false; stageTotal = 0; }
+      finally {
+        if (activeStageSessionId === sessionId) {
+          staging = false;
+          activeStageSessionId = 0;
+          stageQueue.length = 0;
+          stageTotal = 0;
+        }
+      }
     })();
   }
 
   function handlePickedFiles() {
     var raw = [].slice.call(fileInput.files);
+    var sessionId = filePickerSessionId;
     fileInput.value = '';
-    if (!raw.length) return;
+    if (!raw.length || !isUploadSessionActive(sessionId)) return;
     (async function () {
       var files = raw;
       var hasGif = raw.some(function (f) { return /\.gif$/i.test(f.name) || f.type === 'image/gif'; });
       if (hasGif) {
-        try { files = await expandFiles(raw); }
+        try {
+          files = await expandFiles(raw, function () {
+            return !isUploadSessionActive(sessionId);
+          });
+        }
         catch (e) { prog('GIF 분해 오류', e.message, true); progEnd(4000); return; }
       }
-      if (files.length) await stageFiles(files);
+      if (!isUploadSessionActive(sessionId)) return;
+      if (files.length <= BATCH) progClear();
+      if (files.length) await stageFiles(files, sessionId);
     })();
   }
 
@@ -400,7 +641,7 @@
     if (!box) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    if (fileInput) fileInput.click();
+    if (fileInput && activateUploadSession(box)) fileInput.click();
   }
 
   /* ─────────────────────────────────────────────
@@ -489,6 +730,23 @@
     document.head.appendChild(st);
   }
 
+  function startObserver() {
+    if (mo && enabled) {
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  function stopObserver() {
+    if (mo) mo.disconnect();
+  }
+
+  function onMutation() {
+    if (uploadRoot && !hasNativeUploadInput(uploadRoot)) {
+      cancelUploadWork();
+    }
+    schedule();
+  }
+
   function applyHighlight() {
     var o = curObj();
     // Reset selection when the object changes (the first run keeps it: lastObjId === null).
@@ -497,20 +755,23 @@
       lastObjId = o.id;
     }
     if (selSize() === 0 && !document.querySelector('.ed-pt-sel')) return;
-    if (mo) mo.disconnect();
+    stopObserver();
     var rows = allRows();
     for (var i = 0; i < rows.length; i++) {
       var p = o && o.pictures[i];
       if (p && selHas(p.id)) rows[i].classList.add('ed-pt-sel');
       else rows[i].classList.remove('ed-pt-sel');
     }
-    if (mo) mo.observe(document.body, { childList: true, subtree: true });
+    startObserver();
   }
 
   function schedule() {
-    if (dragging || scheduled) return;
+    if (!enabled || dragging || scheduled) return;
     scheduled = true;
-    requestAnimationFrame(function () { scheduled = false; applyHighlight(); });
+    requestAnimationFrame(function () {
+      scheduled = false;
+      if (enabled) applyHighlight();
+    });
   }
 
   function clearSelAndHighlight() { selClear(); anchorIdx = null; applyHighlight(); }
@@ -769,14 +1030,23 @@
     applyHighlight();
   }
 
+  function updatePictureOrderLabels(o) {
+    (o && o.pictures || []).forEach(function (picture, index) {
+      if (picture && picture.view && picture.view.orderHolder) {
+        picture.view.orderHolder.textContent = index + 1;
+      }
+    });
+  }
+
   // Fast reorder: move rendered row DOM into the new order and sync the widget model,
   // instead of a full injectPicture re-render (slow with 1000+ pictures). Falls back if
   // any precondition (rendered view / widget / mapping) is missing.
   function reorderDomFast(o) {
     var pg = getPlayground();
     try {
-      var w = pg && pg.pictureSortableListWidget;
-      if (!w || !w._data || !Array.isArray(w._data.items)) return false;
+      var w = getPictureListWidget();
+      var widgetItems = getPictureListItems(w);
+      if (!w || !widgetItems) return false;
       var el = function (v) { return v ? (v.nodeType ? v : v[0] || null) : null; };
       var wraps = [];
       var i;
@@ -789,22 +1059,25 @@
       }
       var container = wraps[0] && wraps[0].parentElement;
       if (!container) return false;
-      var byView = {};
-      w._data.items.forEach(function (it, k) { var key = el(it.item); if (key) { key.__edPtIdx = k; } });
+      var byView = new Map();
+      widgetItems.forEach(function (it) {
+        var key = el(it.item);
+        if (key) byView.set(key, it);
+      });
       var items = [];
       for (i = 0; i < o.pictures.length; i++) {
         var key2 = el(o.pictures[i].view);
-        var k2 = key2 ? key2.__edPtIdx : undefined;
-        if (k2 == null) return false;
-        items.push(w._data.items[k2]);
+        var item = key2 ? byView.get(key2) : null;
+        if (!item) return false;
+        items.push(item);
       }
-      w._data.items.forEach(function (it) { var key = el(it.item); if (key) { delete key.__edPtIdx; } });
       var sc = getScroller();
       var top = sc ? sc.scrollTop : 0;
       var frag = document.createDocumentFragment();
       wraps.forEach(function (wp) { frag.appendChild(wp); });
       container.appendChild(frag);
-      w._data.items = items;
+      if (!setPictureListItems(w, items, false)) return false;
+      updatePictureOrderLabels(o);
       if (sc) sc.scrollTop = top;
       return true;
     } catch (e) { return false; }
@@ -814,32 +1087,49 @@
   // then drop only the deleted rows via widget.setData. Falls back to one injectPicture.
   function fastBulkRemove(o, ids) {
     var pg = getPlayground();
-    var w = pg && pg.pictureSortableListWidget;
+    var w = getPictureListWidget();
+    var widgetItems = getPictureListItems(w);
     var el = function (v) { return v ? (v.nodeType ? v : v[0] || null) : null; };
-    var canFast = !!(w && w._data && Array.isArray(w._data.items));
+    var canFast = !!(w && widgetItems);
     var delSet = {}, delLis = [];
+    var pictures = [];
     ids.forEach(function (id) { delSet[id] = true; });
-    if (canFast) {
-      o.pictures.forEach(function (p) {
-        if (delSet[p.id]) { var li = el(p.view); if (li) delLis.push(li); }
-      });
-    }
-    var realInject = pg.injectPicture;
+    o.pictures.forEach(function (p) {
+      if (!delSet[p.id]) return;
+      pictures.push(p);
+      if (canFast) {
+        var li = el(p.view);
+        if (li) delLis.push(li);
+      }
+    });
+    if (canFast && delLis.length !== pictures.length) canFast = false;
+    var removed = [];
     try {
-      pg.injectPicture = function () {};
-      ids.forEach(function (id) { try { o.removePicture(id); } catch (e) {} });
-    } finally { pg.injectPicture = realInject; }
+      withSuppressedPictureRender(pg, true, function () {
+        pictures.forEach(function (picture) {
+          try {
+            doEntryCommand('objectRemovePicture', o.id, picture);
+            if (o.pictures.indexOf(picture) === -1) removed.push(picture);
+          } catch (e) {}
+        });
+      });
+    } catch (e) {}
+    if (removed.length !== pictures.length) canFast = false;
     if (canFast) {
       try {
-        var items = w._data.items.filter(function (it) { return delLis.indexOf(el(it.item)) === -1; });
+        var items = widgetItems.filter(function (it) { return delLis.indexOf(el(it.item)) === -1; });
         var sc = getScroller();
         var top = sc ? sc.scrollTop : 0;
-        w.setData(Object.assign({}, w._data, { items: items }));
+        setPictureListItems(w, items, true);
+        updatePictureOrderLabels(o);
         if (sc) sc.scrollTop = top;
-        return;
+        if (pg && typeof pg.reloadPlayground === 'function') pg.reloadPlayground();
+        return removed.length;
       } catch (e) {}
     }
     keepScroll(function () { try { pg.injectPicture(); } catch (e) {} });
+    try { if (pg && typeof pg.reloadPlayground === 'function') pg.reloadPlayground(); } catch (e) {}
+    return removed.length;
   }
 
   // Copy the group to another object (originals kept). Target is offscreen and the current
@@ -849,12 +1139,12 @@
     var o = curObj();
     if (!o || !targetObj || targetObj.id === o.id) return;
     var picks = picksFromSelection(o);
-    var n = 0;
-    var realInject = pg.injectPicture;
     try {
-      pg.injectPicture = function () {};
-      picks.forEach(function (p) { try { targetObj.addPicture(clonePic(p, targetObj.id)); n++; } catch (err) {} });
-    } finally { pg.injectPicture = realInject; }
+      var n = addPicturesWithCommands(targetObj, picks).length;
+    } catch (err) {
+      nativeToast('복사 오류', err.message, true);
+      return;
+    }
     nativeToast('복사 완료', n + '개 모양을 "' + targetObj.name + '"(으)로 복사했어요.');
   }
 
@@ -992,15 +1282,16 @@
     var pg = getPlayground();
     var o = curObj();
     if (!o || !pictureClipboard.length) return;
-    var n = 0;
-    var realInject = pg.injectPicture;
+    var added;
     try {
-      pg.injectPicture = function () {};
-      pictureClipboard.forEach(function (d) { try { o.addPicture(clonePic(d, o.id)); n++; } catch (err) {} });
-    } finally { pg.injectPicture = realInject; }
+      added = addPicturesWithCommands(o, pictureClipboard);
+    } catch (err) {
+      nativeToast('붙여넣기 오류', err.message, true);
+      return;
+    }
     keepScroll(function () { try { pg.injectPicture(); } catch (err) {} });
     applyHighlight();
-    nativeToast('붙여넣기 완료', n + '개 모양을 추가했어요.');
+    nativeToast('붙여넣기 완료', added.length + '개 모양을 추가했어요.');
   }
 
   // Duplicate selected pictures right after the group (originals kept). New pictures have
@@ -1011,13 +1302,13 @@
     if (!o || !picks.length) return;
     var indices = picks.map(function (p) { return o.pictures.indexOf(p); });
     var anchor = o.pictures[Math.max.apply(null, indices)];
-    var before = o.pictures.length;
-    var realInject = pg.injectPicture;
+    var added;
     try {
-      pg.injectPicture = function () {};
-      picks.forEach(function (p) { try { o.addPicture(clonePic(p, o.id)); } catch (e) {} });
-    } finally { pg.injectPicture = realInject; }
-    var added = o.pictures.slice(before);
+      added = addPicturesWithCommands(o, picks);
+    } catch (err) {
+      nativeToast('복제 오류', err.message, true);
+      return;
+    }
     if (added.length) {
       var rest = o.pictures.filter(function (p) { return added.indexOf(p) === -1; });
       var at = rest.indexOf(anchor) + 1;
@@ -1039,29 +1330,64 @@
     var cnt = ids.length;
     if (o.pictures.length - cnt < 1) { nativeToast('삭제 불가', '모든 모양은 삭제할 수 없어요. 최소 1개는 남겨주세요.', true); return; }
     (async function () {
-      var ok = await nativeConfirm('모양 삭제', '선택한 모양 ' + cnt + '개를 한꺼번에 삭제할까요?\n되돌릴 수 없습니다.');
+      var ok = await nativeConfirm('모양 삭제', '선택한 모양 ' + cnt + '개를 한꺼번에 삭제할까요?');
       if (!ok) return;
-      fastBulkRemove(o, ids);
+      var removed = fastBulkRemove(o, ids);
       clearSelAndHighlight();
-      nativeToast('삭제 완료', cnt + '개 삭제 (남은 ' + o.pictures.length + '개).');
+      nativeToast('삭제 완료', removed + '개 삭제 (남은 ' + o.pictures.length + '개).');
     })();
   }
 
   function bulkRename(picks) {
     if (!picks.length) return;
     var o = curObj();
+    var pg = getPlayground();
+    var entry = safeGetEntry();
     var dflt = (picks[0].name || '').replace(/_\d+$/, '');
     var base = window.prompt('선택한 ' + picks.length + '개 모양의 새 이름 (뒤에 _번호 자동):', dflt);
     if (base == null) return;
+    base = base.trim();
+    if (!base) {
+      nativeToast('이름변경 불가', '모양 이름을 입력해 주세요.', true);
+      return;
+    }
     var width = Math.max(2, String(picks.length).length);
+    var names = picks.map(function (_, i) {
+      return base + '_' + String(i + 1).padStart(width, '0');
+    });
+    var reserved = Object.create(null);
+    o.pictures.forEach(function (picture) {
+      if (picks.indexOf(picture) === -1) reserved[picture.name] = true;
+    });
+    for (var n = 0; n < names.length; n++) {
+      if (reserved[names[n]]) {
+        nativeToast('이름변경 불가', '"' + names[n] + '" 이름이 이미 사용 중입니다.', true);
+        return;
+      }
+      reserved[names[n]] = true;
+    }
     var rows = allRows();
     picks.forEach(function (p, i) {
-      var name = base + '_' + String(i + 1).padStart(width, '0');
+      var name = names[i];
       p.name = name;
       var row = rows[o.pictures.indexOf(p)];
       var inp = row && row.querySelector('input.entryPlaygroundPictureName');
       if (inp) inp.value = name;
     });
+    var painter = pg && pg.painter;
+    var selected = o.selectedPicture;
+    if (painter && painter.file && selected && picks.indexOf(selected) !== -1) {
+      painter.file.name = selected.name;
+    }
+    if (pg) {
+      pg.nameViewFocus = false;
+      if (typeof pg.reloadPlayground === 'function') pg.reloadPlayground();
+    }
+    if (entry && typeof entry.dispatchEvent === 'function') {
+      picks.forEach(function (picture) {
+        entry.dispatchEvent('pictureNameChanged', picture);
+      });
+    }
     nativeToast('이름변경 완료', picks.length + '개 → "' + base + '_' + '1'.padStart(width, '0') + '…"');
   }
 
@@ -1076,13 +1402,17 @@
     (async function () {
       prog('내보내기', '0/' + picks.length + ' 받는 중…');
       try {
-        var files = [], used = Object.create(null);
+        var files = [], used = Object.create(null), totalBytes = 0;
         for (var i = 0; i < picks.length; i++) {
           var p = picks[i];
           var url = new URL(p.fileurl, location.href).href;
           var res = await fetch(url);
           if (!res.ok) throw new Error('HTTP ' + res.status);
           var data = new Uint8Array(await res.arrayBuffer());
+          totalBytes += data.length;
+          if (totalBytes > MAX_EXPORT_BYTES) {
+            throw new Error('내보낼 이미지의 전체 크기가 너무 큽니다.');
+          }
           var ext = String(p.imageType || (url.split('?')[0].split('.').pop()) || 'png').toLowerCase();
           if (!/^[a-z0-9]{1,5}$/.test(ext)) ext = 'png';
           var bn = safeName(p.name), key = bn + '.' + ext, k = used[key] || 0;
@@ -1118,10 +1448,11 @@
     document.addEventListener('mousedown', onDown, true);
     document.addEventListener('click', onClick, true);
     document.addEventListener('click', onFileBtnClick, true);
+    document.addEventListener('click', onUploadModalAction, true);
     document.addEventListener('contextmenu', onCtxMenu, true);
 
-    mo = new MutationObserver(schedule);
-    mo.observe(document.body, { childList: true, subtree: true });
+    mo = new MutationObserver(onMutation);
+    startObserver();
   }
 
   function applyEntry() {
@@ -1154,9 +1485,12 @@
     enabled = !!(msg.payload && msg.payload.enabled);
     if (enabled) {
       applyEntry();
+      startObserver();
       scheduleRetry();
     } else {
       if (ctxEl) closeCtx();
+      stopObserver();
+      cancelUploadWork();
       clearSelAndHighlight();
     }
     post('PICTURE_TOOLS_RESULT', { success: true, enabled: enabled }, msg.requestId);

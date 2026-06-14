@@ -2681,6 +2681,8 @@
     sendToInject('SET_FUNCTION_PRIVATE_VARIABLES_ENABLED', { enabled: false });
     sendToInject('SET_DROPDOWN_SEARCH_ENABLED', { enabled: false });
     sendToInject('SET_BLOCK_TEXT_COPY_ENABLED', { enabled: false });
+    sendToInject('SET_SINGLE_BLOCK_DRAG_ENABLED', { enabled: false });
+    sendToInject('SET_PICTURE_TOOLS_ENABLED', { enabled: false });
     sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', { enabled: false });
   }
 
