@@ -2452,6 +2452,13 @@
         );
         break;
 
+      case 'PICTURE_TOOLS_READY':
+        if (!settingsLoaded) return;
+        sendToInject('SET_PICTURE_TOOLS_ENABLED', {
+          enabled: isPictureToolsFeatureEnabled()
+        });
+        break;
+
       case 'BLOCK_TEXT_COPY_TOAST':
         if (msg.payload && msg.payload.message) {
           showToast(msg.payload.message, msg.payload.type || 'info');

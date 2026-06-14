@@ -334,32 +334,45 @@
   }
 
   var staging = false;
+  var stageQueue = [];
+  var stageTotal = 0; // running grand total (grows when more files are queued mid-staging)
   function stageFiles(files) {
+    // Already staging: queue the new files instead of dropping them; the running loop
+    // drains the queue when the current batch finishes (so re-uploading mid-upload works).
+    // stageTotal also grows so the "현재/총량" progress stays accurate.
+    if (staging) {
+      stageQueue.push.apply(stageQueue, files);
+      stageTotal += files.length;
+      return Promise.resolve();
+    }
+    staging = true;
+    stageTotal = files.length;
     return (async function () {
-      if (staging) return;
-      staging = true;
       try {
         var input = document.getElementById('inpt_file');
         if (!input) { prog('업로드', '"파일 올리기" 화면에서 다시 시도해 주세요.', true); progEnd(4000); return; }
-        var total = files.length;
-        prog('이미지 추가 중', '0/' + total + '장 준비 중…');
-        var chunks = [];
-        for (var i = 0; i < total; i += BATCH) chunks.push(files.slice(i, i + BATCH));
-        var done = 0;
-        for (var c = 0; c < chunks.length; c++) {
-          var chunk = chunks[c];
-          stage(input, chunk); // re-set input.files -> Entry stages cumulatively
-          done += chunk.length;
-          prog('이미지 추가 중', done + '/' + total + '장 준비 중…');
-          var lastName = chunk[chunk.length - 1].name;
-          try { await waitFor((function (name) { return function () { return visibleByText(name); }; })(lastName), 3000); } catch (e) {}
-          await closeAlertIfAny();
-          await sleep(350);
+        var staged = 0;
+        var batch = files.slice();
+        while (batch.length) {
+          var chunks = [];
+          for (var i = 0; i < batch.length; i += BATCH) chunks.push(batch.slice(i, i + BATCH));
+          for (var c = 0; c < chunks.length; c++) {
+            var chunk = chunks[c];
+            stage(input, chunk); // re-set input.files -> Entry stages cumulatively
+            staged += chunk.length;
+            prog('이미지 추가 중', staged + '/' + stageTotal + '장 준비 중…');
+            var lastName = chunk[chunk.length - 1].name;
+            try { await waitFor((function (name) { return function () { return visibleByText(name); }; })(lastName), 3000); } catch (e) {}
+            await closeAlertIfAny();
+            await sleep(350);
+          }
+          // drain files queued (via stageFiles) while we were staging
+          batch = stageQueue.length ? stageQueue.splice(0, stageQueue.length) : [];
         }
-        prog('스테이징 완료', total + '장 준비됨 — "추가하기"를 누르면 적용돼요.');
+        prog('스테이징 완료', stageTotal + '장 준비됨 — "추가하기"를 누르면 적용돼요.');
         progEnd(5000);
       } catch (e) { prog('오류', e.message, true); progEnd(4000); }
-      finally { staging = false; }
+      finally { staging = false; stageTotal = 0; }
     })();
   }
 
@@ -548,8 +561,15 @@
       if (selSize() >= 2 && selHas(pic.id)) {
         e.preventDefault(); e.stopPropagation();
         deleteSelected(picksFromSelection(o));
+      } else if (o.pictures.length > 1) {
+        // Single delete: route through the fast path too. Entry's native removePicture
+        // re-renders the whole list (scroll jumps to top + slow on large lists).
+        e.preventDefault(); e.stopPropagation();
+        fastBulkRemove(o, [pic.id]);
+        selDelete(pic.id);
+        applyHighlight();
       }
-      return; // single (unselected) X stays Entry default delete
+      return; // last remaining picture: leave to Entry's default behavior
     }
     var row2 = e.target.closest && e.target.closest(ROW);
     if (row2 && (e.shiftKey || e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); }
