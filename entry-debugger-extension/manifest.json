@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "엔트리 디버깅 툴",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "엔트리(Entry) 코딩 플랫폼의 변수와 리스트를 실시간으로 모니터링하고 수정할 수 있는 디버깅 도구",
   "permissions": ["storage"],
   "action": {

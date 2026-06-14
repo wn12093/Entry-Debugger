@@ -20,7 +20,7 @@
     dropdownSearchBlockMenuEnabled: true,
     dropdownSearchPropertyPanelEnabled: true,
     blockTextCopyEnabled: true,
-    pictureToolsEnabled: true,
+    pictureToolsEnabled: false,
     singleBlockDragEnabled: false,
     highQualityBlockImageEnabled: false,
     highQualityBlockImageScale: 1000,
