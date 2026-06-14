@@ -522,13 +522,23 @@
     var row = e.target.closest && e.target.closest(ROW);
     if (!row) return;
     if (e.target.closest('.entryPlayground_del')) return; // delete handled on click
-    if (e.target.closest('input') && !(e.shiftKey || e.ctrlKey || e.metaKey)) return; // allow rename unless modifier
+    if (e.target.closest('input') && !(e.shiftKey || e.ctrlKey || e.metaKey)) {
+      // 모양 이름 입력 필드를 클릭하면 기존 다중 선택을 모두 해제하고 Entry 기본 이름편집으로 넘긴다.
+      if (selSize() > 0) clearSelAndHighlight();
+      return;
+    }
     if (inScrollbarZone(e.clientX)) { e.preventDefault(); e.stopPropagation(); startScrollbarDrag(e); return; }
     var o = curObj();
     if (!o) return;
     var idx = allRows().indexOf(row);
     var pic = o.pictures[idx];
     if (!pic) return;
+    // 이름 편집 중 다른 모양을 선택하면 편집 중이던 입력을 확정(blur)해 입력을 끝낸다.
+    var activeInput = document.activeElement;
+    if (activeInput && activeInput !== e.target &&
+        activeInput.tagName === 'INPUT' && activeInput.closest && activeInput.closest(ROW)) {
+      activeInput.blur();
+    }
     if (e.shiftKey && anchorIdx != null && anchorIdx < o.pictures.length) {
       e.preventDefault(); e.stopPropagation();
       var a = Math.min(anchorIdx, idx), b = Math.max(anchorIdx, idx);
