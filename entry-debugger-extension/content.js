@@ -66,6 +66,7 @@
   let blockTextCopyScriptInjected = false;
   let singleBlockDragScriptInjected = false;
   let highQualityBlockImageScriptInjected = false;
+  let pictureToolsScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
   let boostModeControlEl = null;
@@ -129,6 +130,12 @@
     injectPageCoreScripts();
     highQualityBlockImageScriptInjected = true;
     injectPageScript('entry-debugger-high-quality-block-image', 'high-quality-block-image.js');
+  }
+
+  function injectPictureToolsScript() {
+    injectPageCoreScripts();
+    pictureToolsScriptInjected = true;
+    injectPageScript('entry-debugger-picture-tools', 'picture-tools.js');
   }
 
   function injectPageCoreScripts() {
@@ -533,6 +540,16 @@
             '</div>' +
             '<div class="ed-lab-setting">' +
               '<span class="ed-lab-text">' +
+                '<span class="ed-lab-title">모양 탭 편의 기능</span>' +
+                '<span class="ed-lab-desc">이미지·GIF 다량 업로드, 모양 묶음 일괄 작업, 모양 탭 최적화</span>' +
+              '</span>' +
+              '<label class="ed-lab-switch" aria-label="모양 탭 편의 기능">' +
+                '<input type="checkbox" id="ed-toggle-picture-tools">' +
+                '<span class="ed-lab-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="ed-lab-setting">' +
+              '<span class="ed-lab-text">' +
                 '<span class="ed-lab-title">실험실 탭</span>' +
                 '<span class="ed-lab-desc">실험 기능과 기본 변수 디버깅 표시</span>' +
               '</span>' +
@@ -761,6 +778,9 @@
     bindSettingsToggle('#ed-toggle-single-block-drag', function (checked) {
       saveSettingsFromPanel({ singleBlockDragEnabled: checked });
     });
+    bindSettingsToggle('#ed-toggle-picture-tools', function (checked) {
+      saveSettingsFromPanel({ pictureToolsEnabled: checked });
+    });
     bindSettingsToggle('#ed-toggle-high-quality-block-image', function (checked) {
       saveSettingsFromPanel({ highQualityBlockImageEnabled: checked });
     });
@@ -827,6 +847,7 @@
     setSettingToggleChecked('#ed-toggle-dropdown-search', extensionSettings.dropdownSearchEnabled);
     setSettingToggleChecked('#ed-toggle-block-text-copy', extensionSettings.blockTextCopyEnabled);
     setSettingToggleChecked('#ed-toggle-single-block-drag', extensionSettings.singleBlockDragEnabled);
+    setSettingToggleChecked('#ed-toggle-picture-tools', extensionSettings.pictureToolsEnabled);
     setSettingToggleChecked('#ed-toggle-high-quality-block-image', extensionSettings.highQualityBlockImageEnabled);
     setSettingToggleChecked('#ed-toggle-setting-lab-tab', extensionSettings.labTabEnabled);
     renderDropdownSearchTargetControls();
@@ -1001,6 +1022,13 @@
     return !!(
       extensionSettings.enabled &&
       extensionSettings.singleBlockDragEnabled
+    );
+  }
+
+  function isPictureToolsFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.pictureToolsEnabled
     );
   }
 
@@ -2270,6 +2298,21 @@
     }, 150);
   }
 
+  function applyPictureToolsFeature() {
+    var shouldEnable = isPictureToolsFeatureEnabled();
+    if (shouldEnable) {
+      injectPictureToolsScript();
+    } else if (!pictureToolsScriptInjected) {
+      return;
+    }
+
+    setTimeout(function () {
+      sendToInject('SET_PICTURE_TOOLS_ENABLED', {
+        enabled: shouldEnable
+      });
+    }, 150);
+  }
+
   function applyHighQualityBlockImageFeature() {
     var shouldEnable = isHighQualityBlockImageFeatureEnabled();
     if (shouldEnable) {
@@ -2294,6 +2337,7 @@
     if (!isEntryWorkspacePage() || !extensionSettings.enabled) {
       if (isEntryWorkspacePage()) {
         applySingleBlockDragFeature();
+        applyPictureToolsFeature();
       }
       cleanup();
       return;
@@ -2310,6 +2354,7 @@
     applyBlockTextCopyFeature();
     applySingleBlockDragFeature();
     applyHighQualityBlockImageFeature();
+    applyPictureToolsFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();
@@ -2503,6 +2548,7 @@
           dropdownSearchPropertyPanelEnabled: extensionSettings.dropdownSearchPropertyPanelEnabled,
           blockTextCopyEnabled: false,
           singleBlockDragEnabled: false,
+          pictureToolsEnabled: false,
           highQualityBlockImageEnabled: false,
           highQualityBlockImageScale: extensionSettings.highQualityBlockImageScale,
           functionLibraryEnabled: false
@@ -2717,6 +2763,7 @@
     applyDropdownSearchFeature();
     applyBlockTextCopyFeature();
     applyHighQualityBlockImageFeature();
+    applyPictureToolsFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();
