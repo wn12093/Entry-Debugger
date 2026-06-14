@@ -185,12 +185,12 @@
       progEl = document.createElement('div');
       progEl.id = 'ed-picture-tools-prog';
       progEl.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:2147483647;' +
-        'padding:10px 20px;border-radius:999px;font:bold 13px NanumGothic,"맑은 고딕",sans-serif;color:#fff;' +
+        'padding:10px 20px;border-radius:999px;font:bold 13px "Nanum Gothic","NanumGothic","Malgun Gothic",sans-serif;color:#fff;' +
         'box-shadow:0 4px 18px rgba(0,0,0,.32);white-space:nowrap;pointer-events:none;transition:opacity .3s;';
       document.body.appendChild(progEl);
     }
     clearTimeout(progTimer);
-    progEl.style.background = err ? '#e74c3c' : '#1b73e8';
+    progEl.style.background = err ? '#e74c3c' : '#4f80ff';
     progEl.textContent = title ? (title + ' · ' + msg) : msg;
     progEl.style.opacity = '1';
   }
@@ -484,8 +484,8 @@
     var st = document.createElement('style');
     st.id = 'ed-picture-tools-style';
     st.textContent =
-      '.ed-pt-sel{outline:2.5px solid #2b7cff !important;outline-offset:-3px;background:rgba(43,124,255,.10) !important;}' +
-      '.ed-pt-objdrop{outline:3px solid #19c37d !important;outline-offset:-2px;background:rgba(25,195,125,.12) !important;border-radius:8px;}';
+      '.ed-pt-sel{outline:2.5px solid #4f80ff !important;outline-offset:-3px;background:rgba(79,128,255,.10) !important;}' +
+      '.ed-pt-objdrop{outline:3px solid #19c37d !important;outline-offset:-2px;background:rgba(25,195,125,.12) !important;border-radius:5px;}';
     document.head.appendChild(st);
   }
 
@@ -641,7 +641,7 @@
       if (!line) {
         line = document.createElement('div');
         line.id = 'ed-picture-tools-insline';
-        line.style.cssText = 'position:fixed;height:3px;background:#2b7cff;border-radius:2px;z-index:2147483500;pointer-events:none;box-shadow:0 0 4px #2b7cff;display:none;';
+        line.style.cssText = 'position:fixed;height:3px;background:#4f80ff;border-radius:2px;z-index:2147483500;pointer-events:none;box-shadow:0 0 4px #4f80ff;display:none;';
         document.body.appendChild(line);
       }
       return line;
@@ -667,7 +667,7 @@
       picks.slice(0, 4).forEach(function (p, i) {
         var im = document.createElement('div');
         var url = p.thumbUrl || p.fileurl;
-        im.style.cssText = 'position:absolute;width:46px;height:46px;border-radius:8px;border:2px solid #2b7cff;' +
+        im.style.cssText = 'position:absolute;width:46px;height:46px;border-radius:5px;border:2px solid #4f80ff;' +
           'background:#fff center/cover no-repeat;box-shadow:0 2px 8px rgba(0,0,0,.35);left:' + (i * 11) + 'px;top:' + (i * 11) + 'px;';
         if (url) im.style.backgroundImage = 'url("' + url + '")';
         g.appendChild(im);
@@ -676,7 +676,7 @@
         var badge = document.createElement('div');
         badge.textContent = picks.length;
         badge.style.cssText = 'position:absolute;left:' + (Math.min(picks.length, 4) * 11 + 30) + 'px;top:-6px;min-width:20px;height:20px;' +
-          'padding:0 5px;border-radius:11px;background:#2b7cff;color:#fff;font:bold 12px sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);';
+          'padding:0 5px;border-radius:11px;background:#4f80ff;color:#fff;font:bold 12px "Nanum Gothic","NanumGothic","Malgun Gothic",sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);';
         g.appendChild(badge);
       }
       return g;
@@ -940,9 +940,9 @@
     var ms = menuStyle || {};
     var m = document.createElement('div');
     ctxEl = m;
-    m.style.cssText = 'position:fixed;z-index:2147483600;min-width:150px;background:#fff;border:1px solid #d4d8e4;' +
-      'border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:5px 0;' +
-      'font-family:' + (ms.fontFamily || 'NanumGothic,"맑은 고딕",sans-serif') + ';font-size:' + (ms.fontSize || '14px') + ';font-weight:' + (ms.fontWeight || 'normal') + ';';
+    m.style.cssText = 'position:fixed;z-index:2147483600;min-width:150px;background:#fff;border:1px solid #d7dce2;' +
+      'border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:5px 0;' +
+      'font-family:' + (ms.fontFamily || '"Nanum Gothic","NanumGothic","Malgun Gothic",sans-serif') + ';font-size:' + (ms.fontSize || '14px') + ';font-weight:' + (ms.fontWeight || 'normal') + ';';
     var it = document.createElement('div');
     it.textContent = clip ? '붙여넣기 (' + clip + '개)' : '붙여넣기';
     it.style.cssText = 'padding:9px 18px;cursor:' + (clip ? 'pointer' : 'default') + ';color:' + (clip ? (ms.color || '#222') : '#b3b3b3') + ';';
