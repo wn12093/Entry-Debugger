@@ -20,6 +20,7 @@
   var RETRY_TIMEOUT = 30000;
   var PATCH_ID = 'picture-tools';
   var BATCH = 10;
+  var REORDER_CMD = 100000; // custom stateManager message for our undoable picture reorder
   var MAX_GIF_FRAMES = 2000;
   var MAX_GIF_FRAME_PIXELS = 16777216;
   var MAX_EXPORT_BYTES = 512 * 1024 * 1024;
@@ -45,6 +46,11 @@
     if (Adapter && typeof Adapter.getPlayground === 'function') return Adapter.getPlayground();
     var entry = safeGetEntry();
     return entry && entry.playground ? entry.playground : null;
+  }
+
+  function getStateManager() {
+    var entry = safeGetEntry();
+    return entry && entry.stateManager ? entry.stateManager : null;
   }
 
   function getAllObjects() {
@@ -209,6 +215,15 @@
     return entry.do.apply(entry, arguments);
   }
 
+  // Merge several Entry.do command results into ONE undo/redo step. Entry's undo/redo keeps
+  // processing while the popped command's isPass === true, so mark every result but the first.
+  function groupUndoCommands(results) {
+    for (var i = 1; i < results.length; i++) {
+      var r = results[i];
+      try { if (r && typeof r.isPass === 'function') r.isPass(true); } catch (e) {}
+    }
+  }
+
   function getOrderedPictureName(name, pictures) {
     if (Adapter && typeof Adapter.getOrderedName === 'function') {
       return Adapter.getOrderedName(name, pictures);
@@ -222,15 +237,17 @@
   function addPicturesWithCommands(targetObj, pictures) {
     var pg = getPlayground();
     var added = [];
+    var results = [];
     if (!targetObj || !pg) return added;
     withSuppressedPictureRender(pg, false, function () {
       pictures.forEach(function (source) {
         var picture = clonePic(source, targetObj.id);
         picture.name = getOrderedPictureName(picture.name, targetObj.pictures);
-        doEntryCommand('objectAddPicture', targetObj.id, picture, false);
+        results.push(doEntryCommand('objectAddPicture', targetObj.id, picture, false));
         added.push(picture);
       });
     });
+    groupUndoCommands(results); // one Ctrl+Z undoes the whole batch
     return added;
   }
 
@@ -1018,16 +1035,54 @@
 
   // Move the group as a block into rest[insertAt] (relative order kept).
   function moveGroupToRest(insertAt) {
-    var pg = getPlayground();
     var o = curObj();
-    var pics = o.pictures;
-    var rest = pics.filter(function (p) { return !selHas(p.id); });
-    var block = pics.filter(function (p) { return selHas(p.id); });
+    if (!o) return;
+    var beforeIds = o.pictures.map(function (p) { return p.id; });
+    var rest = o.pictures.filter(function (p) { return !selHas(p.id); });
+    var block = o.pictures.filter(function (p) { return selHas(p.id); });
     var result = rest.slice(0, insertAt).concat(block, rest.slice(insertAt));
-    o.pictures.length = 0;
-    result.forEach(function (p) { o.pictures.push(p); });
-    if (!reorderDomFast(o)) keepScroll(function () { try { if (pg) pg.injectPicture(); } catch (err) {} });
+    var afterIds = result.map(function (p) { return p.id; });
+    if (beforeIds.join() === afterIds.join()) { applyHighlight(); return; } // dropped in place: no-op
+    applyPictureOrder(o, afterIds);
+    registerReorderUndo(o, beforeIds, afterIds);
     applyHighlight();
+  }
+
+  // Reorder o.pictures to match orderIds, then re-render — but only when it is the visible
+  // object (otherwise just fix the data; it renders correctly when the object is shown).
+  function applyPictureOrder(o, orderIds) {
+    if (!o || !o.pictures) return false;
+    var byId = {};
+    o.pictures.forEach(function (p) { byId[p.id] = p; });
+    var arr = [];
+    for (var i = 0; i < orderIds.length; i++) { var p = byId[orderIds[i]]; if (p) arr.push(p); }
+    if (arr.length !== o.pictures.length) return false; // ids no longer match (e.g. a picture was deleted)
+    o.pictures.length = 0;
+    for (var j = 0; j < arr.length; j++) o.pictures.push(arr[j]);
+    if (o === getCurrentObject()) {
+      var pg = getPlayground();
+      if (!reorderDomFast(o)) keepScroll(function () { try { if (pg) pg.injectPicture(); } catch (err) {} });
+    }
+    return true;
+  }
+
+  // Make a group reorder undoable via Entry's own undo/redo stack. Entry has no native
+  // picture-reorder command, so we push a custom command through stateManager.addCommand:
+  // the stored func applies an order and re-registers its inverse, returning the
+  // { value, isPass } shape StateManager.redo() expects (it calls ret.isPass(...)).
+  // Returns the registered command (so callers can fold it into a larger undo group), or null.
+  function registerReorderUndo(o, beforeIds, afterIds) {
+    var sm = getStateManager();
+    if (!sm || typeof sm.addCommand !== 'function') return null;
+    function makeFunc(applyIds, inverseIds) {
+      return function () {
+        applyPictureOrder(o, applyIds);
+        var st = sm.addCommand(REORDER_CMD, null, makeFunc(inverseIds, applyIds));
+        return { value: undefined, isPass: function (pass) { if (st) st.isPass = pass; } };
+      };
+    }
+    // First undo restores beforeIds; redo restores afterIds (the order the drag just applied).
+    try { return sm.addCommand(REORDER_CMD, null, makeFunc(beforeIds, afterIds)); } catch (e) { return null; }
   }
 
   function updatePictureOrderLabels(o) {
@@ -1104,16 +1159,25 @@
     });
     if (canFast && delLis.length !== pictures.length) canFast = false;
     var removed = [];
+    var results = [];
+    // Bottom of the undo group: Entry's addPicture (the inverse of remove) appends, so undoing a
+    // delete would drop the pictures at the end. Register a restore-order command first (popped
+    // last on undo) that puts them back in their original positions.
+    var beforeIds = o.pictures.map(function (p) { return p.id; });
+    var afterIds = beforeIds.filter(function (id) { return ids.indexOf(id) === -1; });
+    var orderState = registerReorderUndo(o, beforeIds, afterIds);
+    if (orderState) results.push(orderState);
     try {
       withSuppressedPictureRender(pg, true, function () {
         pictures.forEach(function (picture) {
           try {
-            doEntryCommand('objectRemovePicture', o.id, picture);
+            results.push(doEntryCommand('objectRemovePicture', o.id, picture));
             if (o.pictures.indexOf(picture) === -1) removed.push(picture);
           } catch (e) {}
         });
       });
     } catch (e) {}
+    groupUndoCommands(results); // one Ctrl+Z restores the whole batch
     if (removed.length !== pictures.length) canFast = false;
     if (canFast) {
       try {
@@ -1338,57 +1402,123 @@
     })();
   }
 
+  // Entry-styled text prompt (replaces the browser's window.prompt). Mirrors Entry's confirm
+  // modal: blue header bar with white title + X, white body, 취소(white)/확인(blue) footer.
+  // Resolves the entered value, or null on cancel.
+  function styledPrompt(title, desc, defValue) {
+    return new Promise(function (resolve) {
+      var BLUE = 'rgb(79,128,255)';
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483600;display:flex;align-items:center;justify-content:center;';
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#fff;border-radius:16px;overflow:hidden;width:400px;max-width:92vw;box-sizing:border-box;' +
+        'box-shadow:0 12px 38px rgba(0,0,0,.34);font-family:NanumGothic,"맑은 고딕",sans-serif;color:#2c313d;';
+      var head = document.createElement('div');
+      head.style.cssText = 'background:' + BLUE + ';display:flex;align-items:center;justify-content:space-between;padding:16px 22px;';
+      var ht = document.createElement('div');
+      ht.textContent = title;
+      ht.style.cssText = 'color:#fff;font-size:18px;font-weight:700;';
+      var x = document.createElement('div');
+      x.textContent = '✕';
+      x.style.cssText = 'color:#fff;font-size:20px;font-weight:700;cursor:pointer;line-height:1;padding:2px 4px;';
+      head.appendChild(ht); head.appendChild(x);
+      card.appendChild(head);
+      var body = document.createElement('div');
+      body.style.cssText = 'padding:22px;';
+      if (desc) {
+        var d = document.createElement('div');
+        d.textContent = desc;
+        d.style.cssText = 'font-size:13px;font-weight:700;color:#73777f;margin-bottom:12px;';
+        body.appendChild(d);
+      }
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = defValue == null ? '' : defValue;
+      inp.style.cssText = 'width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #c2c8d4;border-radius:6px;font-size:14px;font-family:inherit;color:#2c313d;outline:none;';
+      inp.addEventListener('focus', function () { inp.style.borderColor = BLUE; });
+      inp.addEventListener('blur', function () { inp.style.borderColor = '#c2c8d4'; });
+      body.appendChild(inp);
+      card.appendChild(body);
+      var foot = document.createElement('div');
+      foot.style.cssText = 'display:flex;gap:10px;padding:0 22px 22px;';
+      var btn = 'flex:1;height:46px;border-radius:6px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid ' + BLUE + ';';
+      var cancel = document.createElement('button');
+      cancel.textContent = '취소';
+      cancel.style.cssText = btn + 'background:#fff;color:' + BLUE + ';';
+      var ok = document.createElement('button');
+      ok.textContent = '확인';
+      ok.style.cssText = btn + 'background:' + BLUE + ';color:#fff;';
+      foot.appendChild(cancel); foot.appendChild(ok);
+      card.appendChild(foot);
+      ov.appendChild(card);
+      document.body.appendChild(ov);
+      var done = false;
+      function close(val) { if (done) return; done = true; ov.remove(); resolve(val); }
+      inp.addEventListener('keydown', function (e) {
+        e.stopPropagation(); // keep Entry's global shortcuts from firing while typing
+        if (e.key === 'Enter') { e.preventDefault(); close(inp.value); }
+        else if (e.key === 'Escape') { e.preventDefault(); close(null); }
+      });
+      ok.addEventListener('click', function () { close(inp.value); });
+      cancel.addEventListener('click', function () { close(null); });
+      x.addEventListener('click', function () { close(null); });
+      ov.addEventListener('mousedown', function (e) { if (e.target === ov) close(null); });
+      setTimeout(function () { inp.focus(); inp.select(); }, 0);
+    });
+  }
+
   function bulkRename(picks) {
     if (!picks.length) return;
     var o = curObj();
     var pg = getPlayground();
     var entry = safeGetEntry();
     var dflt = (picks[0].name || '').replace(/_\d+$/, '');
-    var base = window.prompt('선택한 ' + picks.length + '개 모양의 새 이름 (뒤에 _번호 자동):', dflt);
-    if (base == null) return;
-    base = base.trim();
-    if (!base) {
-      nativeToast('이름변경 불가', '모양 이름을 입력해 주세요.', true);
-      return;
-    }
-    var width = Math.max(2, String(picks.length).length);
-    var names = picks.map(function (_, i) {
-      return base + '_' + String(i + 1).padStart(width, '0');
-    });
-    var reserved = Object.create(null);
-    o.pictures.forEach(function (picture) {
-      if (picks.indexOf(picture) === -1) reserved[picture.name] = true;
-    });
-    for (var n = 0; n < names.length; n++) {
-      if (reserved[names[n]]) {
-        nativeToast('이름변경 불가', '"' + names[n] + '" 이름이 이미 사용 중입니다.', true);
+    styledPrompt('선택한 ' + picks.length + '개 모양의 새 이름', '뒤에 _번호가 자동으로 붙어요', dflt).then(function (input) {
+      if (input == null) return;
+      var base = input.trim();
+      if (!base) {
+        nativeToast('이름변경 불가', '모양 이름을 입력해 주세요.', true);
         return;
       }
-      reserved[names[n]] = true;
-    }
-    var rows = allRows();
-    picks.forEach(function (p, i) {
-      var name = names[i];
-      p.name = name;
-      var row = rows[o.pictures.indexOf(p)];
-      var inp = row && row.querySelector('input.entryPlaygroundPictureName');
-      if (inp) inp.value = name;
-    });
-    var painter = pg && pg.painter;
-    var selected = o.selectedPicture;
-    if (painter && painter.file && selected && picks.indexOf(selected) !== -1) {
-      painter.file.name = selected.name;
-    }
-    if (pg) {
-      pg.nameViewFocus = false;
-      if (typeof pg.reloadPlayground === 'function') pg.reloadPlayground();
-    }
-    if (entry && typeof entry.dispatchEvent === 'function') {
-      picks.forEach(function (picture) {
-        entry.dispatchEvent('pictureNameChanged', picture);
+      var width = Math.max(2, String(picks.length).length);
+      var names = picks.map(function (_, i) {
+        return base + '_' + String(i + 1).padStart(width, '0');
       });
-    }
-    nativeToast('이름변경 완료', picks.length + '개 → "' + base + '_' + '1'.padStart(width, '0') + '…"');
+      var reserved = Object.create(null);
+      o.pictures.forEach(function (picture) {
+        if (picks.indexOf(picture) === -1) reserved[picture.name] = true;
+      });
+      for (var n = 0; n < names.length; n++) {
+        if (reserved[names[n]]) {
+          nativeToast('이름변경 불가', '"' + names[n] + '" 이름이 이미 사용 중입니다.', true);
+          return;
+        }
+        reserved[names[n]] = true;
+      }
+      var rows = allRows();
+      picks.forEach(function (p, i) {
+        var name = names[i];
+        p.name = name;
+        var row = rows[o.pictures.indexOf(p)];
+        var inp = row && row.querySelector('input.entryPlaygroundPictureName');
+        if (inp) inp.value = name;
+      });
+      var painter = pg && pg.painter;
+      var selected = o.selectedPicture;
+      if (painter && painter.file && selected && picks.indexOf(selected) !== -1) {
+        painter.file.name = selected.name;
+      }
+      if (pg) {
+        pg.nameViewFocus = false;
+        if (typeof pg.reloadPlayground === 'function') pg.reloadPlayground();
+      }
+      if (entry && typeof entry.dispatchEvent === 'function') {
+        picks.forEach(function (picture) {
+          entry.dispatchEvent('pictureNameChanged', picture);
+        });
+      }
+      nativeToast('이름변경 완료', picks.length + '개 → "' + base + '_' + '1'.padStart(width, '0') + '…"');
+    });
   }
 
   // Export: many -> fetch each and pack into a ZIP; single -> Entry native downloadPicture.
@@ -1455,12 +1585,48 @@
     startObserver();
   }
 
+  // Entry re-renders the whole picture list on every command (objectAddPicture /
+  // objectRemovePicture each call injectPicture), so a grouped delete/duplicate undo does one
+  // full re-render per picture — slow on large lists. Suppress injectPicture during the entire
+  // undo/redo and render once at the end (only if a command asked for it), keeping the scroll.
+  function patchUndoRedoScroll() {
+    var sm = getStateManager();
+    if (!sm) return false;
+    function wrap(orig) {
+      return function () {
+        if (!enabled) return orig.apply(this, arguments);
+        var self = this, args = arguments, ret;
+        var pg = getPlayground();
+        if (!pg || typeof pg.injectPicture !== 'function') {
+          keepScroll(function () { ret = orig.apply(self, args); });
+          return ret;
+        }
+        var realInject = pg.injectPicture;
+        var requested = false, lastArgs = null;
+        pg.injectPicture = function () { requested = true; lastArgs = arguments; };
+        try {
+          ret = orig.apply(self, args);
+        } finally {
+          pg.injectPicture = realInject;
+        }
+        if (requested) {
+          keepScroll(function () { try { realInject.apply(pg, lastArgs || []); } catch (e) {} });
+        }
+        return ret;
+      };
+    }
+    var a = patchMethod(sm, 'undo', PATCH_ID, wrap);
+    var b = patchMethod(sm, 'redo', PATCH_ID, wrap);
+    return a && b;
+  }
+
   function applyEntry() {
     var entry = safeGetEntry();
     if (!entry || !entry.playground || !document.body) return false;
     installOnce();
     // ContextMenu.show is patched once and stays; the wrapper checks enabled itself.
     patchContextMenu();
+    patchUndoRedoScroll();
     return true;
   }
 
