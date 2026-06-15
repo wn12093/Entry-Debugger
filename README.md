@@ -19,11 +19,13 @@
 npm run check
 npm run build:dev
 npm run smoke:local
+npm run smoke:picture-tools
 ```
 
 - `npm run check`: manifest/README 버전 일치, 확장 리소스 존재 여부, JS 문법을 확인합니다.
 - `npm run build:dev`: 로컬 Entry 서버에서도 동작하는 개발용 확장을 `dist/entry-debugger-extension-dev/`에 생성합니다. Chrome match pattern 제약 때문에 개발용 manifest는 `http://127.0.0.1/*`, `http://localhost/*`를 포함하고, 실제 동작 여부는 content script 내부에서 `/ws/*`로 다시 제한합니다.
 - `npm run smoke:local`: 로컬 Entry 만들기 화면에서 Chromium 기반 확장 주입과 핵심 UI 동작을 확인합니다. PR 생성 또는 PR 브랜치 업데이트 직전에 실행합니다.
+- `npm run smoke:picture-tools`: 모양 명령·복제·재정렬·이름변경과 10개 업로드 경계, GIF 프레임 합산, 업로드 창 종료 취소를 Chromium에서 검증합니다.
 - 실제 Chrome Web Store 제출용 폴더는 계속 `entry-debugger-extension/`입니다.
 
 ## 사용 방법
@@ -60,6 +62,8 @@ npm run smoke:local
 - 모양 탭에서 여러 모양을 다중 선택(클릭/Shift/Ctrl)해 묶음 드래그로 순서 변경하거나 다른 오브젝트로 복사
 - 우클릭 메뉴로 복사 / 붙여넣기(오브젝트 간) / 복제 / 일괄 삭제 / ZIP·이미지 내보내기 / 일괄 이름변경
 - 이미지·GIF(PNG 프레임 분해) 대량 업로드를 10개씩 누적 스테이징
+- GIF 프레임과 일반 이미지 합계가 10개 이하면 Entry 기본 업로드를 그대로 사용하고 별도 스테이징 진행창을 표시하지 않음
+- 대량 스테이징 중 `추가하기` 또는 닫기 버튼을 누르면 남은 업로드 작업을 즉시 중단
 - 모양이 많아도 끊기지 않도록 재정렬·삭제·복사를 부분 갱신(증분 DOM)으로 최적화
 
 ## v2.4.0 변경사항

@@ -62,7 +62,11 @@ function enableLocalWorkspaceInContentScript() {
     "        url.pathname.indexOf('/ws/') === 0;",
     "      return isPlayEntryWorkspace || isLocalWorkspace;"
   ].join('\n');
-  const contentScript = fs.readFileSync(contentScriptPath, 'utf8');
+  // `.gitattributes`의 `* text=auto` 때문에 Windows에서는 content.js가 CRLF로
+  // 체크아웃된다. productionCheck/localDevCheck는 LF로 join되므로 원본을 LF로
+  // 정규화해야 includes 매칭이 성립한다. 산출물도 manifest.json(JSON.stringify가
+  // LF 출력)과 동일하게 LF로 통일된다.
+  const contentScript = fs.readFileSync(contentScriptPath, 'utf8').replace(/\r\n/g, '\n');
 
   if (!contentScript.includes(productionCheck)) {
     throw new Error('Local workspace content-script patch target was not found.');
