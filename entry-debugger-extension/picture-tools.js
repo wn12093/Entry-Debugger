@@ -1103,6 +1103,17 @@
       var widgetItems = getPictureListItems(w);
       if (!w || !widgetItems) return false;
       var el = function (v) { return v ? (v.nodeType ? v : v[0] || null) : null; };
+      // A picture object duplicated in o.pictures (a malformed costume list — the same picture
+      // appears at two indices) shares ONE rendered view. The DocumentFragment move below can
+      // place that element in only one slot, so the empty leftover wrap rows stay behind and
+      // surface at the TOP of the list (the reorder looks scrambled). Bail to the safe full
+      // re-render, which draws a duplicated list in the correct visible order.
+      var seenView = new Set();
+      for (var di = 0; di < o.pictures.length; di++) {
+        var dv = el(o.pictures[di].view);
+        if (!dv || seenView.has(dv)) return false;
+        seenView.add(dv);
+      }
       var wraps = [];
       var i;
       for (i = 0; i < o.pictures.length; i++) {
@@ -1580,9 +1591,73 @@
     document.addEventListener('click', onFileBtnClick, true);
     document.addEventListener('click', onUploadModalAction, true);
     document.addEventListener('contextmenu', onCtxMenu, true);
+    installDragAutoScroll();
 
     mo = new MutationObserver(onMutation);
     startObserver();
+  }
+
+  // Faster edge auto-scroll while dragging a costume to reorder. Entry's native sortable scrolls
+  // near the list edges only slowly. While a row is held and dragged, scroll speed is:
+  //   · PERCENT-BASED — a fraction of the TOTAL scroll height per frame, so long lists move
+  //     proportionally fast (a fixed px/frame is hopelessly slow on a 50000px list);
+  //   · ramped by how DEEP into the EDGE zone the cursor is (hold nearer the edge = faster);
+  //   · ACCELERATING the longer the cursor stays at an edge (resets on leaving / flipping side).
+  function installDragAutoScroll() {
+    var EDGE = 90, START = 5;
+    var PCT = 0.014;                       // base px/frame = scrollHeight * PCT at full edge depth
+    var MIN_SPEED = 10, MAX_SPEED = 3000;  // px/frame floor (in-zone) and cap
+    var MAX_ACCEL = 3, ACCEL_MS = 700;     // ramp 1x -> MAX_ACCEL over ACCEL_MS of holding
+    var pressed = false, dragging = false, startY = 0, mouseY = 0, raf = null;
+    var edgeSince = 0, lastDir = 0;
+
+    function step() {
+      raf = null;
+      if (!dragging || !enabled) return;
+      var sc = getScroller();
+      if (sc) {
+        var rect = sc.getBoundingClientRect();
+        var dTop = mouseY - rect.top, dBot = rect.bottom - mouseY;
+        var dir = 0, depth = 0;
+        if (dTop < EDGE) { dir = -1; depth = (EDGE - Math.max(0, dTop)) / EDGE; }
+        else if (dBot < EDGE) { dir = 1; depth = (EDGE - Math.max(0, dBot)) / EDGE; }
+        if (dir === 0) {
+          edgeSince = 0;                                       // left the zone -> reset acceleration
+        } else {
+          var now = (window.performance && performance.now) ? performance.now() : Date.now();
+          if (edgeSince === 0 || dir !== lastDir) edgeSince = now;   // just entered / flipped side
+          lastDir = dir;
+          var accel = 1 + (MAX_ACCEL - 1) * Math.min((now - edgeSince) / ACCEL_MS, 1);
+          var speed = sc.scrollHeight * PCT * depth * accel;
+          if (speed < MIN_SPEED) speed = MIN_SPEED;
+          if (speed > MAX_SPEED) speed = MAX_SPEED;
+          sc.scrollTop += dir * speed;
+        }
+      }
+      raf = requestAnimationFrame(step);
+    }
+    function down(e) {
+      if (!enabled || e.button !== 0 || !e.target || !e.target.closest) return;
+      if (!e.target.closest(ROW) || e.target.closest('input, .entryPlayground_del')) return;
+      if (inScrollbarZone(e.clientX)) return;           // the scrollbar drag handles that zone
+      pressed = true; dragging = false; startY = e.clientY; mouseY = e.clientY;
+    }
+    function move(e) {
+      if (!pressed) return;
+      if (e.buttons === 0) { up(); return; }            // missed mouseup (released off-window)
+      mouseY = e.clientY;
+      if (!dragging && Math.abs(e.clientY - startY) > START) {
+        dragging = true;
+        if (!raf) raf = requestAnimationFrame(step);
+      }
+    }
+    function up() {
+      pressed = false; dragging = false; edgeSince = 0; lastDir = 0;
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    }
+    document.addEventListener('mousedown', down, true);
+    document.addEventListener('mousemove', move, true);
+    document.addEventListener('mouseup', up, true);
   }
 
   // Entry re-renders the whole picture list on every command (objectAddPicture /
@@ -1620,6 +1695,96 @@
     return a && b;
   }
 
+  // Native "모양 추가" (and addPicture-based ops) call injectPicture, which re-renders the WHOLE
+  // costume list via widget.setData. setData is O(N) on the TOTAL list size (~120ms+ at 800+
+  // costumes) no matter how many were added, and the native flow calls injectPicture once PER added
+  // costume — so uploading N costumes costs N × O(N), i.e. seconds of lag (same root cause as the
+  // reorder lag). Fix: when the change is a pure append, build only the new rows synchronously
+  // (cheap, ~0.1ms each) and COALESCE the one expensive setData — a single render after a burst of
+  // adds instead of one render per costume.
+  var pendingAppendFlush = null;
+
+  function appendViewEl(v) { return v ? (v.nodeType ? v : v[0] || null) : null; }
+
+  // True when the widget's current rows still map 1:1 to the first N pictures (so the rest are new).
+  function isPictureAppendOnly(o, items) {
+    if (!o || !o.pictures || !items || o.pictures.length <= items.length) return false;
+    for (var i = 0; i < items.length; i++) {
+      if (appendViewEl(o.pictures[i] && o.pictures[i].view) !== appendViewEl(items[i] && items[i].item)) return false;
+    }
+    // The same defense reorderDomFast needs: when a picture object is duplicated in o.pictures it
+    // shares one view, so the incremental append would emit a repeated key/element and strand empty
+    // rows. Treat such a list as "not a clean append" and let the full native re-render handle it.
+    var seen = new Set();
+    for (var k = 0; k < o.pictures.length; k++) {
+      var v = appendViewEl(o.pictures[k] && o.pictures[k].view);
+      if (v) { if (seen.has(v)) return false; seen.add(v); }
+    }
+    return true;
+  }
+
+  function cancelAppendFlush() {
+    if (pendingAppendFlush) { clearTimeout(pendingAppendFlush); pendingAppendFlush = null; }
+  }
+
+  // The single coalesced render: append every picture past the current rows in one setData.
+  function flushAppend(o) {
+    pendingAppendFlush = null;
+    try {
+      var pg = getPlayground();
+      if (!pg || pg.object !== o) return;            // object switched away → stale, skip
+      var w = getPictureListWidget();
+      var items = getPictureListItems(w);
+      if (!isPictureAppendOnly(o, items)) return;    // no longer a clean append → leave to full render
+      var ni = items.slice();
+      for (var j = items.length; j < o.pictures.length; j++) {
+        var pic = o.pictures[j];
+        if (!pic.view) { try { pg.generatePictureElement(pic); } catch (e) {} }
+        var pv = appendViewEl(pic.view);
+        if (pv) {
+          // generatePictureElement leaves the order badge blank; native injectPicture fills it by
+          // index afterwards. Replicate that for the appended rows (1-based position).
+          var orderEl = pv.querySelector('.entryPlaygroundPictureOrder');
+          if (orderEl) orderEl.textContent = String(j + 1);
+          ni.push({ key: o.id + '-' + pic.id, item: pic.view });
+        }
+      }
+      if (ni.length !== o.pictures.length) return;   // a row failed to build → leave it for a full render
+      var sc = getScroller();
+      var top = sc ? sc.scrollTop : 0;
+      if (setPictureListItems(w, ni, true) && sc) sc.scrollTop = top;
+    } catch (e) {}
+  }
+
+  function patchIncrementalInject() {
+    var pg = getPlayground();
+    if (!pg || typeof pg.injectPicture !== 'function' || typeof pg.generatePictureElement !== 'function') return false;
+    return patchMethod(pg, 'injectPicture', PATCH_ID, function (orig) {
+      return function () {
+        if (!enabled) return orig.apply(this, arguments);
+        try {
+          var p = getPlayground();
+          var w = getPictureListWidget();
+          var items = getPictureListItems(w);
+          var o = p && p.object;
+          if (isPictureAppendOnly(o, items)) {
+            // Generate the new rows' elements now so they exist for selectPicture, but defer the one
+            // costly setData; a trailing 50ms window coalesces a burst of adds into a single render.
+            for (var j = items.length; j < o.pictures.length; j++) {
+              var pic = o.pictures[j];
+              if (!pic.view) { try { p.generatePictureElement(pic); } catch (e) {} }
+            }
+            cancelAppendFlush();
+            (function (target) { pendingAppendFlush = setTimeout(function () { flushAppend(target); }, 50); })(o);
+            return;
+          }
+        } catch (e) {}
+        cancelAppendFlush();                          // a full re-render supersedes any pending append
+        return orig.apply(this, arguments);
+      };
+    });
+  }
+
   function applyEntry() {
     var entry = safeGetEntry();
     if (!entry || !entry.playground || !document.body) return false;
@@ -1627,6 +1792,7 @@
     // ContextMenu.show is patched once and stays; the wrapper checks enabled itself.
     patchContextMenu();
     patchUndoRedoScroll();
+    patchIncrementalInject();
     return true;
   }
 
