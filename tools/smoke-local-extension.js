@@ -25,6 +25,7 @@ const smokeSettings = {
   blockTextCopyEnabled: true,
   singleBlockDragEnabled: false,
   pictureToolsEnabled: false,
+  frameProfilerEnabled: false,
   highQualityBlockImageEnabled: true,
   highQualityBlockImageScale: 1000,
   functionLibraryEnabled: true,
@@ -76,6 +77,7 @@ function assertSmokeResult(result) {
     ['settings section', result.settingsTabResult.settingsSectionActive],
     ['Alt single-block drag default off', result.settingsTabResult.singleBlockDragChecked === false],
     ['picture tools default off', result.settingsTabResult.pictureToolsChecked === false],
+    ['frame profiler default off', result.settingsTabResult.frameProfilerChecked === false],
     ['settings button returns to variables', result.settingsToggleBackResult.variablesSectionActive],
     ['function library tab', result.hasFunctionLibraryTab],
     ['function library empty state', result.functionLibraryResult.hasEmptyState],
@@ -197,6 +199,10 @@ async function main() {
       state: 'attached',
       timeout: 60000
     });
+    await page.waitForSelector('#ed-toggle-frame-profiler', {
+      state: 'attached',
+      timeout: 60000
+    });
     await page.waitForSelector('#ed-toggle-high-quality-block-image', {
       state: 'attached',
       timeout: 60000
@@ -225,6 +231,7 @@ async function main() {
         blockTextCopyChecked: getChecked('#ed-toggle-block-text-copy'),
         singleBlockDragChecked: getChecked('#ed-toggle-single-block-drag'),
         pictureToolsChecked: getChecked('#ed-toggle-picture-tools'),
+        frameProfilerChecked: getChecked('#ed-toggle-frame-profiler'),
         highQualityBlockImageChecked: getChecked('#ed-toggle-high-quality-block-image'),
         labTabChecked: getChecked('#ed-toggle-setting-lab-tab'),
         hasResetSettingsButton: !!document.querySelector('#ed-reset-settings-btn')

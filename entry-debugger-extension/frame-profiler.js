@@ -128,12 +128,11 @@
     } catch (e) { return null; }
   }
 
-  function recordThread(ex, dt) {
+  function recordThread(ex, dt, info) {
     try {
       var code = ex.code, obj = code && code.object;
       if (!obj) return;
-      var info = hatCache[ex.id];
-      if (!info) { info = deriveHat(ex); if (info) hatCache[ex.id] = info; }
+      info = info || hatCache[ex.id];
       if (!info) return;
       var key = obj.id + '' + info.hatId;
       var bucket = frameThread[key];
@@ -163,9 +162,21 @@
   function wrapExecute(orig) {
     return function () {
       if (!active) return orig.apply(this, arguments);
+      var info = hatCache[this.id];
+      if (!info) {
+        info = deriveHat(this);
+        if (info) hatCache[this.id] = info;
+      }
       var t0 = now();
-      var r = orig.apply(this, arguments);
-      recordThread(this, now() - t0);
+      var r;
+      try {
+        r = orig.apply(this, arguments);
+      } finally {
+        recordThread(this, now() - t0, info);
+        try {
+          if (typeof this.isEnd === 'function' && this.isEnd()) delete hatCache[this.id];
+        } catch (e) {}
+      }
       return r;
     };
   }

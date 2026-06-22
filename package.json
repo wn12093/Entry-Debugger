@@ -3,7 +3,8 @@
     "check": "node tools/check-extension.js",
     "build:dev": "node tools/build-dev-extension.js",
     "smoke:local": "node tools/smoke-local-extension.js",
-    "smoke:picture-tools": "node tools/smoke-picture-tools.js"
+    "smoke:picture-tools": "node tools/smoke-picture-tools.js",
+    "smoke:frame-profiler": "node tools/smoke-frame-profiler.js"
   },
   "devDependencies": {}
 }
