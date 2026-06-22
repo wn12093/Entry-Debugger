@@ -248,6 +248,9 @@ async function main() {
 
     rows = page.locator('li.entryPlaygroundPictureElement');
     const rowCount = await rows.count();
+    const beforeReorderIds = await page.evaluate(() =>
+      Entry.playground.object.pictures.map((picture) => picture.id)
+    );
     const firstBox = await rows.nth(0).boundingBox();
     const thirdBox = await rows.nth(Math.min(2, rowCount - 1)).boundingBox();
     if (!firstBox || !thirdBox) throw new Error('순서 변경 좌표를 구하지 못했습니다.');
@@ -264,6 +267,78 @@ async function main() {
     );
     if (orderLabels.some((value, index) => value !== String(index + 1))) {
       throw new Error('순서 변경 후 화면 번호가 배열 순서와 다릅니다.');
+    }
+    const afterReorderIds = await page.evaluate(() =>
+      Entry.playground.object.pictures.map((picture) => picture.id)
+    );
+    if (beforeReorderIds.join(',') === afterReorderIds.join(',')) {
+      throw new Error('재정렬 결과가 모델에 반영되지 않았습니다.');
+    }
+    await page.evaluate(() => Entry.stateManager.undo());
+    await page.waitForFunction(
+      (expected) => Entry.playground.object.pictures.map((picture) => picture.id).join(',') === expected,
+      beforeReorderIds.join(',')
+    );
+    await page.evaluate(() => Entry.stateManager.redo());
+    await page.waitForFunction(
+      (expected) => Entry.playground.object.pictures.map((picture) => picture.id).join(',') === expected,
+      afterReorderIds.join(',')
+    );
+    await page.evaluate(() => {
+      const pg = Entry.playground;
+      const object = pg.object;
+      const seed = object.pictures[0];
+      while (object.pictures.length < 30) {
+        pg.addPicture(Object.assign({}, seed, {
+          name: 'picture_tools_scroll_' + object.pictures.length
+        }), true, false);
+      }
+    });
+    await page.waitForFunction(
+      () => document.querySelectorAll('li.entryPlaygroundPictureElement').length === 30
+    );
+    const outsideScrollSetup = await page.evaluate(() => {
+      const row = document.querySelector('li.entryPlaygroundPictureElement');
+      const scroller = row.closest('.rcs-inner-container');
+      scroller.scrollTop = Math.min(400, scroller.scrollHeight - scroller.clientHeight - 20);
+      const rect = scroller.getBoundingClientRect();
+      return {
+        scrollTop: scroller.scrollTop,
+        left: rect.left,
+        top: rect.top,
+        bottom: rect.bottom
+      };
+    });
+    rows = page.locator('li.entryPlaygroundPictureElement');
+    let visibleRowBox = null;
+    for (let i = 0; i < await rows.count(); i++) {
+      const box = await rows.nth(i).boundingBox();
+      if (box && box.y > outsideScrollSetup.top + 10 &&
+          box.y < outsideScrollSetup.bottom - 30) {
+        visibleRowBox = box;
+        break;
+      }
+    }
+    if (!visibleRowBox) throw new Error('자동 스크롤 검증용 모양 행을 찾지 못했습니다.');
+    await page.mouse.move(visibleRowBox.x + 25, visibleRowBox.y + 25);
+    await page.mouse.down();
+    await page.mouse.move(visibleRowBox.x + 35, visibleRowBox.y + 40, { steps: 4 });
+    await page.mouse.move(outsideScrollSetup.left - 120, outsideScrollSetup.bottom - 5, {
+      steps: 6
+    });
+    await page.waitForTimeout(100);
+    const outsideScrollStart = await page.evaluate(() =>
+      document.querySelector('li.entryPlaygroundPictureElement')
+        .closest('.rcs-inner-container').scrollTop
+    );
+    await page.waitForTimeout(250);
+    const outsideScrollTop = await page.evaluate(() =>
+      document.querySelector('li.entryPlaygroundPictureElement')
+        .closest('.rcs-inner-container').scrollTop
+    );
+    await page.mouse.up();
+    if (Math.abs(outsideScrollTop - outsideScrollStart) > 2) {
+      throw new Error('모양 목록 가로 범위 밖에서도 자동 스크롤이 발생했습니다.');
     }
 
     await page.evaluate(() => {
@@ -290,9 +365,13 @@ async function main() {
       position: { x: 30, y: 30 },
       modifiers: ['Shift']
     });
-    page.once('dialog', (dialog) => dialog.accept('bulk_review'));
     await rows.nth(0).click({ button: 'right', force: true, position: { x: 30, y: 30 } });
     await page.getByText('일괄 이름변경하기 (2개)', { exact: true }).click({ force: true });
+    const renameModal = page.locator('body > div').filter({
+      hasText: '선택한 2개 모양의 새 이름'
+    }).last();
+    await renameModal.locator('input[type="text"]').fill('bulk_review');
+    await renameModal.getByText('확인', { exact: true }).click({ force: true });
     const renameResult = await page.evaluate(() => ({
       names: Entry.playground.object.pictures.slice(0, 2).map((picture) => picture.name),
       serialized: Entry.playground.object.toJSON().sprite.pictures
