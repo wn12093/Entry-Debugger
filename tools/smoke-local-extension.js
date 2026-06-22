@@ -25,6 +25,7 @@ const smokeSettings = {
   blockTextCopyEnabled: true,
   singleBlockDragEnabled: false,
   pictureToolsEnabled: false,
+  frameProfilerEnabled: false,
   highQualityBlockImageEnabled: true,
   highQualityBlockImageScale: 1000,
   functionLibraryEnabled: true,
@@ -76,6 +77,10 @@ function assertSmokeResult(result) {
     ['settings section', result.settingsTabResult.settingsSectionActive],
     ['Alt single-block drag default off', result.settingsTabResult.singleBlockDragChecked === false],
     ['picture tools default off', result.settingsTabResult.pictureToolsChecked === false],
+    ['frame profiler is not in settings', result.settingsTabResult.hasFrameProfilerToggle === false],
+    ['frame profiler is in lab', result.labFeatureResult.closestSectionId === 'ed-section-others'],
+    ['frame profiler default off', result.labFeatureResult.frameProfilerChecked === false],
+    ['lab off resets frame profiler', result.labFeatureResult.resetAfterLabDisabled],
     ['settings button returns to variables', result.settingsToggleBackResult.variablesSectionActive],
     ['function library tab', result.hasFunctionLibraryTab],
     ['function library empty state', result.functionLibraryResult.hasEmptyState],
@@ -225,6 +230,9 @@ async function main() {
         blockTextCopyChecked: getChecked('#ed-toggle-block-text-copy'),
         singleBlockDragChecked: getChecked('#ed-toggle-single-block-drag'),
         pictureToolsChecked: getChecked('#ed-toggle-picture-tools'),
+        hasFrameProfilerToggle: !!document.querySelector(
+          '#ed-section-settings #ed-toggle-frame-profiler'
+        ),
         highQualityBlockImageChecked: getChecked('#ed-toggle-high-quality-block-image'),
         labTabChecked: getChecked('#ed-toggle-setting-lab-tab'),
         hasResetSettingsButton: !!document.querySelector('#ed-reset-settings-btn')
@@ -240,6 +248,25 @@ async function main() {
       variablesSectionActive: !!document.querySelector('#ed-section-variables.ed-section-active'),
       activeSubtabText: (document.querySelector('#ed-debugger-panel .ed-subtab-active')?.textContent || '').trim()
     }));
+    await page.click('.ed-subtab[data-tab="others"]');
+    await page.waitForSelector('#ed-section-others.ed-section-active', {
+      state: 'visible',
+      timeout: 60000
+    });
+    await page.waitForSelector('#ed-toggle-frame-profiler', {
+      state: 'attached',
+      timeout: 60000
+    });
+    const labFeatureResult = await page.evaluate(() => {
+      const toggle = document.querySelector('#ed-toggle-frame-profiler');
+      return {
+        frameProfilerChecked: !!(toggle && toggle.checked),
+        closestSectionId: toggle && toggle.closest('.ed-section')
+          ? toggle.closest('.ed-section').id
+          : null,
+        resetAfterLabDisabled: false
+      };
+    });
     await page.click('#ed-settings-tab-btn');
     await page.waitForSelector('#ed-section-settings.ed-section-active', {
       state: 'visible',
@@ -385,7 +412,47 @@ async function main() {
       return !!(panel && panel.offsetParent !== null);
     }, { timeout: 60000 });
 
-    const result = await page.evaluate(({ popupResult, warningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult }) => {
+    await page.click('.ed-subtab[data-tab="others"]');
+    await page.waitForSelector('#ed-section-others.ed-section-active', {
+      state: 'visible',
+      timeout: 60000
+    });
+    await page.evaluate(() => {
+      document.querySelector('#ed-toggle-frame-profiler')?.click();
+    });
+    await page.waitForFunction(
+      () => document.querySelector('#ed-toggle-frame-profiler')?.checked === true,
+      { timeout: 60000 }
+    );
+    await page.click('#ed-settings-tab-btn');
+    await page.waitForSelector('#ed-section-settings.ed-section-active', {
+      state: 'visible',
+      timeout: 60000
+    });
+    await page.evaluate(() => {
+      document.querySelector('#ed-toggle-setting-lab-tab')?.click();
+    });
+    await page.waitForFunction(
+      () => document.querySelector('.ed-subtab[data-tab="others"]')?.offsetParent === null,
+      { timeout: 60000 }
+    );
+    await page.evaluate(() => {
+      document.querySelector('#ed-toggle-setting-lab-tab')?.click();
+    });
+    await page.waitForFunction(
+      () => document.querySelector('.ed-subtab[data-tab="others"]')?.offsetParent !== null,
+      { timeout: 60000 }
+    );
+    await page.click('#ed-settings-tab-btn');
+    await page.waitForSelector('#ed-section-others.ed-section-active', {
+      state: 'visible',
+      timeout: 60000
+    });
+    labFeatureResult.resetAfterLabDisabled = await page.evaluate(
+      () => document.querySelector('#ed-toggle-frame-profiler')?.checked === false
+    );
+
+    const result = await page.evaluate(({ popupResult, warningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
         .map((tab) => tab.textContent.trim());
@@ -405,6 +472,7 @@ async function main() {
         tabs,
         settingsTabResult,
         settingsToggleBackResult,
+        labFeatureResult,
         hasLabControls: !!labToggle,
         hasDropdownBlockMenuToggle: !!blockMenuToggle,
         hasDropdownPropertyPanelToggle: !!propertyPanelToggle,
@@ -423,7 +491,7 @@ async function main() {
         functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, { popupResult, warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, boostModeResult, functionLibraryResult });
+    }, { popupResult, warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, functionLibraryResult });
 
     assertSmokeResult(result);
     console.log(JSON.stringify(result, null, 2));

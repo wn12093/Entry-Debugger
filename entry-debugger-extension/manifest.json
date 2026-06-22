@@ -40,6 +40,7 @@
         "single-block-drag.js",
         "high-quality-block-image.js",
         "picture-tools.js",
+        "frame-profiler.js",
         "boost-mode.js",
         "turbo-mode.js"
       ],

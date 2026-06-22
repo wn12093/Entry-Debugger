@@ -67,6 +67,7 @@
   let singleBlockDragScriptInjected = false;
   let highQualityBlockImageScriptInjected = false;
   let pictureToolsScriptInjected = false;
+  let frameProfilerScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
   let eoUploader = null;
   let boostModeControlEl = null;
@@ -136,6 +137,12 @@
     injectPageCoreScripts();
     pictureToolsScriptInjected = true;
     injectPageScript('entry-debugger-picture-tools', 'picture-tools.js');
+  }
+
+  function injectFrameProfilerScript() {
+    injectPageCoreScripts();
+    frameProfilerScriptInjected = true;
+    injectPageScript('entry-debugger-frame-profiler', 'frame-profiler.js');
   }
 
   function injectPageCoreScripts() {
@@ -586,6 +593,16 @@
             '<div class="ed-lab-controls">' +
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">프레임 프로파일러</span>' +
+                  '<span class="ed-lab-desc">작품 실행 중 오브젝트·스크립트별 프레임 사용량을 실시간 표시</span>' +
+                '</span>' +
+                '<label class="ed-lab-switch" aria-label="프레임 프로파일러">' +
+                  '<input type="checkbox" id="ed-toggle-frame-profiler">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
+              '</div>' +
+              '<div class="ed-lab-setting">' +
+                '<span class="ed-lab-text">' +
                   '<span class="ed-lab-title">터보 모드</span>' +
                   '<span class="ed-lab-desc">속도 조절 패널에 ∞ 단계 추가</span>' +
                 '</span>' +
@@ -878,6 +895,16 @@
   function bindLabControls() {
     if (!panelEl) return;
 
+    var frameProfilerToggle = panelEl.querySelector('#ed-toggle-frame-profiler');
+    if (frameProfilerToggle && frameProfilerToggle.dataset.bound !== 'true') {
+      frameProfilerToggle.dataset.bound = 'true';
+      frameProfilerToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          frameProfilerEnabled: frameProfilerToggle.checked
+        });
+      });
+    }
+
     var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
     if (turboToggle && turboToggle.dataset.bound !== 'true') {
       turboToggle.dataset.bound = 'true';
@@ -911,6 +938,11 @@
 
   function renderLabControls() {
     if (!panelEl) return;
+
+    var frameProfilerToggle = panelEl.querySelector('#ed-toggle-frame-profiler');
+    if (frameProfilerToggle) {
+      frameProfilerToggle.checked = !!extensionSettings.frameProfilerEnabled;
+    }
 
     var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
     if (turboToggle) {
@@ -1038,6 +1070,15 @@
     return !!(
       extensionSettings.enabled &&
       extensionSettings.pictureToolsEnabled
+    );
+  }
+
+  function isFrameProfilerFeatureEnabled() {
+    return !!(
+      extensionSettings.enabled &&
+      extensionSettings.debuggerTabEnabled &&
+      extensionSettings.labTabEnabled &&
+      extensionSettings.frameProfilerEnabled
     );
   }
 
@@ -2322,6 +2363,21 @@
     }, 150);
   }
 
+  function applyFrameProfilerFeature() {
+    var shouldEnable = isFrameProfilerFeatureEnabled();
+    if (shouldEnable) {
+      injectFrameProfilerScript();
+    } else if (!frameProfilerScriptInjected) {
+      return;
+    }
+
+    setTimeout(function () {
+      sendToInject('SET_FRAME_PROFILER_ENABLED', {
+        enabled: shouldEnable
+      });
+    }, 150);
+  }
+
   function applyHighQualityBlockImageFeature() {
     var shouldEnable = isHighQualityBlockImageFeatureEnabled();
     if (shouldEnable) {
@@ -2347,6 +2403,7 @@
       if (isEntryWorkspacePage()) {
         applySingleBlockDragFeature();
         applyPictureToolsFeature();
+        applyFrameProfilerFeature();
       }
       cleanup();
       return;
@@ -2364,6 +2421,7 @@
     applySingleBlockDragFeature();
     applyHighQualityBlockImageFeature();
     applyPictureToolsFeature();
+    applyFrameProfilerFeature();
 
     if (isFunctionUsageFeatureEnabled()) {
       startFunctionUsageFeature();
@@ -2468,6 +2526,13 @@
         });
         break;
 
+      case 'FRAME_PROFILER_READY':
+        if (!settingsLoaded) return;
+        sendToInject('SET_FRAME_PROFILER_ENABLED', {
+          enabled: isFrameProfilerFeatureEnabled()
+        });
+        break;
+
       case 'BLOCK_TEXT_COPY_TOAST':
         if (msg.payload && msg.payload.message) {
           showToast(msg.payload.message, msg.payload.type || 'info');
@@ -2565,6 +2630,7 @@
           blockTextCopyEnabled: false,
           singleBlockDragEnabled: false,
           pictureToolsEnabled: false,
+          frameProfilerEnabled: false,
           highQualityBlockImageEnabled: false,
           highQualityBlockImageScale: extensionSettings.highQualityBlockImageScale,
           functionLibraryEnabled: false
@@ -2683,6 +2749,7 @@
     sendToInject('SET_BLOCK_TEXT_COPY_ENABLED', { enabled: false });
     sendToInject('SET_SINGLE_BLOCK_DRAG_ENABLED', { enabled: false });
     sendToInject('SET_PICTURE_TOOLS_ENABLED', { enabled: false });
+    sendToInject('SET_FRAME_PROFILER_ENABLED', { enabled: false });
     sendToInject('SET_HIGH_QUALITY_BLOCK_IMAGE_ENABLED', { enabled: false });
   }
 
