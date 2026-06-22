@@ -36,7 +36,6 @@
     'boostModeControlVisible',
     'singleBlockDragEnabled',
     'pictureToolsEnabled',
-    'frameProfilerEnabled',
     'functionPrivateVariablesEnabled',
     'labTabEnabled'
   ];
@@ -120,6 +119,7 @@
       eoUploaderEnabled = DEFAULT_SETTINGS.eoUploaderEnabled;
       turboModeEnabled = DEFAULT_SETTINGS.turboModeEnabled;
       functionLibraryEnabled = DEFAULT_SETTINGS.functionLibraryEnabled;
+      frameProfilerEnabled = DEFAULT_SETTINGS.frameProfilerEnabled;
     }
 
     if (!debuggerTabEnabled) {

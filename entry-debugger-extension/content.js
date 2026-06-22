@@ -453,16 +453,6 @@
             '</div>' +
             '<div class="ed-lab-setting">' +
               '<span class="ed-lab-text">' +
-                '<span class="ed-lab-title">프레임 프로파일러</span>' +
-                '<span class="ed-lab-desc">작품 실행 중 오브젝트·스크립트별 프레임 사용량을 실시간 표시</span>' +
-              '</span>' +
-              '<label class="ed-lab-switch" aria-label="프레임 프로파일러">' +
-                '<input type="checkbox" id="ed-toggle-frame-profiler">' +
-                '<span class="ed-lab-slider"></span>' +
-              '</label>' +
-            '</div>' +
-            '<div class="ed-lab-setting">' +
-              '<span class="ed-lab-text">' +
                 '<span class="ed-lab-title">함수 사용 바로가기</span>' +
                 '<span class="ed-lab-desc">속성 탭에 함수 내부 사용 위치 표시</span>' +
               '</span>' +
@@ -601,6 +591,16 @@
               '<span>아직 완성되지 않은 기능이 포함되어 있어 오류가 발생할 수 있습니다.</span>' +
             '</div>' +
             '<div class="ed-lab-controls">' +
+              '<div class="ed-lab-setting">' +
+                '<span class="ed-lab-text">' +
+                  '<span class="ed-lab-title">프레임 프로파일러</span>' +
+                  '<span class="ed-lab-desc">작품 실행 중 오브젝트·스크립트별 프레임 사용량을 실시간 표시</span>' +
+                '</span>' +
+                '<label class="ed-lab-switch" aria-label="프레임 프로파일러">' +
+                  '<input type="checkbox" id="ed-toggle-frame-profiler">' +
+                  '<span class="ed-lab-slider"></span>' +
+                '</label>' +
+              '</div>' +
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
                   '<span class="ed-lab-title">터보 모드</span>' +
@@ -807,9 +807,6 @@
     bindSettingsToggle('#ed-toggle-picture-tools', function (checked) {
       saveSettingsFromPanel({ pictureToolsEnabled: checked });
     });
-    bindSettingsToggle('#ed-toggle-frame-profiler', function (checked) {
-      saveSettingsFromPanel({ frameProfilerEnabled: checked });
-    });
     bindSettingsToggle('#ed-toggle-high-quality-block-image', function (checked) {
       saveSettingsFromPanel({ highQualityBlockImageEnabled: checked });
     });
@@ -877,7 +874,6 @@
     setSettingToggleChecked('#ed-toggle-block-text-copy', extensionSettings.blockTextCopyEnabled);
     setSettingToggleChecked('#ed-toggle-single-block-drag', extensionSettings.singleBlockDragEnabled);
     setSettingToggleChecked('#ed-toggle-picture-tools', extensionSettings.pictureToolsEnabled);
-    setSettingToggleChecked('#ed-toggle-frame-profiler', extensionSettings.frameProfilerEnabled);
     setSettingToggleChecked('#ed-toggle-high-quality-block-image', extensionSettings.highQualityBlockImageEnabled);
     setSettingToggleChecked('#ed-toggle-setting-lab-tab', extensionSettings.labTabEnabled);
     renderDropdownSearchTargetControls();
@@ -898,6 +894,16 @@
 
   function bindLabControls() {
     if (!panelEl) return;
+
+    var frameProfilerToggle = panelEl.querySelector('#ed-toggle-frame-profiler');
+    if (frameProfilerToggle && frameProfilerToggle.dataset.bound !== 'true') {
+      frameProfilerToggle.dataset.bound = 'true';
+      frameProfilerToggle.addEventListener('change', function () {
+        saveSettingsFromPanel({
+          frameProfilerEnabled: frameProfilerToggle.checked
+        });
+      });
+    }
 
     var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
     if (turboToggle && turboToggle.dataset.bound !== 'true') {
@@ -932,6 +938,11 @@
 
   function renderLabControls() {
     if (!panelEl) return;
+
+    var frameProfilerToggle = panelEl.querySelector('#ed-toggle-frame-profiler');
+    if (frameProfilerToggle) {
+      frameProfilerToggle.checked = !!extensionSettings.frameProfilerEnabled;
+    }
 
     var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
     if (turboToggle) {
@@ -1065,6 +1076,8 @@
   function isFrameProfilerFeatureEnabled() {
     return !!(
       extensionSettings.enabled &&
+      extensionSettings.debuggerTabEnabled &&
+      extensionSettings.labTabEnabled &&
       extensionSettings.frameProfilerEnabled
     );
   }

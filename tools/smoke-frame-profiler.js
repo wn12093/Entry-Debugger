@@ -15,7 +15,7 @@ const settings = {
   consoleDebuggingEnabled: true,
   boostModeControlVisible: true,
   boostModeEnabled: false,
-  labTabEnabled: false,
+  labTabEnabled: true,
   eoUploaderEnabled: false,
   turboModeEnabled: false,
   dropdownSearchEnabled: true,
@@ -143,6 +143,12 @@ async function main() {
       await Entry.engine.toggleStop();
     });
     await page.waitForSelector('#ed-frame-profiler', { state: 'detached', timeout: 30000 });
+    await page.evaluate(() => Entry.engine.toggleRun());
+    await page.waitForSelector('#ed-frame-profiler .ed-fp-obj', { timeout: 30000 });
+    await page.evaluate(async () => {
+      await Entry.engine.toggleStop();
+    });
+    await page.waitForSelector('#ed-frame-profiler', { state: 'detached', timeout: 30000 });
 
     if (!threadResult.text.includes('시작하기 클릭') ||
         threadResult.objectId !== fixture.objectId ||
@@ -158,7 +164,8 @@ async function main() {
       threadResult,
       focus: await page.evaluate(() => window.__edFrameProfilerFocus),
       pausedText,
-      stopped: true
+      stopped: true,
+      restartLifecycle: true
     }, null, 2));
   } finally {
     if (context) await context.close();

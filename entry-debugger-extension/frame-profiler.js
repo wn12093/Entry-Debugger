@@ -298,7 +298,7 @@
 
   /* ───────── 오버레이 UI (엔트리 톤: 흰 패널 + #4f80ff) ───────── */
 
-  var ov = null, ovList = null, ovMeta = null;
+  var ov = null, ovList = null, ovMeta = null, dragCleanup = null;
   var collapsed = false;
   var panelPos = null;                                  // 드래그 위치 유지
   var orderedIds = [], lastOrderAt = 0, lastSig = '';   // 순서 throttle + 구조 재렌더 캐시
@@ -354,26 +354,38 @@
     (document.body || document.documentElement).appendChild(ov);
     ov.addEventListener('mouseenter', function () { hovering = true; });
     ov.addEventListener('mouseleave', function () { hovering = false; });
-    makeDraggable(ov, head);
+    dragCleanup = makeDraggable(ov, head);
     return ov;
   }
   function makeDraggable(el, handle) {
     var sx = 0, sy = 0, ox = 0, oy = 0, drag = false;
-    handle.addEventListener('mousedown', function (e) {
+    function onMouseDown(e) {
       if (e.target && e.target.title === '접기/펼치기') return;
       drag = true; sx = e.clientX; sy = e.clientY;
       var r = el.getBoundingClientRect(); ox = r.left; oy = r.top;
       e.preventDefault();
-    });
-    document.addEventListener('mousemove', function (e) {
+    }
+    function onMouseMove(e) {
       if (!drag) return;
       var x = ox + e.clientX - sx, y = oy + e.clientY - sy;
       el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.right = 'auto';
       panelPos = { x: x, y: y };
-    });
-    document.addEventListener('mouseup', function () { drag = false; });
+    }
+    function onMouseUp() { drag = false; }
+
+    handle.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    return function () {
+      handle.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
   }
   function removeOverlay() {
+    if (dragCleanup) dragCleanup();
+    dragCleanup = null;
     if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
     ov = null; ovList = null; ovMeta = null;
     lastSig = ''; orderedIds = [];                       // 다음에 다시 만들 때 새로 그리도록
@@ -525,6 +537,7 @@
       startLoop();
     } else {
       active = false; running = false; paused = false;
+      clearRetry();
       stopLoop();
       resetData();
       removeOverlay();
