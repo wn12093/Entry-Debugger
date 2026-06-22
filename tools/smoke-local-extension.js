@@ -89,7 +89,13 @@ function assertSmokeResult(result) {
       result.functionLibraryResult.countBefore === result.functionLibraryResult.countAfter],
     ['property search input', result.hasPropertySearchInput],
     ['high quality warning at 1000%', result.highQualityWarningAt1000],
-    ['boost mode control', result.boostModeResult.hasBoostModeControl]
+    ['boost mode control', result.boostModeResult.hasBoostModeControl],
+    ['boost mode control moves into fullscreen controls',
+      result.boostFullscreenResult.insidePopup &&
+      result.boostFullscreenResult.position === 'absolute' &&
+      result.boostFullscreenResult.centerDeltaToCoordinate <= 2 &&
+      result.boostFullscreenResult.leftOfCoordinate],
+    ['boost mode control returns from fullscreen', result.boostFullscreenResult.returnedToWorkspace]
   ];
   const failed = checks.filter((check) => !check[1]).map((check) => check[0]);
 
@@ -156,6 +162,40 @@ async function main() {
       state: 'attached',
       timeout: 60000
     });
+    await page.click('.entryMaximizeButtonWorkspace_w');
+    await page.waitForSelector(
+      '.entryPopupWindow > .entryEngineWorkspace_w > #ed-boost-mode-toggle',
+      { state: 'visible', timeout: 60000 }
+    );
+    const boostFullscreenPosition = await page.evaluate(() => {
+      const button = document.querySelector('#ed-boost-mode-toggle');
+      const coordinate = document.querySelector(
+        '.entryPopupWindow > .entryEngineWorkspace_w > .entryCoordinateButtonWorkspace_w'
+      );
+      const buttonRect = button.getBoundingClientRect();
+      const coordinateRect = coordinate.getBoundingClientRect();
+
+      return {
+        insidePopup: !!button.closest('.entryPopupWindow'),
+        position: getComputedStyle(button).position,
+        centerDeltaToCoordinate: Math.abs(
+          buttonRect.top + buttonRect.height / 2 -
+          (coordinateRect.top + coordinateRect.height / 2)
+        ),
+        leftOfCoordinate: buttonRect.right <= coordinateRect.left
+      };
+    });
+    await page.click(
+      '.entryPopupWindow > .entryEngineWorkspace_w > .entryMaximizeButtonWorkspace_w'
+    );
+    await page.waitForFunction(() => {
+      const button = document.querySelector('#ed-boost-mode-toggle');
+      return !!(button && !button.closest('.entryPopupWindow'));
+    }, { timeout: 60000 });
+    const boostFullscreenResult = {
+      ...boostFullscreenPosition,
+      returnedToWorkspace: true
+    };
     await page.click('.propertyTabdebugging');
     await page.waitForSelector('#ed-debugger-panel', {
       state: 'visible',
@@ -452,7 +492,7 @@ async function main() {
       () => document.querySelector('#ed-toggle-frame-profiler')?.checked === false
     );
 
-    const result = await page.evaluate(({ popupResult, warningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, functionLibraryResult }) => {
+    const result = await page.evaluate(({ popupResult, warningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, boostFullscreenResult, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
         .map((tab) => tab.textContent.trim());
@@ -485,13 +525,14 @@ async function main() {
         ),
         highQualityWarningAt1000: warningAt1000,
         boostModeResult,
+        boostFullscreenResult,
         hasFunctionLibraryToggle: !!functionLibraryToggle,
         functionLibraryChecked: !!(functionLibraryToggle && functionLibraryToggle.checked),
         hasFunctionLibraryTab: !!functionLibraryTab,
         functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, { popupResult, warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, functionLibraryResult });
+    }, { popupResult, warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, boostFullscreenResult, functionLibraryResult });
 
     assertSmokeResult(result);
     console.log(JSON.stringify(result, null, 2));

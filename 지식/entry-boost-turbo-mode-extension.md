@@ -1,6 +1,6 @@
 # 부스트/터보 모드 확장 기록
 
-확인 날짜: 2026-05-24
+확인 날짜: 2026-06-06
 
 대상 기능: Entry의 숨겨진 실행/렌더링 옵션을 확장 모듈로 분리해 제공한다.
 
@@ -36,6 +36,7 @@ Entry.options.useWebGL = '1';
 - 기본값은 버튼 표시 ON, 실제 부스트 OFF다.
 - 엔진 버튼은 `.entryCoordinateButtonWorkspace_w` 뒤에 삽입해 화면상 좌표/격자 버튼 왼쪽에 표시한다.
 - 버튼 UI는 실행 페이지의 `.entryEngineMinimize` 영역처럼 흰 배경 위 텍스트형 `부스트모드` 라벨과 초록 토글 스위치를 함께 보여준다.
+- 작업실 전체화면에서는 엔트리가 같은 엔진 요소를 `.entryPopupWindow` 아래로 이동한다. 이 상태에서 부스트 토글도 절대 위치로 전환해 격자 버튼 왼쪽의 하단 제어줄로 함께 이동한다.
 - 버튼을 클릭하면 `boost-mode.js`가 Entry page world에서 `Entry.toast.warning('부스트 모드', '새로고침 해야 반영됩니다.')`를 호출한다.
 - 설정 탭에서 버튼 표시를 끄면 보이지 않는 부스트 활성 상태가 남지 않도록 실제 부스트도 OFF로 정규화한다.
 
@@ -112,6 +113,7 @@ node --check "Entry Debugger/entry-debugger-extension/background.js"
 - 부스트 모드 ON 상태에서 `Entry.init(null, {})` 호출 시 `options.useWebGL === '1'` 확인
 - 부스트 모드 OFF 메시지 수신 시 localStorage 값과 강제 `Entry.options.useWebGL` 제거 확인
 - 엔진 상단 `#ed-boost-mode-toggle` 클릭 시 `Entry.toast.warning`으로 새로고침 안내가 표시되는지 확인
+- 작업실 전체화면 진입 시 부스트 토글이 `.entryPopupWindow` 안의 격자 버튼 왼쪽 하단으로 이동하고, 전체화면 종료 후 원래 작업실 위치로 복귀하는지 확인
 - 터보 모드 ON 시 `engine.speeds`에 `Infinity` 추가 확인
 - `engine.setSpeedMeter(Infinity)` 호출 시 `Entry.isTurbo === true`, `Entry.FPS === 60` 확인
 - 일반 속도 선택 시 `Entry.isTurbo === false` 확인

@@ -59,6 +59,20 @@
   cursor: pointer;
 }
 
+.entryPopupWindow > .entryEngineWorkspace_w > .entryEngineButtonWorkspace_w.ed-boost-mode-toggle {
+  position: absolute;
+  right: 93px;
+  bottom: 10px;
+  z-index: 1;
+  margin: 0;
+}
+
+.entryPopupWindow.tablet
+  > .entryEngineWorkspace_w
+  > .entryEngineButtonWorkspace_w.ed-boost-mode-toggle {
+  bottom: 3px;
+}
+
 .entryEngineButtonWorkspace_w.ed-boost-mode-toggle::before,
 .entryEngineButtonWorkspace_w.ed-boost-mode-toggle::after {
   display: none !important;
