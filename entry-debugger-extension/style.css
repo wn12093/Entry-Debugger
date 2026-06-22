@@ -36,15 +36,18 @@
    ═══════════════════════════════════════════════════ */
 
 .entryEngineButtonWorkspace_w.ed-boost-mode-toggle {
-  float: right;
+  position: absolute;
+  top: 4px;
+  right: 64px;
+  z-index: 1;
+  float: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: auto;
   height: 28px;
-  margin-top: 8px;
-  margin-right: 12px;
+  margin: 0;
   padding: 0;
   border: 0;
   outline: 0;
@@ -59,8 +62,45 @@
   cursor: pointer;
 }
 
+.entryEngineWorkspace_w:has(> .entryEngineButtonWorkspace_w.ed-boost-mode-toggle) {
+  container-type: inline-size;
+}
+
+@container (max-width: 360px) {
+  .entryEngineButtonWorkspace_w.ed-boost-mode-toggle {
+    top: 4px;
+    right: 59px;
+    width: 25px;
+    height: 24px;
+    gap: 0;
+  }
+
+  .ed-boost-mode-toggle .ed-boost-mode-label {
+    display: none;
+  }
+
+  .ed-boost-mode-toggle .ed-boost-mode-switch {
+    width: 16px;
+    height: 10px;
+    flex-basis: 16px;
+    border-radius: 5px;
+  }
+
+  .ed-boost-mode-toggle .ed-boost-mode-knob {
+    top: 2px;
+    left: 2px;
+    width: 6px;
+    height: 6px;
+  }
+
+  .ed-boost-mode-toggle.ed-boost-mode-toggle-on .ed-boost-mode-knob {
+    transform: translateX(6px);
+  }
+}
+
 .entryPopupWindow > .entryEngineWorkspace_w > .entryEngineButtonWorkspace_w.ed-boost-mode-toggle {
   position: absolute;
+  top: auto;
   right: 93px;
   bottom: 10px;
   z-index: 1;
@@ -1445,195 +1485,6 @@
 
 .ed-btn-scene-go:active {
   background: #7d3c98;
-}
-
-/* 내장 오브젝트 생성기 */
-
-.ed-generator {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ed-generator-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #333;
-}
-
-.ed-generator-input {
-  width: 100%;
-  height: 28px;
-  padding: 5px 9px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  background: #fff;
-  color: #333;
-  font-family: inherit;
-  font-size: 12px;
-  outline: none;
-}
-
-.ed-generator-input:focus {
-  border-color: #4f80ff;
-  box-shadow: 0 0 0 2px rgba(79, 128, 255, 0.12);
-}
-
-.ed-generator-drop {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 78px;
-  padding: 12px;
-  border: 1px dashed #b9c9f7;
-  border-radius: 6px;
-  background: #f7f9ff;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: center;
-  transition: border-color 0.12s ease, background 0.12s ease;
-}
-
-.ed-generator-drop:hover {
-  border-color: #4f80ff;
-  background: #f1f5ff;
-}
-
-.ed-generator-drop-active {
-  border-color: #4f80ff;
-  background: #eef3ff;
-}
-
-.ed-generator-drop-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #335fdd;
-}
-
-.ed-generator-drop-desc {
-  margin-top: 4px;
-  font-size: 10px;
-  line-height: 1.4;
-  color: #777;
-}
-
-.ed-generator-file {
-  display: none;
-}
-
-.ed-generator-file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 26px;
-  padding: 7px 8px;
-  border: 1px solid #ececec;
-  border-radius: 4px;
-  background: #fff;
-  color: #999;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.ed-generator-file-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: #333;
-}
-
-.ed-generator-file-item span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ed-generator-file-item em {
-  flex-shrink: 0;
-  min-width: 38px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: #eef3ff;
-  color: #4f80ff;
-  font-style: normal;
-  font-size: 9px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.ed-generator-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.ed-generator-btn {
-  flex: 1;
-  min-height: 28px;
-  padding: 5px 8px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  background: #fff;
-  color: #555;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  line-height: 1.3;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-}
-
-.ed-generator-btn:hover {
-  background: #f6f6f6;
-  color: #333;
-}
-
-.ed-generator-btn-primary {
-  border-color: #4f80ff;
-  background: #4f80ff;
-  color: #fff;
-}
-
-.ed-generator-btn-primary:hover {
-  background: #3d6ef0;
-  color: #fff;
-}
-
-.ed-generator-btn:disabled,
-.ed-generator-input:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.ed-generator-status {
-  padding: 7px 8px;
-  border-radius: 4px;
-  background: #f0f0f0;
-  color: #777;
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.ed-generator-status-info {
-  background: #eef3ff;
-  color: #4f80ff;
-}
-
-.ed-generator-status-success {
-  background: #eafaf1;
-  color: #27ae60;
-}
-
-.ed-generator-status-warning {
-  background: #fff8e6;
-  color: #a36b00;
-}
-
-.ed-generator-status-error {
-  background: #fdedeb;
-  color: #e74c3c;
 }
 
 /* 함수 보관함 */

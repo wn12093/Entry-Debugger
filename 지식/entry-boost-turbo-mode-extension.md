@@ -35,6 +35,9 @@ Entry.options.useWebGL = '1';
 - 실제 부스트 적용 여부는 엔진 상단의 `#ed-boost-mode-toggle` 버튼이 `boostModeEnabled`로 저장한다.
 - 기본값은 버튼 표시 ON, 실제 부스트 OFF다.
 - 엔진 버튼은 `.entryCoordinateButtonWorkspace_w` 뒤에 삽입해 화면상 좌표/격자 버튼 왼쪽에 표시한다.
+- 일반 작업실에서도 버튼을 절대 위치로 배치한다. `float`로 배치하면 뒤에 있는 순정
+  `.entryMouseViewWorkspace_w` 좌표 입력칸이 헤더 아래로 밀리거나 중앙에서 벗어난다.
+- 엔진 폭이 360px 이하이면 라벨을 숨기고 스위치만 축소 표시해 좌표 텍스트와 겹치지 않게 한다.
 - 버튼 UI는 실행 페이지의 `.entryEngineMinimize` 영역처럼 흰 배경 위 텍스트형 `부스트모드` 라벨과 초록 토글 스위치를 함께 보여준다.
 - 작업실 전체화면에서는 엔트리가 같은 엔진 요소를 `.entryPopupWindow` 아래로 이동한다. 이 상태에서 부스트 토글도 절대 위치로 전환해 격자 버튼 왼쪽의 하단 제어줄로 함께 이동한다.
 - 버튼을 클릭하면 `boost-mode.js`가 Entry page world에서 `Entry.toast.warning('부스트 모드', '새로고침 해야 반영됩니다.')`를 호출한다.
@@ -113,6 +116,8 @@ node --check "Entry Debugger/entry-debugger-extension/background.js"
 - 부스트 모드 ON 상태에서 `Entry.init(null, {})` 호출 시 `options.useWebGL === '1'` 확인
 - 부스트 모드 OFF 메시지 수신 시 localStorage 값과 강제 `Entry.options.useWebGL` 제거 확인
 - 엔진 상단 `#ed-boost-mode-toggle` 클릭 시 `Entry.toast.warning`으로 새로고침 안내가 표시되는지 확인
+- 일반 작업실에서 부스트 버튼이 `position: absolute`이고 순정 마우스 좌표 입력칸이
+  엔진 헤더 안의 중앙 위치를 유지하는지 확인
 - 작업실 전체화면 진입 시 부스트 토글이 `.entryPopupWindow` 안의 격자 버튼 왼쪽 하단으로 이동하고, 전체화면 종료 후 원래 작업실 위치로 복귀하는지 확인
 - 터보 모드 ON 시 `engine.speeds`에 `Infinity` 추가 확인
 - `engine.setSpeedMeter(Infinity)` 호출 시 `Entry.isTurbo === true`, `Entry.FPS === 60` 확인

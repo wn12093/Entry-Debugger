@@ -17,7 +17,6 @@ const smokeSettings = {
   boostModeControlVisible: true,
   boostModeEnabled: false,
   labTabEnabled: true,
-  eoUploaderEnabled: false,
   turboModeEnabled: false,
   dropdownSearchEnabled: true,
   dropdownSearchBlockMenuEnabled: true,
@@ -81,6 +80,8 @@ function assertSmokeResult(result) {
     ['frame profiler is in lab', result.labFeatureResult.closestSectionId === 'ed-section-others'],
     ['frame profiler default off', result.labFeatureResult.frameProfilerChecked === false],
     ['lab off resets frame profiler', result.labFeatureResult.resetAfterLabDisabled],
+    ['removed bulk uploader toggle', result.labFeatureResult.hasEoUploaderToggle === false],
+    ['removed bulk uploader tab', result.tabs.includes('업로더') === false],
     ['settings button returns to variables', result.settingsToggleBackResult.variablesSectionActive],
     ['function library tab', result.hasFunctionLibraryTab],
     ['function library empty state', result.functionLibraryResult.hasEmptyState],
@@ -90,6 +91,10 @@ function assertSmokeResult(result) {
     ['property search input', result.hasPropertySearchInput],
     ['high quality warning at 1000%', result.highQualityWarningAt1000],
     ['boost mode control', result.boostModeResult.hasBoostModeControl],
+    ['boost mode control does not move native coordinate display',
+      result.boostWorkspaceResult.position === 'absolute' &&
+      result.boostWorkspaceResult.mouseInsideEngine &&
+      result.boostWorkspaceResult.mouseCenterDeltaToEngine <= 2],
     ['boost mode control moves into fullscreen controls',
       result.boostFullscreenResult.insidePopup &&
       result.boostFullscreenResult.position === 'absolute' &&
@@ -161,6 +166,32 @@ async function main() {
     await page.waitForSelector('#ed-boost-mode-toggle', {
       state: 'attached',
       timeout: 60000
+    });
+    const workspaceStageBox = await page.locator('.entryCanvasWorkspace').first().boundingBox();
+    if (workspaceStageBox) {
+      await page.mouse.move(
+        workspaceStageBox.x + workspaceStageBox.width / 2,
+        workspaceStageBox.y + workspaceStageBox.height / 2
+      );
+      await page.waitForTimeout(100);
+    }
+    const boostWorkspaceResult = await page.evaluate(() => {
+      const engine = document.querySelector('.entryEngineWorkspace_w');
+      const mouseInput = engine && engine.querySelector('.entryMouseViewWorkspace_w input');
+      const button = document.querySelector('#ed-boost-mode-toggle');
+      const engineRect = engine.getBoundingClientRect();
+      const mouseRect = mouseInput.getBoundingClientRect();
+
+      return {
+        position: getComputedStyle(button).position,
+        mouseInsideEngine:
+          mouseRect.top >= engineRect.top &&
+          mouseRect.bottom <= engineRect.bottom,
+        mouseCenterDeltaToEngine: Math.abs(
+          mouseRect.top + mouseRect.height / 2 -
+          (engineRect.top + engineRect.height / 2)
+        )
+      };
     });
     await page.click('.entryMaximizeButtonWorkspace_w');
     await page.waitForSelector(
@@ -301,6 +332,7 @@ async function main() {
       const toggle = document.querySelector('#ed-toggle-frame-profiler');
       return {
         frameProfilerChecked: !!(toggle && toggle.checked),
+        hasEoUploaderToggle: !!document.querySelector('#ed-toggle-eo-uploader'),
         closestSectionId: toggle && toggle.closest('.ed-section')
           ? toggle.closest('.ed-section').id
           : null,
@@ -492,7 +524,7 @@ async function main() {
       () => document.querySelector('#ed-toggle-frame-profiler')?.checked === false
     );
 
-    const result = await page.evaluate(({ popupResult, warningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, boostFullscreenResult, functionLibraryResult }) => {
+    const result = await page.evaluate(({ popupResult, warningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, boostWorkspaceResult, boostFullscreenResult, functionLibraryResult }) => {
       const panel = document.querySelector('#ed-debugger-panel');
       const tabs = Array.from(document.querySelectorAll('#ed-debugger-panel .ed-subtab'))
         .map((tab) => tab.textContent.trim());
@@ -525,6 +557,7 @@ async function main() {
         ),
         highQualityWarningAt1000: warningAt1000,
         boostModeResult,
+        boostWorkspaceResult,
         boostFullscreenResult,
         hasFunctionLibraryToggle: !!functionLibraryToggle,
         functionLibraryChecked: !!(functionLibraryToggle && functionLibraryToggle.checked),
@@ -532,7 +565,7 @@ async function main() {
         functionLibraryResult,
         hasPropertySearchInput: !!document.querySelector('.entry-debugger-property-search-input')
       };
-    }, { popupResult, warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, boostFullscreenResult, functionLibraryResult });
+    }, { popupResult, warningAt1000: highQualityWarningAt1000, settingsTabResult, settingsToggleBackResult, labFeatureResult, boostModeResult, boostWorkspaceResult, boostFullscreenResult, functionLibraryResult });
 
     assertSmokeResult(result);
     console.log(JSON.stringify(result, null, 2));

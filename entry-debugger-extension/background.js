@@ -88,7 +88,6 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         boostModeEnabled: false,
         functionPrivateVariablesEnabled: newState,
         labTabEnabled: false,
-        eoUploaderEnabled: false,
         turboModeEnabled: false,
         dropdownSearchEnabled: newState,
         dropdownSearchBlockMenuEnabled: true,

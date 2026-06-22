@@ -27,7 +27,6 @@ const settings = {
   boostModeControlVisible: true,
   boostModeEnabled: false,
   labTabEnabled: false,
-  eoUploaderEnabled: false,
   turboModeEnabled: false,
   dropdownSearchEnabled: true,
   dropdownSearchBlockMenuEnabled: true,

@@ -69,7 +69,6 @@
   let pictureToolsScriptInjected = false;
   let frameProfilerScriptInjected = false;
   let expandedListIds = new Set();  // 리스트 펼침 상태 추적
-  let eoUploader = null;
   let boostModeControlEl = null;
   let boostModeControlWaitStarted = false;
   let currentPanelTabName = 'variables';
@@ -389,7 +388,6 @@
           }) +
           buildSettingsSectionHTML() +
           buildLabSectionHTML() +
-          buildUploaderSectionHTML() +
           buildFunctionLibrarySectionHTML() +
         '</div>' +
       '</div>'
@@ -406,7 +404,6 @@
             '<button class="ed-subtab" data-tab="scenes">장면</button>' +
             '<span class="ed-subtab-separator ed-optional-only" aria-hidden="true"></span>' +
             '<button class="ed-subtab ed-lab-only" data-tab="others">실험실</button>' +
-            '<button class="ed-subtab ed-eo-uploader-only" data-tab="generator">업로더</button>' +
             '<button class="ed-subtab ed-function-library-only" data-tab="function-library">함수 보관함</button>' +
           '</div>' +
           '<div class="ed-toolbar-right">' +
@@ -613,16 +610,6 @@
               '</div>' +
               '<div class="ed-lab-setting">' +
                 '<span class="ed-lab-text">' +
-                  '<span class="ed-lab-title">다량 이미지 업로더</span>' +
-                  '<span class="ed-lab-desc">실험실 옆에 업로더 탭 표시</span>' +
-                '</span>' +
-                '<label class="ed-lab-switch" aria-label="다량 이미지 업로더 탭 표시">' +
-                  '<input type="checkbox" id="ed-toggle-eo-uploader">' +
-                  '<span class="ed-lab-slider"></span>' +
-                '</label>' +
-              '</div>' +
-              '<div class="ed-lab-setting">' +
-                '<span class="ed-lab-text">' +
                   '<span class="ed-lab-title">함수 보관함</span>' +
                   '<span class="ed-lab-desc">자주 쓰는 함수를 현재 작품에 추가</span>' +
                 '</span>' +
@@ -637,28 +624,6 @@
               '<p>초시계 또는 대답을 찾을 수 없습니다.</p>' +
             '</div>' +
             '<div class="ed-items" id="ed-other-list"></div>' +
-      '</div>'
-    );
-  }
-
-  function buildUploaderSectionHTML() {
-    return (
-      '<div class="ed-section ed-eo-uploader-only" id="ed-section-generator">' +
-            '<div class="ed-generator">' +
-              '<label class="ed-generator-label" for="ed-generator-object-name">오브젝트 이름</label>' +
-              '<input class="ed-generator-input" id="ed-generator-object-name" type="text" value="새 오브젝트" maxlength="40">' +
-              '<input class="ed-generator-file" id="ed-generator-file" type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/png,image/jpeg,image/gif,image/webp,image/svg+xml">' +
-              '<button class="ed-generator-drop" id="ed-generator-drop" type="button">' +
-                '<span class="ed-generator-drop-title">이미지를 선택하거나 여기에 놓기</span>' +
-                '<span class="ed-generator-drop-desc">PNG, JPG, GIF, WEBP는 PNG로 변환하고 SVG는 원본과 PNG 미리보기를 함께 만듭니다. 다운로드한 .eo 파일은 오브젝트 추가하기의 파일 업로드로 넣으세요.</span>' +
-              '</button>' +
-              '<div class="ed-generator-file-list" id="ed-generator-file-list">선택된 이미지가 없습니다.</div>' +
-              '<div class="ed-generator-actions">' +
-                '<button class="ed-generator-btn" id="ed-generator-download" type="button" disabled>.eo 다운로드</button>' +
-                '<button class="ed-generator-btn" id="ed-generator-clear" type="button" disabled>비우기</button>' +
-              '</div>' +
-              '<div class="ed-generator-status ed-generator-status-info" id="ed-generator-status">이미지를 추가해 .eo로 저장한 뒤, 엔트리의 오브젝트 추가하기 &gt; 파일 업로드에서 업로드하세요.</div>' +
-            '</div>' +
       '</div>'
     );
   }
@@ -710,10 +675,8 @@
 
     bindSettingsControls();
     bindLabControls();
-    bindGeneratorEvents();
     bindFunctionLibraryEvents();
     applyLabTabVisibility();
-    renderGeneratorFileList();
     renderFunctionLibraryList();
     renderSettingsControls();
     renderLabControls();
@@ -915,16 +878,6 @@
       });
     }
 
-    var eoUploaderToggle = panelEl.querySelector('#ed-toggle-eo-uploader');
-    if (eoUploaderToggle && eoUploaderToggle.dataset.bound !== 'true') {
-      eoUploaderToggle.dataset.bound = 'true';
-      eoUploaderToggle.addEventListener('change', function () {
-        saveSettingsFromPanel({
-          eoUploaderEnabled: eoUploaderToggle.checked
-        });
-      });
-    }
-
     var functionLibraryToggle = panelEl.querySelector('#ed-toggle-function-library');
     if (functionLibraryToggle && functionLibraryToggle.dataset.bound !== 'true') {
       functionLibraryToggle.dataset.bound = 'true';
@@ -947,11 +900,6 @@
     var turboToggle = panelEl.querySelector('#ed-toggle-turbo-mode');
     if (turboToggle) {
       turboToggle.checked = !!extensionSettings.turboModeEnabled;
-    }
-
-    var eoUploaderToggle = panelEl.querySelector('#ed-toggle-eo-uploader');
-    if (eoUploaderToggle) {
-      eoUploaderToggle.checked = !!extensionSettings.eoUploaderEnabled;
     }
 
     var functionLibraryToggle = panelEl.querySelector('#ed-toggle-function-library');
@@ -1027,15 +975,6 @@
 
   function isLabTabFeatureEnabled() {
     return !!(extensionSettings.enabled && extensionSettings.labTabEnabled);
-  }
-
-  function isEoUploaderFeatureEnabled() {
-    return !!(
-      extensionSettings.enabled &&
-      extensionSettings.debuggerTabEnabled &&
-      extensionSettings.labTabEnabled &&
-      extensionSettings.eoUploaderEnabled
-    );
   }
 
   function isFunctionPrivateVariablesFeatureEnabled() {
@@ -1119,27 +1058,21 @@
     if (!panelEl) return;
 
     var visible = isLabTabFeatureEnabled();
-    var uploaderVisible = isEoUploaderFeatureEnabled();
     var functionLibraryVisible = isFunctionLibraryFeatureEnabled();
     panelEl.querySelectorAll('.ed-lab-only').forEach(function (el) {
       el.style.display = visible ? '' : 'none';
-    });
-    panelEl.querySelectorAll('.ed-eo-uploader-only').forEach(function (el) {
-      el.style.display = uploaderVisible ? '' : 'none';
     });
     panelEl.querySelectorAll('.ed-function-library-only').forEach(function (el) {
       el.style.display = functionLibraryVisible ? '' : 'none';
     });
     panelEl.querySelectorAll('.ed-optional-only').forEach(function (el) {
-      el.style.display = (visible || uploaderVisible || functionLibraryVisible) ? '' : 'none';
+      el.style.display = (visible || functionLibraryVisible) ? '' : 'none';
     });
 
     var labSection = panelEl.querySelector('#ed-section-others');
-    var uploaderSection = panelEl.querySelector('#ed-section-generator');
     var functionLibrarySection = panelEl.querySelector('#ed-section-function-library');
     var activeHidden =
       (!visible && labSection && labSection.classList.contains('ed-section-active')) ||
-      (!uploaderVisible && uploaderSection && uploaderSection.classList.contains('ed-section-active')) ||
       (!functionLibraryVisible && functionLibrarySection && functionLibrarySection.classList.contains('ed-section-active'));
 
     if (activeHidden) {
@@ -1148,28 +1081,6 @@
         variableTab.click();
       }
     }
-  }
-
-  function getEoUploader() {
-    if (!eoUploader && window.EntryDebuggerEoUploader) {
-      eoUploader = window.EntryDebuggerEoUploader.create({
-        getPanelEl: function () { return panelEl; },
-        sendToInject: sendToInject,
-        escapeHTML: escapeHTML,
-        escapeAttr: escapeAttr
-      });
-    }
-    return eoUploader;
-  }
-
-  function bindGeneratorEvents() {
-    var uploader = getEoUploader();
-    if (uploader) uploader.bindEvents();
-  }
-
-  function renderGeneratorFileList() {
-    var uploader = getEoUploader();
-    if (uploader) uploader.renderFileList();
   }
 
   function bindFunctionLibraryEvents() {
@@ -1252,7 +1163,6 @@
       if (response && response.settings) {
         extensionSettings = normalizeSettings(response.settings);
         applyLabTabVisibility();
-        renderGeneratorFileList();
         renderFunctionLibraryList();
         renderSettingsControls();
         renderLabControls();
@@ -2625,7 +2535,6 @@
           boostModeControlVisible: false,
           boostModeEnabled: false,
           labTabEnabled: false,
-          eoUploaderEnabled: false,
           turboModeEnabled: false,
           dropdownSearchEnabled: false,
           dropdownSearchBlockMenuEnabled: extensionSettings.dropdownSearchBlockMenuEnabled,
@@ -2736,8 +2645,6 @@
     debuggerInjected = false;
     isDebuggerActive = false;
     expandedListIds.clear();
-    if (eoUploader) eoUploader.cleanup();
-    eoUploader = null;
     currentSnapshot = { variables: [], lists: [], messages: [], scenes: [], others: [], ready: false };
   }
 

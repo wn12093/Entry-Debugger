@@ -39,6 +39,8 @@ const readmeVersionMatch = readme.match(/\*\*버전\*\*:\s*([0-9]+\.[0-9]+\.[0-9
 const contentScript = readUtf8(path.join(extensionDir, 'content.js'));
 const functionTemplates = readUtf8(path.join(extensionDir, 'function-library-templates.js'));
 const popupHtml = readUtf8(path.join(extensionDir, 'popup.html'));
+const removedUploaderPath = path.join(extensionDir, 'eo-uploader.js');
+const extensionFiles = walk(extensionDir);
 
 if (!readmeVersionMatch) {
   fail('README version line was not found.');
@@ -78,7 +80,15 @@ if (/<script[^>]+src=["']https?:\/\//i.test(popupHtml)) {
   fail('Remote script tags are not allowed in the production popup.');
 }
 
-walk(extensionDir)
+if (fs.existsSync(removedUploaderPath) ||
+    extensionFiles.some((filePath) => {
+      const source = readUtf8(filePath);
+      return /eo-uploader\.js|\beoUploaderEnabled\b|ed-toggle-eo-uploader/.test(source);
+    })) {
+  fail('Removed EO bulk uploader code or settings are still present.');
+}
+
+extensionFiles
   .concat(walk(path.join(rootDir, 'tools')))
   .filter((filePath) => filePath.endsWith('.js'))
   .forEach((filePath) => {

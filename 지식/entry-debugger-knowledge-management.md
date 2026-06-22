@@ -79,8 +79,8 @@
 Entry Debugger 기준 실험실 기본값:
 
 ```js
-eoUploaderEnabled: false,
 turboModeEnabled: false,
+frameProfilerEnabled: false,
 functionLibraryEnabled: false
 ```
 
@@ -110,7 +110,8 @@ highQualityBlockImageScale: 1000
 - 함수 보관함 템플릿 추가 절차: `function-library-template-authoring.md`
 - 전체 지원 기능 요약: `entry-debugger-supported-features.md`
 - 부스트/터보 모드: `entry-boost-turbo-mode-extension.md`
-- 다량 이미지 업로더: `entry-eo-generator-extension.md`, `entry-eo-built-in-generator.md`
+
+제거된 기능의 구현 이력은 해당 문서에 제거 상태를 명시해 보존한다.
 
 ## 갱신 체크리스트
 

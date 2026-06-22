@@ -14,7 +14,6 @@
     boostModeControlVisible: true,
     boostModeEnabled: false,
     labTabEnabled: false,
-    eoUploaderEnabled: false,
     turboModeEnabled: false,
     dropdownSearchEnabled: true,
     dropdownSearchBlockMenuEnabled: true,
@@ -77,9 +76,6 @@
     var labTabEnabled = typeof data.labTabEnabled === 'boolean'
       ? data.labTabEnabled
       : false;
-    var eoUploaderEnabled = typeof data.eoUploaderEnabled === 'boolean'
-      ? data.eoUploaderEnabled
-      : false;
     var turboModeEnabled = typeof data.turboModeEnabled === 'boolean'
       ? data.turboModeEnabled
       : false;
@@ -116,7 +112,6 @@
       : true;
 
     function resetLabFeatureSettings() {
-      eoUploaderEnabled = DEFAULT_SETTINGS.eoUploaderEnabled;
       turboModeEnabled = DEFAULT_SETTINGS.turboModeEnabled;
       functionLibraryEnabled = DEFAULT_SETTINGS.functionLibraryEnabled;
       frameProfilerEnabled = DEFAULT_SETTINGS.frameProfilerEnabled;
@@ -177,7 +172,6 @@
       boostModeControlVisible: enabled && boostModeControlVisible,
       boostModeEnabled: enabled && boostModeEnabled,
       labTabEnabled: enabled && labTabEnabled,
-      eoUploaderEnabled: enabled && eoUploaderEnabled,
       turboModeEnabled: enabled && turboModeEnabled,
       dropdownSearchEnabled: enabled && dropdownSearchEnabled,
       dropdownSearchBlockMenuEnabled: dropdownSearchBlockMenuEnabled,

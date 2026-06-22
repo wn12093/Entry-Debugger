@@ -19,7 +19,7 @@
       "matches": [
         "https://playentry.org/ws/*"
       ],
-      "js": ["settings.js", "hangul-search.js", "function-library-templates.js", "eo-uploader.js", "content.js"],
+      "js": ["settings.js", "hangul-search.js", "function-library-templates.js", "content.js"],
       "css": ["style.css"],
       "run_at": "document_start"
     }
