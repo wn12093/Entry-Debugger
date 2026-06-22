@@ -29,6 +29,7 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [개발용 빌드 Windows CRLF 패치 실패 기록](./build-dev-extension-windows-crlf.md)
 - [모양 탭 편의 기능 2.5.0 검토 및 릴리스](./picture-tools-review-and-release-2.5.0.md)
 - [모양 탭 편의 기능 2.5.0 검토 프롬프트](./picture-tools-review-prompt-2.5.0.md)
+- [프레임 프로파일러](./frame-profiler-experiment.md)
 
 ## 관리 규칙
 
