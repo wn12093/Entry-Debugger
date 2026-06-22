@@ -1,7 +1,7 @@
 ---
 상태: 설계
 범위: 프로젝트:Entry Debugger
-갱신: 2026-06-16
+갱신: 2026-06-22
 ---
 
 # Entry Debugger 할 일
@@ -39,19 +39,3 @@
 - `function-library-template-authoring.md`
 - `function-library-experiment.md`
 - `entry-debugger-extension/function-library-templates.js`
-
-## 전체화면 부스트 버튼 위치 수정 병합
-
-- [ ] `feature/boost-toggle-fullscreen-position` 브랜치의 전체화면 부스트 버튼 위치 수정
-  내용을 `main`에 병합한다.
-
-확인할 내용:
-
-- 만들기 화면에서 전체화면 버튼을 눌렀을 때 `부스트모드` 버튼이 격자/축소 버튼처럼
-  아래쪽 컨트롤 영역으로 내려가는지
-- 전체화면 해제 후 원래 엔진 상단 위치로 돌아오는지
-- `tools/smoke-local-extension.js`의 전체화면 회귀 검증도 함께 복원되는지
-
-관련 커밋:
-
-- `292f17f Move boost toggle with fullscreen controls`
