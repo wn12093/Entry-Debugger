@@ -869,6 +869,7 @@
     var dragStarted = false, ghost = null, dropMode = null, dropObj = null, dropIdx = null, hidden = [];
     var rowCache = null, objCache = null, line = null, hiObj = null, raf = 0, lastEv = null;
     var scrollerEl = null, scrollerTop = 0, autoRAF = 0, autoDir = 0;
+    var autoEdgeSince = 0, autoLastDir = 0;
     var pg = getPlayground();
 
     function visRows() { return allRows().filter(function (r) { return r.style.display !== 'none'; }); }
@@ -962,8 +963,24 @@
 
     function autoTick() { // edge auto-scroll loop (keeps scrolling even when cursor is still)
       autoRAF = 0;
-      if (!autoDir || !scrollerEl) return;
-      scrollerEl.scrollTop += autoDir * 14; // scroll event -> onScroll -> processMove updates line
+      if (!autoDir || !scrollerEl || !lastEv) return;
+      var r = scrollerEl.getBoundingClientRect();
+      if (lastEv.clientX < r.left || lastEv.clientX > r.right) {
+        autoDir = 0;
+        autoEdgeSince = 0;
+        autoLastDir = 0;
+        return;
+      }
+      var EDGE = 90;
+      var distance = autoDir < 0 ? lastEv.clientY - r.top : r.bottom - lastEv.clientY;
+      var depth = (EDGE - Math.max(0, distance)) / EDGE;
+      var t = (window.performance && performance.now) ? performance.now() : Date.now();
+      if (!autoEdgeSince || autoLastDir !== autoDir) autoEdgeSince = t;
+      autoLastDir = autoDir;
+      var accel = 1 + 2 * Math.min((t - autoEdgeSince) / 700, 1);
+      var speed = scrollerEl.scrollHeight * 0.014 * depth * accel;
+      speed = Math.max(10, Math.min(3000, speed));
+      scrollerEl.scrollTop += autoDir * speed; // scroll event -> onScroll -> processMove updates line
       autoRAF = requestAnimationFrame(autoTick);
     }
 
@@ -973,9 +990,16 @@
       if (!ev || !ghost) return;
       ghost.style.transform = 'translate(' + (ev.clientX + 12) + 'px,' + (ev.clientY + 12) + 'px)';
       if (scrollerEl) {
-        var r = scrollerEl.getBoundingClientRect(), EDGE = 38;
+        var r = scrollerEl.getBoundingClientRect(), EDGE = 90;
         var overList = ev.clientX >= r.left && ev.clientX <= r.right;
-        autoDir = overList ? (ev.clientY < r.top + EDGE ? -1 : ev.clientY > r.bottom - EDGE ? 1 : 0) : 0;
+        var nextDir = overList ? (ev.clientY < r.top + EDGE ? -1 : ev.clientY > r.bottom - EDGE ? 1 : 0) : 0;
+        if (!nextDir) {
+          autoEdgeSince = 0;
+          autoLastDir = 0;
+        } else if (nextDir !== autoDir) {
+          autoEdgeSince = 0;
+        }
+        autoDir = nextDir;
         if (autoDir && !autoRAF) autoRAF = requestAnimationFrame(autoTick);
       }
       var tObj = null;
@@ -1013,6 +1037,8 @@
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       if (autoRAF) { cancelAnimationFrame(autoRAF); autoRAF = 0; }
       autoDir = 0;
+      autoEdgeSince = 0;
+      autoLastDir = 0;
       document.body.style.userSelect = ''; document.body.style.cursor = '';
       if (ghost) ghost.remove();
       clearObjHi();
@@ -1591,73 +1617,8 @@
     document.addEventListener('click', onFileBtnClick, true);
     document.addEventListener('click', onUploadModalAction, true);
     document.addEventListener('contextmenu', onCtxMenu, true);
-    installDragAutoScroll();
-
     mo = new MutationObserver(onMutation);
     startObserver();
-  }
-
-  // Faster edge auto-scroll while dragging a costume to reorder. Entry's native sortable scrolls
-  // near the list edges only slowly. While a row is held and dragged, scroll speed is:
-  //   · PERCENT-BASED — a fraction of the TOTAL scroll height per frame, so long lists move
-  //     proportionally fast (a fixed px/frame is hopelessly slow on a 50000px list);
-  //   · ramped by how DEEP into the EDGE zone the cursor is (hold nearer the edge = faster);
-  //   · ACCELERATING the longer the cursor stays at an edge (resets on leaving / flipping side).
-  function installDragAutoScroll() {
-    var EDGE = 90, START = 5;
-    var PCT = 0.014;                       // base px/frame = scrollHeight * PCT at full edge depth
-    var MIN_SPEED = 10, MAX_SPEED = 3000;  // px/frame floor (in-zone) and cap
-    var MAX_ACCEL = 3, ACCEL_MS = 700;     // ramp 1x -> MAX_ACCEL over ACCEL_MS of holding
-    var pressed = false, dragging = false, startY = 0, mouseY = 0, raf = null;
-    var edgeSince = 0, lastDir = 0;
-
-    function step() {
-      raf = null;
-      if (!dragging || !enabled) return;
-      var sc = getScroller();
-      if (sc) {
-        var rect = sc.getBoundingClientRect();
-        var dTop = mouseY - rect.top, dBot = rect.bottom - mouseY;
-        var dir = 0, depth = 0;
-        if (dTop < EDGE) { dir = -1; depth = (EDGE - Math.max(0, dTop)) / EDGE; }
-        else if (dBot < EDGE) { dir = 1; depth = (EDGE - Math.max(0, dBot)) / EDGE; }
-        if (dir === 0) {
-          edgeSince = 0;                                       // left the zone -> reset acceleration
-        } else {
-          var now = (window.performance && performance.now) ? performance.now() : Date.now();
-          if (edgeSince === 0 || dir !== lastDir) edgeSince = now;   // just entered / flipped side
-          lastDir = dir;
-          var accel = 1 + (MAX_ACCEL - 1) * Math.min((now - edgeSince) / ACCEL_MS, 1);
-          var speed = sc.scrollHeight * PCT * depth * accel;
-          if (speed < MIN_SPEED) speed = MIN_SPEED;
-          if (speed > MAX_SPEED) speed = MAX_SPEED;
-          sc.scrollTop += dir * speed;
-        }
-      }
-      raf = requestAnimationFrame(step);
-    }
-    function down(e) {
-      if (!enabled || e.button !== 0 || !e.target || !e.target.closest) return;
-      if (!e.target.closest(ROW) || e.target.closest('input, .entryPlayground_del')) return;
-      if (inScrollbarZone(e.clientX)) return;           // the scrollbar drag handles that zone
-      pressed = true; dragging = false; startY = e.clientY; mouseY = e.clientY;
-    }
-    function move(e) {
-      if (!pressed) return;
-      if (e.buttons === 0) { up(); return; }            // missed mouseup (released off-window)
-      mouseY = e.clientY;
-      if (!dragging && Math.abs(e.clientY - startY) > START) {
-        dragging = true;
-        if (!raf) raf = requestAnimationFrame(step);
-      }
-    }
-    function up() {
-      pressed = false; dragging = false; edgeSince = 0; lastDir = 0;
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-    }
-    document.addEventListener('mousedown', down, true);
-    document.addEventListener('mousemove', move, true);
-    document.addEventListener('mouseup', up, true);
   }
 
   // Entry re-renders the whole picture list on every command (objectAddPicture /
