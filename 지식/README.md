@@ -24,6 +24,7 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [Entry Debugger 리팩토링 검토 (기획)](./entry-debugger-refactor-review.md)
 - [Chrome Web Store 2.6.1 제출 점검](./chrome-web-store-release-2.6.1.md)
 - [Entry Debugger 2.6.1 리팩토링 최종 검토 프롬프트](./entry-debugger-refactor-review-prompt-2.6.1.md)
+- [블록 편집 버그 수정 2건 검토 프롬프트](./block-editing-fixes-review-prompt.md)
 - [Entry Debugger 지원 기능 정리](./entry-debugger-supported-features.md)
 - [Entry Debugger 소개 페이지 디자이너 프롬프트](./entry-debugger-designer-prompt.md)
 - [Entry Debugger 아이콘 생성 프롬프트](./entry-debugger-icon-generation-prompt.md)
