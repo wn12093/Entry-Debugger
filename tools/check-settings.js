@@ -43,8 +43,8 @@ const disabled = normalize({
   highQualityBlockImageEnabled: true,
   functionLibraryEnabled: true,
   functionPrivateVariablesEnabled: true,
-  dropdownSearchBlockMenuEnabled: false,
-  dropdownSearchPropertyPanelEnabled: false,
+  dropdownSearchBlockMenuEnabled: true,
+  dropdownSearchPropertyPanelEnabled: true,
   highQualityBlockImageScale: 1750
 });
 
@@ -68,9 +68,17 @@ const disabled = normalize({
 ].forEach((key) => {
   assert.strictEqual(disabled[key], false, key + ' must be disabled globally');
 });
-assert.strictEqual(disabled.dropdownSearchBlockMenuEnabled, false);
-assert.strictEqual(disabled.dropdownSearchPropertyPanelEnabled, false);
+assert.strictEqual(disabled.dropdownSearchBlockMenuEnabled, true);
+assert.strictEqual(disabled.dropdownSearchPropertyPanelEnabled, true);
 assert.strictEqual(disabled.highQualityBlockImageScale, 1750);
+
+const disabledWithSubOptionsOff = normalize({
+  enabled: false,
+  dropdownSearchBlockMenuEnabled: false,
+  dropdownSearchPropertyPanelEnabled: false
+});
+assert.strictEqual(disabledWithSubOptionsOff.dropdownSearchBlockMenuEnabled, false);
+assert.strictEqual(disabledWithSubOptionsOff.dropdownSearchPropertyPanelEnabled, false);
 
 const debuggerDisabled = normalize({
   debuggerTabEnabled: false,

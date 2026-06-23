@@ -57,6 +57,10 @@ git diff --check
 그 결과 Entry의 `.propertyTab`이 생성되지 않아 180초 대기 뒤 종료됐다.
 확장 콘솔 오류나 이번 변경의 assertion 실패로 판정하지 않는다.
 
+`npm.cmd run smoke:picture-tools`와 `npm.cmd run smoke:frame-profiler`는 같은 로컬
+Entry 작업실 DOM이 준비되지 않은 상태라 별도로 실행하지 않았다. 두 검증의 상태는
+실패나 BLOCKED가 아니라 **미실행(NOT RUN)** 이다.
+
 ### 제출 파일
 
 - 경로: `Entry-Debugger-2.6.1-chrome-web-store.zip`
