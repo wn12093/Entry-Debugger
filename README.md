@@ -4,7 +4,7 @@
 실시간으로 모니터링하고 직접 제어할 수 있는 크롬 확장프로그램입니다.
 
 - **대상 페이지**: `https://playentry.org/ws/*` (작품 편집기 화면)
-- **버전**: 2.6.0
+- **버전**: 2.6.1
 
 ## 설치
 
@@ -22,7 +22,8 @@ npm run smoke:local
 npm run smoke:picture-tools
 ```
 
-- `npm run check`: manifest/README 버전 일치, 확장 리소스 존재 여부, JS 문법을 확인합니다.
+- `npm run check`: manifest/README 버전, 확장 리소스, JS 문법, 설정 불변조건,
+  page-core 주입 순서, 함수 템플릿 ID 재매핑을 확인합니다.
 - `npm run build:dev`: 로컬 Entry 서버에서도 동작하는 개발용 확장을 `dist/entry-debugger-extension-dev/`에 생성합니다. Chrome match pattern 제약 때문에 개발용 manifest는 `http://127.0.0.1/*`, `http://localhost/*`를 포함하고, 실제 동작 여부는 content script 내부에서 `/ws/*`로 다시 제한합니다.
 - `npm run smoke:local`: 로컬 Entry 만들기 화면에서 Chromium 기반 확장 주입과 핵심 UI 동작을 확인합니다. PR 생성 또는 PR 브랜치 업데이트 직전에 실행합니다.
 - `npm run smoke:picture-tools`: 모양 명령·복제·재정렬·이름변경과 10개 업로드 경계, GIF 프레임 합산, 업로드 창 종료 취소를 Chromium에서 검증합니다.
@@ -55,6 +56,15 @@ npm run smoke:picture-tools
 ### 장면
 - 모든 장면 목록 표시
 - **"이동"** 버튼으로 장면 전환 + 실행 중이면 "장면이 시작되었을 때" 이벤트 자동 발화
+
+## v2.6.1 변경사항
+
+- 설정 정규화의 기본값·전체 비활성화·실험실 종속성·부스트 종속성·이미지 배율을
+  고정하는 특성 테스트 추가
+- page-core 4종과 기능 스크립트의 주입 순서, 중복 방지, 로드 후 정리를 검증하는
+  회귀 테스트 추가
+- 변수·리스트·장면·함수 변경 뒤 강제 스냅샷 갱신 로직을 `forceResync()`로 통합
+- 기능 동작과 권한은 2.6.0과 동일하게 유지
 
 ## v2.6.0 변경사항
 

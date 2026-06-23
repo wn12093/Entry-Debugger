@@ -22,6 +22,8 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [함수 보관함 템플릿 추가 절차](./function-library-template-authoring.md)
 - [Entry Debugger 리팩토링 구조](./entry-debugger-refactor-architecture.md)
 - [Entry Debugger 리팩토링 검토 (기획)](./entry-debugger-refactor-review.md)
+- [Chrome Web Store 2.6.1 제출 점검](./chrome-web-store-release-2.6.1.md)
+- [Entry Debugger 2.6.1 리팩토링 최종 검토 프롬프트](./entry-debugger-refactor-review-prompt-2.6.1.md)
 - [Entry Debugger 지원 기능 정리](./entry-debugger-supported-features.md)
 - [Entry Debugger 소개 페이지 디자이너 프롬프트](./entry-debugger-designer-prompt.md)
 - [Entry Debugger 아이콘 생성 프롬프트](./entry-debugger-icon-generation-prompt.md)

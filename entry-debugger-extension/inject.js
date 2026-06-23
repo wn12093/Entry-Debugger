@@ -442,6 +442,11 @@
     }
   }
 
+  function forceResync() {
+    prevSnapshotJSON = '';
+    pollAndBroadcast();
+  }
+
   let debugHintShown = false;
 
   function startPolling() {
@@ -1066,30 +1071,26 @@
         break;
 
       case 'REQUEST_SNAPSHOT':
-        prevSnapshotJSON = ''; // 강제 재전송
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'SET_VARIABLE':
         result = setVariableValue(msg.payload.id, msg.payload.value);
         post('SET_RESULT', result, msg.requestId);
         // 즉시 스냅샷 갱신
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'SET_SYSTEM_VARIABLE':
         result = setSystemVariableValue(msg.payload.kind, msg.payload.value);
         post('SET_RESULT', result, msg.requestId);
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'SET_SYSTEM_VISIBLE':
         result = setSystemVariableVisible(msg.payload.kind, msg.payload.visible);
         post('SET_RESULT', result, msg.requestId);
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'CHANGE_VARIABLE_SCOPE':
@@ -1100,29 +1101,25 @@
           msg.payload.objectId
         );
         post('SET_RESULT', result, msg.requestId);
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'SET_LIST_ITEM':
         result = setListItem(msg.payload.listId, msg.payload.index, msg.payload.value);
         post('SET_RESULT', result, msg.requestId);
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'ADD_LIST_ITEM':
         result = addListItem(msg.payload.listId, msg.payload.value);
         post('SET_RESULT', result, msg.requestId);
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'REMOVE_LIST_ITEM':
         result = removeListItem(msg.payload.listId, msg.payload.index);
         post('SET_RESULT', result, msg.requestId);
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'CHANGE_SCENE':
@@ -1175,8 +1172,7 @@
         }
         post('CHANGE_SCENE_RESULT', result, msg.requestId);
         // 장면 전환 후 스냅샷 즉시 갱신
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'RAISE_MESSAGE':
@@ -1187,8 +1183,7 @@
       case 'ADD_FUNCTION_LIBRARY_TEMPLATE':
         result = addFunctionLibraryTemplate(msg.payload || {});
         post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', result, msg.requestId);
-        prevSnapshotJSON = '';
-        pollAndBroadcast();
+        forceResync();
         break;
 
       case 'SHOW_ENTRY_TOAST':

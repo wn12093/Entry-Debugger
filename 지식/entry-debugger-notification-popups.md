@@ -30,8 +30,8 @@
 | `#ed-picture-tools-prog` | 자체 DOM(엔트리 토스트 룩) | 화면 상단 중앙 알약 | 모양 진행 표시 |
 | 자체 DOM 메뉴 | 자체 DOM | 우클릭 | 빈 목록 영역 붙여넣기 |
 
-> 인라인 상태줄(`.ed-generator-status`, `.ed-function-library` 상태)과 상주 오버레이
-> (`#ed-frame-profiler`)는 단발성 알림이 아니라 패널/다이얼로그 내부 상태 표시라 이 규약 밖.
+> 인라인 상태줄(`.ed-function-library` 상태)과 상주 오버레이(`#ed-frame-profiler`)는
+> 단발성 알림이 아니라 패널 내부 상태 표시라 이 규약 밖.
 
 ## 핵심 규약
 
