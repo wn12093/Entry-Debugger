@@ -92,7 +92,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         dropdownSearchEnabled: newState,
         dropdownSearchBlockMenuEnabled: true,
         dropdownSearchPropertyPanelEnabled: true,
-        blockTextCopyEnabled: newState,
+        blockTextCopyEnabled: false,
         singleBlockDragEnabled: false,
         highQualityBlockImageEnabled: false,
         highQualityBlockImageScale: 1000,

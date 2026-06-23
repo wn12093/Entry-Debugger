@@ -97,7 +97,7 @@ boostModeEnabled: false,
 dropdownSearchEnabled: true,
 dropdownSearchBlockMenuEnabled: true,
 dropdownSearchPropertyPanelEnabled: true,
-blockTextCopyEnabled: true,
+blockTextCopyEnabled: false,
 highQualityBlockImageEnabled: false,
 highQualityBlockImageScale: 1000
 ```

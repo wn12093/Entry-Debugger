@@ -18,7 +18,7 @@
     dropdownSearchEnabled: true,
     dropdownSearchBlockMenuEnabled: true,
     dropdownSearchPropertyPanelEnabled: true,
-    blockTextCopyEnabled: true,
+    blockTextCopyEnabled: false,
     pictureToolsEnabled: false,
     frameProfilerEnabled: false,
     singleBlockDragEnabled: false,

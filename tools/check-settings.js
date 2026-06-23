@@ -20,6 +20,8 @@ const defaults = Settings.getDefaultSettings();
 const normalize = Settings.normalize;
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
+assert.strictEqual(defaults.blockTextCopyEnabled, false);
+assert.strictEqual(defaults.singleBlockDragEnabled, false);
 assert.deepStrictEqual(plain(normalize()), plain(defaults));
 assert.deepStrictEqual(
   plain(normalize({ pictureToolsEnabled: true })),
