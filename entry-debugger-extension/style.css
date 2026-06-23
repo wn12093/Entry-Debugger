@@ -1809,38 +1809,3 @@
   0%   { background-color: #d5f5e3; }
   100% { background-color: #fff;    }
 }
-
-
-/* ═══════════════════════════════════════════════════
-   15. 토스트 알림
-   ═══════════════════════════════════════════════════ */
-
-.ed-toast {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 16px;
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 11px;
-  color: #fff;
-  z-index: 10000;
-  pointer-events: none;
-  opacity: 1;
-  transition: opacity 0.3s ease;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.ed-toast-error {
-  background: #e74c3c;
-}
-
-.ed-toast-info {
-  background: #4f80ff;
-}
-
-.ed-toast-out {
-  opacity: 0;
-}

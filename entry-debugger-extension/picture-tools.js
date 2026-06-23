@@ -313,13 +313,24 @@
     if (!progEl || !document.body.contains(progEl)) {
       progEl = document.createElement('div');
       progEl.id = 'ed-picture-tools-prog';
+      // 엔트리 토스트(toast.less) 룩에 맞춘 스타일 — 상단 중앙 고정만 유지.
       progEl.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:2147483647;' +
-        'padding:10px 20px;border-radius:999px;font:bold 13px "Nanum Gothic","NanumGothic","Malgun Gothic",sans-serif;color:#fff;' +
-        'box-shadow:0 4px 18px rgba(0,0,0,.32);white-space:nowrap;pointer-events:none;transition:opacity .3s;';
+        'padding:8px 18px;border:2px solid;border-radius:4px;' +
+        'font:bold 13px "Nanum Gothic","NanumGothic","Malgun Gothic",sans-serif;' +
+        'box-shadow:#999 0 0 8px;text-shadow:0 1px 0 rgba(255,255,255,.5);' +
+        'white-space:nowrap;pointer-events:none;transition:opacity .3s;';
       document.body.appendChild(progEl);
     }
     clearTimeout(progTimer);
-    progEl.style.background = err ? '#e74c3c' : '#4f80ff';
+    if (err) {
+      progEl.style.background = '#f2dede';
+      progEl.style.borderColor = '#eed3d7';
+      progEl.style.color = '#b94a48';
+    } else {
+      progEl.style.background = '#eef2f7';
+      progEl.style.borderColor = '#d4dbe6';
+      progEl.style.color = '#3a3f4b';
+    }
     progEl.textContent = title ? (title + ' · ' + msg) : msg;
     progEl.style.opacity = '1';
   }

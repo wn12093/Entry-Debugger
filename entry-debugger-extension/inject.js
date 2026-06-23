@@ -1029,6 +1029,22 @@
     }
   }
 
+  /* ───────── 엔트리 네이티브 토스트 ───────── */
+
+  function showEntryToast(payload) {
+    var entry = safeGetEntry();
+    var toast = entry && entry.toast;
+    if (!toast || !payload) return;
+    var type = payload.type;
+    if (type !== 'success' && type !== 'warning' && type !== 'alert') {
+      type = 'success';
+    }
+    if (typeof toast[type] !== 'function') return;
+    try {
+      toast[type](payload.title || '', payload.message || '');
+    } catch (e) {}
+  }
+
   /* ───────── 메시지 수신 핸들러 ───────── */
 
   onMessage(function (msg) {
@@ -1167,6 +1183,10 @@
         post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', result, msg.requestId);
         prevSnapshotJSON = '';
         pollAndBroadcast();
+        break;
+
+      case 'SHOW_ENTRY_TOAST':
+        showEntryToast(msg.payload);
         break;
 
       case 'PING':

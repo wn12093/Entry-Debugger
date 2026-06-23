@@ -889,7 +889,7 @@
 
   function resetSettingsToDefaults() {
     saveSettingsFromPanel(DEFAULT_SETTINGS);
-    showToast('설정을 기본값으로 초기화했습니다.', 'info');
+    showToast('success', '설정 초기화', '기본값으로 되돌렸습니다.');
   }
 
   function bindLabControls() {
@@ -1155,7 +1155,6 @@
       eoUploader = window.EntryDebuggerEoUploader.create({
         getPanelEl: function () { return panelEl; },
         sendToInject: sendToInject,
-        showToast: showToast,
         escapeHTML: escapeHTML,
         escapeAttr: escapeAttr
       });
@@ -1380,7 +1379,7 @@
       if (nextScope === 'local') {
         objectId = select.dataset.currentObjectId || select.dataset.objectId || '';
         if (!objectId) {
-          showToast('지역 스코프로 바꿀 현재 오브젝트를 찾을 수 없습니다.', 'error');
+          showToast('alert', '스코프 변경 실패', '지역 스코프로 바꿀 현재 오브젝트를 찾을 수 없습니다.');
           select.value = previousScope;
           return;
         }
@@ -2478,7 +2477,7 @@
       case 'BOOST_MODE_RESULT':
         updateBoostModeControl();
         if (msg.payload && msg.payload.notify && !msg.payload.notified) {
-          showToast('새로고침 해야 반영됩니다.', 'info');
+          showToast('warning', '부스트 모드', '새로고침 해야 반영됩니다.');
         }
         break;
 
@@ -2535,7 +2534,11 @@
 
       case 'BLOCK_TEXT_COPY_TOAST':
         if (msg.payload && msg.payload.message) {
-          showToast(msg.payload.message, msg.payload.type || 'info');
+          showToast(
+            msg.payload.type === 'error' ? 'alert' : 'success',
+            '블록 텍스트 복사',
+            msg.payload.message
+          );
         }
         break;
 
@@ -2548,23 +2551,23 @@
 
       case 'SET_RESULT':
         if (msg.payload && !msg.payload.success) {
-          showToast('오류: ' + msg.payload.error, 'error');
+          showToast('alert', '값 수정 실패', msg.payload.error);
         }
         break;
 
       case 'RAISE_RESULT':
         if (msg.payload && msg.payload.success) {
-          showToast('신호 발생 완료', 'info');
+          showToast('success', '신호 발생', '완료되었습니다.');
         } else if (msg.payload) {
-          showToast('신호 오류: ' + msg.payload.error, 'error');
+          showToast('alert', '신호 발생 실패', msg.payload.error);
         }
         break;
 
       case 'CHANGE_SCENE_RESULT':
         if (msg.payload && msg.payload.success) {
-          showToast('장면 전환 완료', 'info');
+          showToast('success', '장면 전환', '완료되었습니다.');
         } else if (msg.payload) {
-          showToast('장면 전환 오류: ' + msg.payload.error, 'error');
+          showToast('alert', '장면 전환 실패', msg.payload.error);
         }
         break;
 
@@ -2573,10 +2576,10 @@
         if (msg.payload && msg.payload.success) {
           var addedName = msg.payload.name || '함수';
           setFunctionLibraryStatus(addedName + ' 추가 완료', 'info');
-          showToast(addedName + ' 추가 완료', 'info');
+          showToast('success', '함수 추가', addedName + ' 추가 완료');
         } else if (msg.payload) {
           setFunctionLibraryStatus('함수 추가 오류: ' + msg.payload.error, 'error');
-          showToast('함수 추가 오류: ' + msg.payload.error, 'error');
+          showToast('alert', '함수 추가 실패', msg.payload.error);
         }
         break;
 
@@ -2586,9 +2589,9 @@
         }
 
         if (msg.payload && msg.payload.success) {
-          showToast('함수 블록으로 이동했습니다', 'info');
+          showToast('success', '함수 보관함', '함수 블록으로 이동했습니다.');
         } else if (msg.payload) {
-          showToast('함수 이동 오류: ' + msg.payload.error, 'error');
+          showToast('alert', '함수 이동 실패', msg.payload.error);
         }
         break;
 
@@ -2789,20 +2792,14 @@
     }, 600);
   }
 
-  function showToast(message, type) {
-    if (!panelEl) return;
-    var wrapper = panelEl.querySelector('.ed-wrapper');
-    if (!wrapper) return;
-
-    var toast = document.createElement('div');
-    toast.className = 'ed-toast ed-toast-' + (type || 'info');
-    toast.textContent = message;
-    wrapper.appendChild(toast);
-
-    setTimeout(function () {
-      toast.classList.add('ed-toast-out');
-      setTimeout(function () { toast.remove(); }, 300);
-    }, 2500);
+  // 엔트리 네이티브 토스트(화면 우하단)로 통일. page world의 inject.js가
+  // Entry.toast[type](title, message)를 호출한다. type: success | warning | alert.
+  function showToast(type, title, message) {
+    sendToInject('SHOW_ENTRY_TOAST', {
+      type: type,
+      title: title || '',
+      message: message || ''
+    });
   }
 
   /* ═══════════════════════════════════════════
