@@ -1,6 +1,6 @@
-# 개발용 빌드 Windows CRLF 패치 실패 기록
+# 개발용 빌드 Windows CRLF 정규화 기록 (해결됨)
 
-확인 날짜: 2026-06-15
+확인 날짜: 2026-06-15 · 상태: ✅ **해결됨** — `tools/build-dev-extension.js`가 본문을 LF로 정규화(`.replace(/\r\n/g, '\n')`)하여 Windows에서도 `npm run build:dev`가 통과한다. 아래는 증상·원인·수정 기록.
 
 대상: [`tools/build-dev-extension.js`](../tools/build-dev-extension.js)의 `enableLocalWorkspaceInContentScript()` — Windows에서 `npm run build:dev`가 실패하던 플랫폼 전용 버그와 그 수정.
 

@@ -16,25 +16,20 @@ Entry Debugger 개발 중 확인한 Entry 내부 동작, 확장 프로그램 설
 - [함수 안에서 개인변수 보기](./function-private-variables-in-function-edit.md)
 - [속성 검색으로 찾기](./dropdown-search-experiment.md)
 - [Alt 단일 블록 드래그](./single-block-drag.md)
-- [Chrome Web Store 2.4.0 제출 점검](./chrome-web-store-release-2.4.0.md)
 - [초고화질 이미지 저장하기](./high-quality-block-image-experiment.md)
 - [함수 보관함](./function-library-experiment.md)
 - [함수 보관함 템플릿 추가 절차](./function-library-template-authoring.md)
 - [Entry Debugger 리팩토링 구조](./entry-debugger-refactor-architecture.md)
 - [Entry Debugger 리팩토링 검토 (기획)](./entry-debugger-refactor-review.md)
-- [Chrome Web Store 2.6.1 제출 점검](./chrome-web-store-release-2.6.1.md)
-- [Entry Debugger 2.6.1 리팩토링 최종 검토 프롬프트](./entry-debugger-refactor-review-prompt-2.6.1.md)
-- [블록 편집 버그 수정 2건 검토 프롬프트](./block-editing-fixes-review-prompt.md)
 - [Entry Debugger 지원 기능 정리](./entry-debugger-supported-features.md)
-- [Entry Debugger 소개 페이지 디자이너 프롬프트](./entry-debugger-designer-prompt.md)
-- [Entry Debugger 아이콘 생성 프롬프트](./entry-debugger-icon-generation-prompt.md)
 - [부스트/터보 모드 확장 기록](./entry-boost-turbo-mode-extension.md)
-- [제거된 엔트리 .eo 저장 모양 생성기 기록](./entry-eo-generator-extension.md)
-- [제거된 Entry .eo 내장 생성기 기록](./entry-eo-built-in-generator.md)
-- [개발용 빌드 Windows CRLF 패치 실패 기록](./build-dev-extension-windows-crlf.md)
-- [모양 탭 편의 기능 2.5.0 검토 및 릴리스](./picture-tools-review-and-release-2.5.0.md)
-- [모양 탭 편의 기능 2.5.0 검토 프롬프트](./picture-tools-review-prompt-2.5.0.md)
+- [개발용 빌드 Windows CRLF 정규화 (해결됨)](./build-dev-extension-windows-crlf.md)
 - [프레임 프로파일러](./frame-profiler-experiment.md)
+
+## 보관 (`_archive/`)
+
+완료된 일회성 문서(옛 릴리스 점검·검토 프롬프트·제거된 기능 기록)는
+[`_archive/`](./_archive/)로 옮겼다. 살아있는 규칙·레퍼런스만 위 목록에 둔다.
 
 ## 관리 규칙
 
