@@ -84,10 +84,20 @@ function assertSmokeResult(result) {
     ['removed bulk uploader tab', result.tabs.includes('업로더') === false],
     ['settings button returns to variables', result.settingsToggleBackResult.variablesSectionActive],
     ['function library tab', result.hasFunctionLibraryTab],
-    ['function library empty state', result.functionLibraryResult.hasEmptyState],
-    ['function library has no test add button', result.functionLibraryResult.hasAddButton === false],
-    ['function library did not mutate functions',
-      result.functionLibraryResult.countBefore === result.functionLibraryResult.countAfter],
+    ['numberToHangul template card', result.functionLibraryResult.cardTitle === 'numberToHangul'],
+    ['numberToHangul template description',
+      /한글 읽기 문자열/.test(result.functionLibraryResult.cardDescription)],
+    ['numberToHangul function added',
+      result.functionLibraryResult.countAfter === result.functionLibraryResult.countBefore + 1],
+    ['numberToHangul function type', result.functionLibraryResult.addedType === 'value'],
+    ['numberToHangul local variables remapped',
+      result.functionLibraryResult.localVariableCount === 9 &&
+      result.functionLibraryResult.localVariableIdsRemapped],
+    ['numberToHangul block ids remapped', result.functionLibraryResult.blockIdsRemapped],
+    ['numberToHangul dynamic parameter remapped',
+      result.functionLibraryResult.dynamicParamTypes.length === 1 &&
+      result.functionLibraryResult.dynamicParamTypes[0] !== 'stringParam_n'],
+    ['numberToHangul function label', result.functionLibraryResult.functionLabel === 'numberToHangul'],
     ['property search input', result.hasPropertySearchInput],
     ['high quality warning at 1000%', result.highQualityWarningAt1000],
     ['boost mode control', result.boostModeResult.hasBoostModeControl],
@@ -448,36 +458,98 @@ async function main() {
       };
     });
 
-    const functionCountBeforeOpen = await page.evaluate(() => {
+    const functionIdsBeforeOpen = await page.evaluate(() => {
       const funcs = window.Entry &&
         window.Entry.variableContainer &&
         window.Entry.variableContainer.functions_;
-      return funcs ? Object.keys(funcs).length : 0;
+      return funcs ? Object.keys(funcs) : [];
     });
     await page.click('.ed-subtab[data-tab="function-library"]');
-    await page.waitForSelector('.ed-function-library-empty', {
+    await page.waitForSelector('.ed-function-card', {
       state: 'visible',
       timeout: 60000
     });
-    const functionLibraryResult = await page.evaluate((beforeCount) => {
+    const functionCardResult = await page.evaluate(() => {
+      const card = document.querySelector('.ed-function-card');
+      return {
+        cardTitle: (card?.querySelector('.ed-function-card-title')?.textContent || '').trim(),
+        cardDescription:
+          (card?.querySelector('.ed-function-card-desc')?.textContent || '').trim(),
+        templateId:
+          card?.querySelector('.ed-function-add-btn')?.getAttribute('data-template-id') || ''
+      };
+    });
+    await page.locator('.ed-function-card').filter({ hasText: 'numberToHangul' })
+      .locator('.ed-function-add-btn').click();
+    await page.waitForFunction(
+      (beforeIds) => {
+        const funcs = window.Entry?.variableContainer?.functions_ || {};
+        return Object.keys(funcs).some((id) => !beforeIds.includes(id));
+      },
+      functionIdsBeforeOpen,
+      { timeout: 60000 }
+    );
+    const functionLibraryResult = await page.evaluate(({ beforeIds, cardResult }) => {
       const funcs = window.Entry &&
         window.Entry.variableContainer &&
         window.Entry.variableContainer.functions_;
-      const values = funcs ? Object.values(funcs) : [];
+      const ids = funcs ? Object.keys(funcs) : [];
+      const addedId = ids.find((id) => !beforeIds.includes(id));
+      const added = addedId && funcs ? funcs[addedId] : null;
+      const content = added && added.content && typeof added.content.toJSON === 'function'
+        ? added.content.toJSON()
+        : [];
+      const blockIds = [];
+      const dynamicParamTypes = new Set();
+      let functionLabel = '';
+
+      (function walk(node) {
+        if (Array.isArray(node)) {
+          node.forEach(walk);
+          return;
+        }
+        if (!node || typeof node !== 'object') return;
+        if (node.id) blockIds.push(node.id);
+        if (typeof node.type === 'string' && node.type.indexOf('stringParam_') === 0) {
+          dynamicParamTypes.add(node.type);
+        }
+        if (node.type === 'function_field_label' && Array.isArray(node.params)) {
+          functionLabel = node.params[0] || '';
+        }
+        Object.keys(node).forEach((key) => walk(node[key]));
+      })(content);
+
+      const localVariables = added && Array.isArray(added.localVariables)
+        ? added.localVariables
+        : [];
       const status = document.querySelector('#ed-function-library-status');
       const notice = document.querySelector('#ed-section-function-library .ed-lab-warning');
-      const empty = document.querySelector('#ed-function-library-list .ed-function-library-empty');
       return {
-        countBefore: beforeCount,
-        countAfter: values.length,
-        hasAddButton: !!document.querySelector('#ed-function-library-list .ed-function-add-btn'),
-        hasEmptyState: !!empty,
-        emptyStateText: empty ? empty.textContent.trim() : '',
+        ...cardResult,
+        countBefore: beforeIds.length,
+        countAfter: ids.length,
+        addedId,
+        addedType: added ? added.type : null,
+        localVariableCount: localVariables.length,
+        localVariableIdsRemapped: localVariables.every((item) =>
+          item.id &&
+          item.id.indexOf(addedId + '_') === 0 &&
+          item.id.indexOf('numberToHangul_') !== 0
+        ),
+        blockIdsRemapped:
+          blockIds.length > 0 &&
+          new Set(blockIds).size === blockIds.length &&
+          !blockIds.includes('fpwb'),
+        dynamicParamTypes: Array.from(dynamicParamTypes),
+        functionLabel,
         hasFunctionLibraryNotice: !!notice,
         noticeText: notice ? notice.textContent.trim() : '',
         statusText: status ? status.textContent.trim() : ''
       };
-    }, functionCountBeforeOpen);
+    }, {
+      beforeIds: functionIdsBeforeOpen,
+      cardResult: functionCardResult
+    });
 
     await page.waitForFunction(() => {
       const panel = document.querySelector('#ed-debugger-panel');

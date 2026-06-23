@@ -1,6 +1,6 @@
 # 함수 보관함 템플릿 추가 절차
 
-확인 날짜: 2026-06-06
+확인 날짜: 2026-06-23
 범위: Entry Debugger 전용
 
 이 문서는 함수 보관함에 새 Entry 함수를 계속 추가할 때 따라야 할 절차를 기록한다. 함수 보관함 기능 자체의 구조는 `function-library-experiment.md`를 함께 참고한다.
@@ -63,6 +63,8 @@
 - `stringParam_*`, `booleanParam_*` 같은 동적 파라미터 타입은 정의부와 사용부가 같은 원본 타입을 공유해야 한다.
 - 같은 문자열 파라미터를 여러 곳에서 쓰면 모든 사용부가 같은 `stringParam_*` 원본 타입을 참조해야 한다.
 - 같은 참/거짓 파라미터를 여러 곳에서 쓰면 모든 사용부가 같은 `booleanParam_*` 원본 타입을 참조해야 한다.
+- `params`와 `statements` 배열 안에 직접 들어 있는 지역변수 ID, `func_*`, 동적
+  파라미터 문자열도 재매핑 대상이다. 객체 속성만 순회하면 이 참조가 원본 ID로 남는다.
 
 ID를 미리 사람이 직접 새로 만들 필요는 없다. 중요한 것은 원본 함수 내부의 참조가 깨지지 않은 상태로 템플릿에 들어가는 것이다.
 
@@ -100,6 +102,9 @@ npm run check
 npm run build:dev
 ```
 
+`npm run check`는 `tools/check-function-library.js`를 실행해 실제 `inject.js` 복제
+경로에서 함수·블록·지역변수·동적 파라미터 ID가 다시 만들어지는지 확인한다.
+
 PR 생성, PR 업데이트, main 반영 직전 검증:
 
 ```powershell
@@ -136,7 +141,16 @@ npm run smoke:local
 
 ## 8. 현재 등록된 템플릿
 
-현재 Chrome Web Store `2.4.0` 제출본에 등록된 템플릿은 없다.
+### `number-to-hangul`
 
-초기 개발용 `test-function`은 함수 추가 구조와 ID 재생성을 검증하는 데 사용했지만 사용자용 이름과 내용이 아니므로 배포 패키지에서 제거했다. 이후 실제 템플릿을 추가할 때 이 절의 목록과 Chromium smoke 대상을 함께 갱신한다.
+- 카드/함수 이름: `numberToHangul`
+- 출처: `numberToHangul _단일 함수_.ent`
+- 타입: 값을 반환하는 `value` 함수
+- 입력: 문자열 파라미터 `n` 1개
+- 지역변수: `out`, `eok`, `rem`, `man`, `one`, `th`, `hu`, `te`, `on`
+- 동작: 0과 억·만·천·백·십 단위를 조합해 한글 읽기 문자열을 반환
+- 검증: 블록 340개, 지역변수 9개, `stringParam_*` 1종을 추가 시점에 재매핑
+
+초기 개발용 `test-function`은 함수 추가 구조와 ID 재생성을 검증하는 데 사용했지만
+사용자용 이름과 내용이 아니므로 배포 패키지에서 제거했다.
 

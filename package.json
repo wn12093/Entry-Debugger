@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "check": "node tools/check-extension.js",
+    "check": "node tools/check-extension.js && node tools/check-function-library.js",
     "build:dev": "node tools/build-dev-extension.js",
     "smoke:local": "node tools/smoke-local-extension.js",
     "smoke:picture-tools": "node tools/smoke-picture-tools.js",

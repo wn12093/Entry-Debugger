@@ -926,7 +926,13 @@
 
     function remapNode(node) {
       if (Array.isArray(node)) {
-        node.forEach(remapNode);
+        node.forEach(function (value, index) {
+          if (typeof value === 'string') {
+            node[index] = mapString(value);
+          } else {
+            remapNode(value);
+          }
+        });
         return;
       }
       if (!node || typeof node !== 'object') {

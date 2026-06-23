@@ -1,24 +1,24 @@
 # 함수 보관함
 
-확인 날짜: 2026-06-06
+확인 날짜: 2026-06-23
 
 ## 목적
 
 자주 사용하는 Entry 함수를 확장 안에 템플릿으로 등록하고, 사용자가 버튼을 눌러 현재 Entry 작품의 함수 목록에 추가할 수 있게 한다.
 
-## 샘플 원본
+## 등록된 함수
 
-파일: `C:\Users\young\Downloads\260603_205님 작품 (1).ent`
+### numberToHangul
 
-`.ent`는 tar 파일이며 `temp/project.json`을 포함한다. `project.functions[0]`에서 다음 함수 템플릿을 추출했다.
+파일: `C:\Users\young\Downloads\numberToHangul _단일 함수_.ent`
 
-- 이름: `테스트 함수`
-- 타입: `normal`
-- 지역변수: `지역변수`
-- 함수 인자: 문자열 파라미터 1개, 참/거짓 파라미터 1개
-- 본문: 지역변수에 문자열 인자를 저장하고, 참/거짓 인자에 따라 `말하기` 또는 `생각하기` 블록 실행
+`.ent`의 `temp/project.json`에서 값 반환 함수 `numberToHangul`을 추출했다.
 
-이 샘플은 함수 등록 구조를 검증하는 개발용 자료다. Chrome Web Store `2.4.0` 제출본에서는 사용자용 함수로 보기 어려운 `테스트 함수` 템플릿과 원본 파일명 정보를 `function-library-templates.js`에서 제거했다. 현재 배포본의 내장 템플릿 목록은 비어 있다.
+- 입력: 문자열 파라미터 `n`
+- 출력: 숫자를 억·만·천·백·십 단위의 한글 읽기 문자열로 변환한 값
+- 지역변수: 9개
+- 본문 블록: 340개
+- 동적 파라미터: 원본 `stringParam_n`을 추가할 때 새 타입으로 재생성
 
 ## UI
 
@@ -38,7 +38,8 @@
 | `entry-debugger-extension/content.js` | 실험실 토글, 함수 보관함 탭, 추가 버튼 UI |
 | `entry-debugger-extension/inject.js` | Entry Main World에서 함수 템플릿을 현재 작품에 등록 |
 | `entry-debugger-extension/settings.js` | `functionLibraryEnabled` 기본값과 정규화 |
-| `tools/smoke-local-extension.js` | Chromium smoke에서 함수 보관함 빈 상태 검증 |
+| `tools/check-function-library.js` | 가짜 Entry API에서 실제 함수 복제·등록·ID 재생성 검증 |
+| `tools/smoke-local-extension.js` | Chromium에서 카드 표시와 현재 작품 함수 추가 검증 |
 
 ## 템플릿 추가 문서
 
@@ -78,6 +79,10 @@ post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', {
 
 같은 원본 동적 파라미터 타입은 같은 새 타입으로 매핑한다. 예를 들어 함수 정의부의 `stringParam_ogzm`과 본문에서 문자열 인자를 읽는 `stringParam_ogzm`은 하나의 새 `stringParam_*`으로 같이 바뀐다.
 
+`params` 배열에 직접 들어 있는 지역변수 ID도 문자열 요소를 순회하며 재매핑해야 한다.
+객체 속성만 처리하면 `set_func_variable`, `get_func_variable`이 원본 지역변수 ID를
+계속 참조해 추가된 함수가 정상 동작하지 않는다.
+
 ## 제한
 
 - `Entry.Func.isEdit`가 참이면 추가하지 않는다.
@@ -90,4 +95,7 @@ post('ADD_FUNCTION_LIBRARY_TEMPLATE_RESULT', {
 - `npm run build:dev`
 - PR 생성 또는 PR 브랜치 업데이트 직전 `npm run smoke:local`
 
-현재 `smoke:local`은 함수 보관함을 켠 상태로 로컬 Entry 만들기 화면을 열고, 빈 상태 안내가 표시되며 테스트용 추가 버튼이 존재하지 않는지 확인한다. 실제 사용자용 템플릿을 추가할 때 해당 함수 등록 검증을 다시 확장한다.
+현재 `smoke:local`은 함수 보관함을 켠 상태로 로컬 Entry 만들기 화면을 열고
+`numberToHangul` 카드의 `추가` 버튼을 누른다. 추가된 함수의 타입, 함수 이름,
+블록 ID, 지역변수 ID, `stringParam_*` 타입이 원본과 충돌하지 않게 재생성됐는지
+확인한다.
