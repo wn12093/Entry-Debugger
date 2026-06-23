@@ -107,16 +107,11 @@
         this.__entryDebuggerSingleDragRequested = shouldRequestSingleDrag(this, event);
         this.__entryDebuggerSingleDragPrepared = false;
         this.__entryDebuggerSingleDragMarker = null;
-        return originalOnMouseDown.apply(this, arguments);
-      };
-    });
-
-    var movePatched = patchMethod(proto, 'onMouseMove', PATCH_ID, function (originalOnMouseMove) {
-      return function (event) {
-        if (shouldPrepareOnMove(entry, this, event)) {
-          prepareSingleBlockDrag(entry, this);
+        // onMouseMove는 인스턴스 바인딩이라 prototype 패치가 닿지 않는다 → 인스턴스에서 감싼다.
+        if (this.__entryDebuggerSingleDragRequested) {
+          installInstanceMoveHook(entry, this);
         }
-        return originalOnMouseMove.apply(this, arguments);
+        return originalOnMouseDown.apply(this, arguments);
       };
     });
 
@@ -135,7 +130,25 @@
       };
     });
 
-    return !!(downPatched && movePatched && terminatePatched);
+    return !!(downPatched && terminatePatched);
+  }
+
+  // Entry는 BlockView 생성자에서 onMouseMove를 인스턴스에 바인딩한다
+  // (block_view.js: this.onMouseMove = this.onMouseMove.bind(this)). 그래서
+  // prototype.onMouseMove 패치는 이미 렌더된(또는 기능을 켜기 전에 생성된) 블록에
+  // 닿지 않는다. prototype으로 도는 onMouseDown에서 인스턴스 핸들러를 직접 감싸,
+  // Entry가 onMouseDown 안에서 this.onMouseMove를 mousemove에 바인딩하기 전에 교체한다.
+  function installInstanceMoveHook(entry, blockView) {
+    if (!blockView || blockView.__entryDebuggerMoveHookInstalled) return;
+    var instanceMove = blockView.onMouseMove;
+    if (typeof instanceMove !== 'function') return;
+    blockView.onMouseMove = function (event) {
+      if (shouldPrepareOnMove(entry, this, event)) {
+        prepareSingleBlockDrag(entry, this);
+      }
+      return instanceMove.apply(this, arguments);
+    };
+    blockView.__entryDebuggerMoveHookInstalled = true;
   }
 
   function shouldRequestSingleDrag(blockView, event) {
