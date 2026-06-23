@@ -355,9 +355,35 @@
       return [renderFieldBlock(block)];
     }
 
+    var statements = Array.isArray(block.statements) ? block.statements : [];
+
+    // 만약~라면~아니면 처럼 분기가 둘 이상인 블록은 "아니면" 같은 구분 텍스트가
+    // 머리줄이 아니라 두 분기 사이에 와야 한다. 블록 줄 텍스트를 statement
+    // 줄바꿈(FieldLineBreak) 기준으로 잘라, 각 구분 텍스트를 해당 분기 앞에 둔다.
+    if (statements.length > 1) {
+      var segments = renderBlockLineSegments(block, inline);
+      var hasSeparator = segments.length > 1 && segments.slice(1).some(function (segment) {
+        return !!segment;
+      });
+      if (hasSeparator && segments[0]) {
+        var branchLines = [indent(depth) + segments[0]];
+        statements.forEach(function (statement, statementIndex) {
+          if (statementIndex > 0 && segments[statementIndex]) {
+            branchLines.push(indent(depth) + segments[statementIndex]);
+          }
+          getThreadBlocks(statement).forEach(function (childBlock) {
+            branchLines = branchLines.concat(renderBlock(childBlock, depth + 1, false));
+          });
+        });
+        if (inline) {
+          return [branchLines.map(function (item) { return item.trim(); }).join(' ')];
+        }
+        return branchLines;
+      }
+    }
+
     var line = renderBlockLine(block, inline);
     var lines = [indent(depth) + line];
-    var statements = Array.isArray(block.statements) ? block.statements : [];
 
     statements.forEach(function (statement) {
       var blocks = getThreadBlocks(statement);
@@ -422,26 +448,56 @@
     var params = getSchemaParams(block);
     contents.forEach(function (content, contentIndex) {
       if (!content || isLineBreakContent(content)) return;
-
-      if (isStaticTextContent(content)) {
-        parts.push(readContentText(content));
-        return;
-      }
-
-      var paramIndex = getContentParamIndex(content, contentIndex);
-      var paramDef = params[paramIndex];
-      var valueBlock = getContentValueBlock(content);
-      var text = valueBlock ? renderBlock(valueBlock, 0, true)[0] : readContentText(content);
-      if (!text) return;
-      if (!valueBlock) {
-        text = renderParam(text, paramDef, block, paramIndex) || text;
-      }
-      if (text === '[object Object]') return;
-
-      parts.push(shouldWrapParam(inline, valueBlock) ? wrapParamText(text) : text);
+      var text = contentToText(content, contentIndex, block, params, inline);
+      if (text != null) parts.push(text);
     });
 
     return normalizeVisualText(parts.join(' '));
+  }
+
+  // 블록 줄 텍스트를 statement 줄바꿈(FieldLineBreak) 기준으로 나눈 세그먼트 배열.
+  // segments[0]은 머리줄(첫 분기 앞), segments[i>0]은 i번째 분기 앞 구분 텍스트.
+  function renderBlockLineSegments(block, inline) {
+    var contents = block && block.view && block.view._contents;
+    if (!Array.isArray(contents) || !contents.length) {
+      return [renderBlockLine(block, inline)];
+    }
+
+    var params = getSchemaParams(block);
+    var segments = [];
+    var parts = [];
+    contents.forEach(function (content, contentIndex) {
+      if (content && isLineBreakContent(content)) {
+        segments.push(normalizeVisualText(parts.join(' ')));
+        parts = [];
+        return;
+      }
+      var text = contentToText(content, contentIndex, block, params, inline);
+      if (text != null) parts.push(text);
+    });
+    segments.push(normalizeVisualText(parts.join(' ')));
+
+    return segments;
+  }
+
+  function contentToText(content, contentIndex, block, params, inline) {
+    if (!content) return null;
+
+    if (isStaticTextContent(content)) {
+      return readContentText(content);
+    }
+
+    var paramIndex = getContentParamIndex(content, contentIndex);
+    var paramDef = params[paramIndex];
+    var valueBlock = getContentValueBlock(content);
+    var text = valueBlock ? renderBlock(valueBlock, 0, true)[0] : readContentText(content);
+    if (!text) return null;
+    if (!valueBlock) {
+      text = renderParam(text, paramDef, block, paramIndex) || text;
+    }
+    if (text === '[object Object]') return null;
+
+    return shouldWrapParam(inline, valueBlock) ? wrapParamText(text) : text;
   }
 
   function renderBlockLineFromTemplate(block, inline) {
