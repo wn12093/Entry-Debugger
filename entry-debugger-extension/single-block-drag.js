@@ -143,10 +143,10 @@
     var instanceMove = blockView.onMouseMove;
     if (typeof instanceMove !== 'function') return;
     blockView.onMouseMove = function (event) {
-      if (shouldPrepareOnMove(entry, this, event)) {
-        prepareSingleBlockDrag(entry, this);
+      if (shouldPrepareOnMove(entry, blockView, event)) {
+        prepareSingleBlockDrag(entry, blockView);
       }
-      return instanceMove.apply(this, arguments);
+      return instanceMove.apply(blockView, arguments);
     };
     blockView.__entryDebuggerMoveHookInstalled = true;
   }
@@ -210,6 +210,10 @@
     if (prevBlock) return true;
 
     var thread = typeof block.getThread === 'function' ? block.getThread() : block.thread;
+    return isTopLevelThread(entry, thread) || isStatementThread(entry, thread);
+  }
+
+  function isTopLevelThread(entry, thread) {
     return !!(
       thread &&
       entry.Thread &&
@@ -220,18 +224,37 @@
     );
   }
 
+  function isStatementThread(entry, thread) {
+    return !!(
+      thread &&
+      entry.Thread &&
+      thread instanceof entry.Thread &&
+      thread.parent &&
+      entry.Block &&
+      thread.parent instanceof entry.Block &&
+      thread.parent.statements &&
+      thread.parent.statements.indexOf(thread) > -1
+    );
+  }
+
   function prepareSingleBlockDrag(entry, blockView) {
     var block = blockView && blockView.block;
     if (!canPrepareSingleBlockDrag(entry, block)) return false;
 
     var prevBlock = block.getPrevBlock();
     var nextBlock = block.getNextBlock();
+    var originalThread = typeof block.getThread === 'function' ? block.getThread() : null;
+    var isFirstStatementBlock = !prevBlock && isStatementThread(entry, originalThread);
     var didPrepare = false;
 
     try {
       if (prevBlock) {
         entry.do('separateBlock', block, entry.DRAG_MODE_MOUSEDOWN);
         entry.do('insertBlock', nextBlock, prevBlock, getBlockCountFrom(nextBlock)).isPass(true);
+        didPrepare = true;
+      } else if (isFirstStatementBlock) {
+        entry.do('separateBlock', block, entry.DRAG_MODE_MOUSEDOWN);
+        entry.do('insertBlock', nextBlock, originalThread, getBlockCountFrom(nextBlock)).isPass(true);
         didPrepare = true;
       } else {
         entry.do('separateBlock', nextBlock, entry.DRAG_MODE_MOUSEDOWN);
