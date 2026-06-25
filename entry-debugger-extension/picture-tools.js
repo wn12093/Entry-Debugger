@@ -723,6 +723,53 @@
     requestAnimationFrame(restore);
   }
 
+  /* ─────────────────────────────────────────────
+     임베드-이미지 SVG(가짜 벡터) 자동 복구
+     "엔트리 벡터로 변환"이 실제 벡터화가 아니라 원본 PNG를 <image>로 SVG에 끼워넣은 경우가 있다.
+     Entry 벡터 편집기(paper.js)는 벡터 path만 그리므로 이런 모양은 편집창에 안 뜨고 직전 모양이
+     그대로 남는다. 모양을 클릭하면 그 svg를 받아 path가 0개(<image>만)인지 보고, 가짜면 imageType을
+     png로 바꿔(서버의 합성 PNG 원본으로) 정상 표시되게 한다. 진짜 벡터(path 있음)는 건드리지 않는다.
+     ───────────────────────────────────────────── */
+  var imageSvgCache = {};   // picture.id -> 'image'(가짜) | 'vector'(진짜) | 'pending'
+
+  function pictureSvgUrl(p) {
+    var f = p && p.filename;
+    if (!f || f.length < 4) return null;
+    return location.origin + '/uploads/' + f.substring(0, 2) + '/' + f.substring(2, 4) + '/image/' + f + '.svg';
+  }
+
+  function convertPictureToPng(p) {
+    if (!p || p.imageType === 'png') return;
+    p.imageType = 'png';
+    var pg = getPlayground();
+    keepScroll(function () { try { if (pg) pg.injectPicture(); } catch (e) {} });
+    var o = curObj();
+    try { if (pg && o && o.selectedPicture && o.selectedPicture.id === p.id) pg.selectPicture(p); } catch (e) {}
+    nativeToast('모양 복구', '임베드 이미지 벡터를 PNG로 복구했어요(편집창에 정상 표시). 유지하려면 저장하세요.');
+  }
+
+  // 클릭한 모양이 가짜 벡터(임베드 이미지뿐)면 PNG로 복구. svg를 비동기로 받아 path 유무로 판별·캐시.
+  function maybeRepairImageSvg(p) {
+    if (!enabled || !p) return;
+    var t = p.imageType;
+    if (t !== 'svg' && t !== 'vector') return;        // png 등은 대상 아님
+    var c = imageSvgCache[p.id];
+    if (c === 'vector' || c === 'pending') return;    // 진짜 벡터거나 확인 중이면 패스
+    if (c === 'image') { convertPictureToPng(p); return; }
+    var url = pictureSvgUrl(p);
+    if (!url || typeof fetch !== 'function') return;
+    imageSvgCache[p.id] = 'pending';
+    fetch(url).then(function (r) { return r.ok ? r.text() : ''; }).then(function (svg) {
+      if (!svg) { delete imageSvgCache[p.id]; return; } // 못 받으면 다음 클릭에 재시도
+      if (svg.indexOf('<path') < 0 && svg.indexOf('<image') >= 0) {
+        imageSvgCache[p.id] = 'image';
+        convertPictureToPng(p);
+      } else {
+        imageSvgCache[p.id] = 'vector';               // 진짜 벡터 → 안 건드림
+      }
+    }).catch(function () { delete imageSvgCache[p.id]; });
+  }
+
   // The custom scrollbar is pointer-events:none (decoration); a click on it leaks to the
   // row behind and is mistaken for a drag. Right-edge mousedown -> proportional scroll.
   function inScrollbarZone(clientX) {
@@ -1058,7 +1105,7 @@
       dragging = false;
       if (!dragStarted) { // not a drag -> collapse to single
         var o = curObj(), p = o && o.pictures[idx];
-        if (p) { selFromIds([p.id]); anchorIdx = idx; applyHighlight(); try { if (pg) pg.selectPicture(p); } catch (err) {} }
+        if (p) { selFromIds([p.id]); anchorIdx = idx; applyHighlight(); try { if (pg) pg.selectPicture(p); } catch (err) {} maybeRepairImageSvg(p); }
         return;
       }
       if (dropMode === 'object' && dropObj) copyPicturesTo(dropObj);
