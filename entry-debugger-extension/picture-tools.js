@@ -15,6 +15,25 @@
   if (window.__ENTRY_DEBUGGER_PICTURE_TOOLS_INJECTED__) return;
   window.__ENTRY_DEBUGGER_PICTURE_TOOLS_INJECTED__ = true;
 
+  // entry-paint(Entry 벡터 편집기) 버그 우회: 임베드-이미지 벡터를 처리할 때 2D 컨텍스트가 아니라
+  // <canvas> 엘리먼트에 .getImageData()를 직접 호출해 "getImageData is not a function" 예외가 나고,
+  // 그 결과 모양이 편집창에 안 뜨고 깨진다(빈/비트맵). 캔버스 prototype에 컨텍스트로 위임하는
+  // 폴리필을 더해 우회한다(누락된 메서드만 보강하므로 안전). 라이브로 효과 확인됨.
+  (function () {
+    function addGetImageData(P) {
+      try {
+        if (P && P.prototype && typeof P.prototype.getImageData !== 'function') {
+          P.prototype.getImageData = function () {
+            var ctx = this.getContext && this.getContext('2d');
+            return ctx ? ctx.getImageData.apply(ctx, arguments) : null;
+          };
+        }
+      } catch (e) {}
+    }
+    addGetImageData(window.HTMLCanvasElement);
+    if (typeof OffscreenCanvas !== 'undefined') addGetImageData(OffscreenCanvas);
+  })();
+
   var CHANNEL = '__ENTRY_DEBUGGER__';
   var RETRY_INTERVAL = 300;
   var RETRY_TIMEOUT = 30000;
@@ -724,13 +743,16 @@
   }
 
   /* ─────────────────────────────────────────────
-     임베드-이미지 SVG(가짜 벡터) 자동 복구
-     "엔트리 벡터로 변환"이 실제 벡터화가 아니라 원본 PNG를 <image>로 SVG에 끼워넣은 경우가 있다.
-     Entry 벡터 편집기(paper.js)는 벡터 path만 그리므로 이런 모양은 편집창에 안 뜨고 직전 모양이
-     그대로 남는다. 모양을 클릭하면 그 svg를 받아 path가 0개(<image>만)인지 보고, 가짜면 imageType을
-     png로 바꿔(서버의 합성 PNG 원본으로) 정상 표시되게 한다. 진짜 벡터(path 있음)는 건드리지 않는다.
+     "벡터 버그" 모양 자동 수리
+     일부 벡터 모양은 저장된 svg가 깨져(예: <image>가 ns1:href를 쓰는데 root에 xmlns:ns1 선언이 없어
+     XML 파싱 실패) Entry 벡터 편집기(paper.js)가 조용히 못 그린다 → 모양을 클릭해도 직전 모양이
+     편집창에 남고, 그대로 저장하면 직전 그림이 그 모양에 덮어써진다. 대응: 모양을 클릭(또는 모양 탭
+     진입)하면 svg를 받아 DOMParser로 깨졌는지 확인하고, 깨졌으면 네임스페이스를 보강해 고친 뒤
+     벡터 모드에서 addSVG로 직접 그린다. 정상 svg는 네이티브가 그리므로 건드리지 않는다.
      ───────────────────────────────────────────── */
-  var imageSvgCache = {};   // picture.id -> 'image'(가짜) | 'vector'(진짜) | 'pending'
+  var imageSvgCache = {};   // picture.id -> 'ok'(정상,네이티브가 그림) | 'fixed'(깨진 svg,우리가 수리) | 'pending'
+  var imageSvgData = {};    // picture.id -> 고친 svg 문자열(깨진 모양만 캐시)
+  var renderingFix = {};    // picture.id -> true (동시 중복 렌더 방지)
 
   function pictureSvgUrl(p) {
     var f = p && p.filename;
@@ -738,36 +760,90 @@
     return location.origin + '/uploads/' + f.substring(0, 2) + '/' + f.substring(2, 4) + '/image/' + f + '.svg';
   }
 
-  function convertPictureToPng(p) {
-    if (!p || p.imageType === 'png') return;
-    p.imageType = 'png';
-    var pg = getPlayground();
-    keepScroll(function () { try { if (pg) pg.injectPicture(); } catch (e) {} });
-    var o = curObj();
-    try { if (pg && o && o.selectedPicture && o.selectedPicture.id === p.id) pg.selectPicture(p); } catch (e) {}
-    nativeToast('모양 복구', '임베드 이미지 벡터를 PNG로 복구했어요(편집창에 정상 표시). 유지하려면 저장하세요.');
+  // 편집창을 벡터 모드로 전환한다(벡터/비트맵 토글의 '벡터' 클릭). 깨진 svg(벡터 모양)를 비트맵 모드에서
+  // 클릭하면 모드가 비트맵으로 남아 잘못 저장될 수 있으므로 addSVG 전에 벡터 모드를 보장한다. 이미 벡터면 안 누름.
+  // ('벡터' 클릭=bitmap→vector는 가벼움. '비트맵' 클릭=vector→bitmap은 래스터화라 무거워 프리즈 → 절대 안 누름.)
+  function ensureVectorMode(ep) {
+    try {
+      if (ep && ep.mode === 'VECTOR') return false;     // 이미 벡터 → 안 건드림
+      var els = document.querySelectorAll('span.label');
+      for (var i = 0; i < els.length; i++) {
+        if ((els[i].textContent || '').replace(/\s/g, '') === '벡터') {
+          (els[i].closest('.right') || els[i]).click();
+          return true;                                   // 전환 클릭함
+        }
+      }
+    } catch (e) {}
+    return false;
   }
 
-  // 클릭한 모양이 가짜 벡터(임베드 이미지뿐)면 PNG로 복구. svg를 비동기로 받아 path 유무로 판별·캐시.
+  // 클릭한 모양 svg에 <image>가 있으면(가짜/혼합 벡터) 그 이미지들을 편집창에 다시 그린다. svg를 비동기로 받아 캐시.
+  // 클릭한 모양 svg가 "깨진 벡터"(예: <image>가 ns1:href를 쓰는데 root에 xmlns:ns1 선언이 없어
+  // XML 파싱 실패 → 네이티브 paper가 조용히 못 그리고 직전 모양이 남음)면, 받아서 고친 뒤 addSVG로
+  // 직접 그린다. 정상 svg는 네이티브가 알아서 그리므로 건드리지 않는다(깨진 것만 1회 처리 → 루프 없음).
   function maybeRepairImageSvg(p) {
     if (!enabled || !p) return;
     var t = p.imageType;
     if (t !== 'svg' && t !== 'vector') return;        // png 등은 대상 아님
     var c = imageSvgCache[p.id];
-    if (c === 'vector' || c === 'pending') return;    // 진짜 벡터거나 확인 중이면 패스
-    if (c === 'image') { convertPictureToPng(p); return; }
+    if (c === 'ok' || c === 'pending') return;        // 정상(네이티브가 그림) 또는 확인 중 → 패스
+    if (c === 'fixed' && imageSvgData[p.id]) { renderFixedSvg(p, imageSvgData[p.id]); return; }
     var url = pictureSvgUrl(p);
     if (!url || typeof fetch !== 'function') return;
     imageSvgCache[p.id] = 'pending';
     fetch(url).then(function (r) { return r.ok ? r.text() : ''; }).then(function (svg) {
       if (!svg) { delete imageSvgCache[p.id]; return; } // 못 받으면 다음 클릭에 재시도
-      if (svg.indexOf('<path') < 0 && svg.indexOf('<image') >= 0) {
-        imageSvgCache[p.id] = 'image';
-        convertPictureToPng(p);
-      } else {
-        imageSvgCache[p.id] = 'vector';               // 진짜 벡터 → 안 건드림
+      // "깨짐"은 XML 파싱 실패 여부로 정확히 판정한다. (#1 걷기1: 2번째 <image>의 ns1:href가 미선언이라
+      // parsererror → 네이티브가 못 그림. #4 img033: ns1을 써도 인라인 선언이 있어 파싱 OK → 네이티브가 그림.
+      // 문자열 휴리스틱은 둘 다 깨진 걸로 오판해 정상 모양까지 다시 그렸음.)
+      if (!svgHasParseError(svg)) { imageSvgCache[p.id] = 'ok'; return; }   // 정상 → 네이티브가 그림, 손 안 댐
+      var fixed = svg;
+      if (svg.indexOf('ns1:href') >= 0 && !/<svg\b[^>]*xmlns:ns1=/.test(svg)) {
+        fixed = svg.replace('<svg ', '<svg xmlns:ns1="http://www.w3.org/1999/xlink" ');
       }
+      if (svgHasParseError(fixed)) { imageSvgCache[p.id] = 'ok'; return; }  // 우리가 못 고침 → 네이티브에 맡김(루프 방지)
+      imageSvgCache[p.id] = 'fixed'; imageSvgData[p.id] = fixed;
+      renderFixedSvg(p, fixed);
     }).catch(function () { delete imageSvgCache[p.id]; });
+  }
+
+  // svg 문자열이 XML 파싱 에러를 내는지(=네이티브 paper가 조용히 못 그리는 깨진 svg인지) 판정.
+  function svgHasParseError(svg) {
+    try { return !!new DOMParser().parseFromString(svg, 'image/svg+xml').querySelector('parsererror'); }
+    catch (e) { return false; }
+  }
+
+  // 고친 svg를 편집창에 직접 그린다. 네이티브 로드(실패)가 끝나도록 잠깐 기다린 뒤 reset + addSVG 1회.
+  // addSVG는 "수정됨"을 켜므로(저장 토글), 렌더 후 잠깐 modified를 false로 눌러둔다(아래 인터벌 참고).
+  function renderFixedSvg(p, fixedSvg) {
+    var pg = getPlayground();
+    var pt = pg && pg.painter;
+    var ep = pt && pt.entryPaint;
+    if (!ep) return;
+    if (renderingFix[p.id]) return;            // 이미 이 모양 렌더 중 → 중복 방지
+    renderingFix[p.id] = true;
+    setTimeout(function () {
+      var o = curObj();
+      if (!o || !o.selectedPicture || o.selectedPicture.id !== p.id) { delete renderingFix[p.id]; return; }  // 다른 모양으로 넘어감
+      var switched = ensureVectorMode(ep);     // 벡터 모양 → 비트맵 모드면 벡터로 전환(안 하면 비트맵으로 남아 잘못 저장됨)
+      setTimeout(function () {
+        try { ep.reset(); } catch (e) {}
+        setTimeout(function () {
+          try { ep.addSVG(fixedSvg); } catch (e) {}
+          delete renderingFix[p.id];           // reset+addSVG(임계영역) 끝 → 재렌더 허용(탭 재진입 등)
+          // addSVG가 이미지를 비동기 로드하면서 file.modified를 true로 만든다 → "저장 토글"이 뜸. 캡처한 file을
+          // 잠깐(약 1.5초) 반복해서 modified=false로 눌러둔다. 단, 사용자가 다른 모양으로 넘어가면 즉시 멈춰
+          // 새 모양의 전환/표시를 절대 건드리지 않는다(modified만 만지고 isUpdate 등 다른 플래그는 안 건드림).
+          var file = pt.file, n = 0;
+          var iv = setInterval(function () {
+            var cur = curObj();
+            if (!cur || !cur.selectedPicture || cur.selectedPicture.id !== p.id) { clearInterval(iv); return; }  // 전환됨 → 정지
+            try { if (file) file.modified = false; } catch (e) {}
+            if (++n >= 10) clearInterval(iv);
+          }, 150);
+        }, 100);
+      }, switched ? 180 : 0);
+    }, 300);
   }
 
   // The custom scrollbar is pointer-events:none (decoration); a click on it leaks to the
@@ -1804,6 +1880,25 @@
     });
   }
 
+  // 모양 탭으로 들어올 때(changeViewMode('picture')) 네이티브는 changePicture를 안 부르고 실패한 화면을
+  // 그대로 둔다(로그로 확인). 그래서 여기서 현재 선택 모양을 다시 수리한다(탭 진입 시 깨진 모양 렌더).
+  function patchPainterForVectorFix() {
+    var pg = getPlayground();
+    if (!pg || typeof pg.changeViewMode !== 'function') return false;
+    return patchMethod(pg, 'changeViewMode', PATCH_ID, function (orig) {
+      return function (mode) {
+        var ret = orig.apply(this, arguments);
+        if (enabled && mode === 'picture') {
+          try {
+            var o = getCurrentObject();
+            if (o && o.selectedPicture) maybeRepairImageSvg(o.selectedPicture);
+          } catch (e) {}
+        }
+        return ret;
+      };
+    });
+  }
+
   function applyEntry() {
     var entry = safeGetEntry();
     if (!entry || !entry.playground || !document.body) return false;
@@ -1812,6 +1907,7 @@
     patchContextMenu();
     patchUndoRedoScroll();
     patchIncrementalInject();
+    patchPainterForVectorFix();
     return true;
   }
 
